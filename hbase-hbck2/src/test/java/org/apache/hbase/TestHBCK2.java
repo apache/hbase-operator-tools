@@ -25,17 +25,21 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
+import static org.junit.Assert.assertTrue;
+
 public class TestHBCK2 {
   @Test
   public void testHelp() throws ParseException, IOException {
     // TODO
-    OutputStream os = new ByteArrayOutputStream();
+    ByteArrayOutputStream os = new ByteArrayOutputStream();
     PrintStream stream = new PrintStream(os);
     PrintStream oldOut = System.out;
     System.setOut(stream);
+    HBCK2.doWork(new String [] {"-h"});
     stream.close();
     os.close();
     System.setOut(oldOut);
-    System.out.println(os.toString());
+    String output = os.toString();
+    assertTrue(output, output.startsWith("usage: HBCK2"));
   }
 }

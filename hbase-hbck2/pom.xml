@@ -57,6 +57,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
       </plugin>
+      <!--Used packaging a fat jar-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -96,6 +97,7 @@
       <artifactId>junit</artifactId>
       <version>4.12</version>
     </dependency>
+    <!--This is Log4j2!-->
     <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
@@ -107,9 +109,8 @@
         <artifactId>log4j-core</artifactId>
         <version>2.11.1</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.apache.hbase.thirdparty/hbase-shaded-miscellaneous -->
-    <!-- https://mvnrepository.com/artifact/org.apache.hbase.thirdparty/hbase-shaded-miscellaneous -->
     <!--Try to use shaded client in hbck2.-->
+    <!-- https://mvnrepository.com/artifact/org.apache.hbase.thirdparty/hbase-shaded-miscellaneous -->
     <dependency>
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-shaded-client</artifactId>
