@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +50,7 @@ import java.util.stream.Collectors;
  */
 // TODO:
 // + Add bulk assign/unassigns. If 60k OPENING regions, doing it via shell takes 10-60 seconds each.
+// + On assign, can we look to see if existing assign and if so fail until cancelled?
 // + Add test of Master version to ensure it supports hbck functionality.
 // + Doc how we just take pointer to zk ensemble... If want to do more exotic config. on client,
 // then add a hbase-site.xml onto CLASSPATH for this tool to pick up.
@@ -56,11 +58,42 @@ public class HBCK2 {
   private static final Logger LOG = LogManager.getLogger(HBCK2.class);
   public static final int EXIT_SUCCESS = 0;
   public static final int EXIT_FAILURE = 1;
+  // Commands
   private static final String SET_TABLE_STATE = "setTableState";
+  private static final String ASSIGN = "assign";
+  private static final String UNASSIGN = "unassign";
+
+  static TableState setTableState(Configuration conf, TableName tableName, TableState.State state)
+      throws IOException {
+    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
+      try (Hbck hbck = conn.getHbck()) {
+        return hbck.setTableStateInMeta(new TableState(tableName, state));
+      }
+    }
+  }
+
+  static List<Long> assigns(Configuration conf, List<String> encodedRegionNames)
+  throws IOException {
+    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
+      try (Hbck hbck = conn.getHbck()) {
+        return hbck.assigns(encodedRegionNames);
+      }
+    }
+  }
+
+  static List<Long> unassigns(Configuration conf, List<String> encodedRegionNames)
+  throws IOException {
+    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
+      try (Hbck hbck = conn.getHbck()) {
+        return hbck.unassigns(encodedRegionNames);
+      }
+    }
+  }
 
   private static final String getCommandUsage() {
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
+    writer.println();
     writer.println("Commands:");
     writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
     writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
@@ -70,6 +103,25 @@ public class HBCK2 {
     writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
     writer.println("   An example making table name 'user' ENABLED:");
     writer.println("     $ HBCK2 setTableState users ENABLED");
+    writer.println("   Returns whatever the previous table state was.");
+    writer.println();
+    writer.println(" " + ASSIGN + " <ENCODED_REGIONNAME> ...");
+    writer.println("   A 'raw' assign that can be used even during Master initialization.");
+    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
+    writer.println("   e.g. 1588230740 is hard-coded encoding for hbase:meta region and");
+    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a random");
+    writer.println("   user-space encoded Region name looks like. For example:");
+    writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("   Returns the pid of the created AssignProcedure or -1 if none.");
+    writer.println();
+    writer.println(" " + UNASSIGN + " <ENCODED_REGIONNAME> ...");
+    writer.println("   A 'raw' unassign that can be used even during Master initialization.");
+    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
+    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
+    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a random");
+    writer.println("   user-space encoded Region name looks like. For example:");
+    writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("   Returns the pid of the created UnassignProcedure or -1 if none.");
     writer.close();
     return sw.toString();
   }
@@ -84,21 +136,9 @@ public class HBCK2 {
     }
     HelpFormatter formatter = new HelpFormatter();
     formatter.printHelp( "HBCK2 <OPTIONS> COMMAND [<ARGS>]",
-        "Options:", options, getCommandUsage());
+        "\nOptions:", options, getCommandUsage());
   }
 
-  /**
-   * Call the HbckService#setTableState
-   * @throws IOException
-   */
-  static void setTableState(Configuration conf, TableName tableName, TableState.State state)
-  throws IOException {
-    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
-      try (Hbck hbck = conn.getHbck()) {
-        hbck.setTableStateInMeta(new TableState(tableName, state));
-      }
-    }
-  }
 
   /**
    * @return Return what to exit with.
@@ -162,7 +202,26 @@ public class HBCK2 {
           usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
           return EXIT_FAILURE;
         }
-        setTableState(conf, TableName.valueOf(commands[1]), TableState.State.valueOf(commands[2]));
+        System.out.println(setTableState(conf,
+            TableName.valueOf(commands[1]), TableState.State.valueOf(commands[2])));
+        break;
+
+      case ASSIGN:
+        if (commands.length < 2) {
+          usage(options, command + " takes one or more encoded region names");
+          return EXIT_FAILURE;
+        }
+        System.out.println(pidsToString(
+            assigns(conf, Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+        break;
+
+      case UNASSIGN:
+        if (commands.length < 2) {
+          usage(options, command + " takes one or more encoded region names");
+          return EXIT_FAILURE;
+        }
+        System.out.println(pidsToString(
+            unassigns(conf, Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
         break;
 
       default:
@@ -170,6 +229,10 @@ public class HBCK2 {
         System.exit(1);
     }
     return EXIT_SUCCESS;
+  }
+
+  private static String pidsToString(List<Long> pids) {
+   return pids.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
   }
 
   public static void main(String [] args) throws IOException {
