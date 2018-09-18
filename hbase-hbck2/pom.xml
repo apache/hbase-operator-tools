@@ -57,6 +57,17 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+        <archive>
+          <manifest>
+            <mainClass>org.apache.hbase.HBCK2</mainClass>
+          </manifest>
+        </archive>
+        </configuration>
+      </plugin>
       <!--Used packaging a fat jar-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -109,21 +120,23 @@
         <artifactId>log4j-core</artifactId>
         <version>2.11.1</version>
     </dependency>
-    <!--Try to use shaded client in hbck2.-->
-    <!-- https://mvnrepository.com/artifact/org.apache.hbase.thirdparty/hbase-shaded-miscellaneous -->
-    <dependency>
-      <groupId>org.apache.hbase</groupId>
-      <artifactId>hbase-shaded-client</artifactId>
-      <version>${hbase.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hbase</groupId>
-      <artifactId>hbase-testing-util</artifactId>
-      <version>${hbase.version}</version>
-      <scope>test</scope>
-    </dependency>
+    <!--We want to use the shaded client but for testing, we need to rely on hbase-server.
+        HBASE-15666 is about how shaded-client and hbase-server won't work.
+        TODO: Come back and move tests out to separate module so can use shaded client
+        only in here.-->
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-server</artifactId>
+        <version>${hbase.version}</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-testing-util</artifactId>
+        <version>${hbase.version}</version>
+        <scope>test</scope>
+      </dependency>
   </dependencies>
-
 
   <profiles>
     <!-- Needs to make the profile in apache parent pom -->

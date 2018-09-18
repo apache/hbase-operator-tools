@@ -46,32 +46,28 @@ import static org.junit.Assert.assertTrue;
 
 public class TestHBCK2 {
   private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(TestHBCK2.class);
-  // private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
+  private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
 
   @BeforeClass
-  public static void setUpBeforeClass() throws Exception {
-    /*
+  public static void beforeClass() throws Exception {
     TEST_UTIL.startMiniCluster(3);
     TEST_UTIL.createMultiRegionTable(TABLE_NAME, Bytes.toBytes("family1"), 5);
-    */
   }
 
   @AfterClass
-  public static void tearDownAfterClass() throws Exception {
-    /*
+  public static void afterClass() throws Exception {
     TEST_UTIL.shutdownMiniCluster();
-    */
   }
 
   @Test
   public void testHelp() throws ParseException, IOException {
-    // TODO
     ByteArrayOutputStream os = new ByteArrayOutputStream();
     PrintStream stream = new PrintStream(os);
     PrintStream oldOut = System.out;
     System.setOut(stream);
-    HBCK2.doWork(new String [] {"-h"});
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    hbck.run(new String [] {"-h"});
     stream.close();
     os.close();
     System.setOut(oldOut);
@@ -81,18 +77,16 @@ public class TestHBCK2 {
 
   @Test
   public void testSetTableStateInMeta() throws IOException {
-    /*
-    TableState state =
-        HBCK2.setTableState(TEST_UTIL.getConfiguration(), TABLE_NAME, TableState.State.DISABLED);
-    TestCase.assertTrue("Found=" + state.getState(), state.isDisabled());
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    TableState state = hbck.setTableState(TABLE_NAME, TableState.State.DISABLED);
+    TestCase.assertTrue("Found=" + state.getState(), state.isEnabled());
     // Restore the state.
-    HBCK2.setTableState(TEST_UTIL.getConfiguration(), TABLE_NAME, state.getState());
-    */
+    state = hbck.setTableState(TABLE_NAME, state.getState());
+    TestCase.assertTrue("Found=" + state.getState(), state.isDisabled());
   }
 
   @Test
   public void testAssigns() throws IOException {
-    /*
     try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
       List<RegionInfo> regions = admin.getRegions(TABLE_NAME);
       for (RegionInfo ri: regions) {
@@ -100,7 +94,8 @@ public class TestHBCK2 {
             getRegionStates().getRegionState(ri.getEncodedName());
         LOG.info("RS: {}", rs.toString());
       }
-      List<Long> pids = HBCK2.unassigns(TEST_UTIL.getConfiguration(),
+      HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+      List<Long> pids = hbck.unassigns(
           regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList()));
       waitOnPids(pids);
       for (RegionInfo ri: regions) {
@@ -109,7 +104,7 @@ public class TestHBCK2 {
         LOG.info("RS: {}", rs.toString());
         TestCase.assertTrue(rs.toString(), rs.isClosed());
       }
-      pids = HBCK2.assigns(TEST_UTIL.getConfiguration(),
+      pids = hbck.assigns(
           regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList()));
       waitOnPids(pids);
       for (RegionInfo ri: regions) {
@@ -119,23 +114,20 @@ public class TestHBCK2 {
         TestCase.assertTrue(rs.toString(), rs.isOpened());
       }
       // What happens if crappy region list passed?
-      pids = HBCK2.assigns(TEST_UTIL.getConfiguration(),
+      pids = hbck.assigns(
           Arrays.stream(new String [] {"a", "some rubbish name"}).collect(Collectors.toList()));
       for (long pid: pids) {
         assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
       }
     }
-    */
   }
 
   private void waitOnPids(List<Long> pids) {
-    /*
     for (Long pid: pids) {
       while (!TEST_UTIL.getHBaseCluster().getMaster().getMasterProcedureExecutor().
           isFinished(pid)) {
         Threads.sleep(100);
       }
     }
-    */
   }
 }

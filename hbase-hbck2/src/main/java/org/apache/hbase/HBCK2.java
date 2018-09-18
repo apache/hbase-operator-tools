@@ -25,6 +25,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -32,6 +33,8 @@ import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Hbck;
 import org.apache.hadoop.hbase.client.TableState;
+import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,36 +57,41 @@ import java.util.stream.Collectors;
 // + Add test of Master version to ensure it supports hbck functionality.
 // + Doc how we just take pointer to zk ensemble... If want to do more exotic config. on client,
 // then add a hbase-site.xml onto CLASSPATH for this tool to pick up.
-public class HBCK2 {
+// + Kerberized cluster
+public class HBCK2 extends Configured implements Tool {
   private static final Logger LOG = LogManager.getLogger(HBCK2.class);
   public static final int EXIT_SUCCESS = 0;
   public static final int EXIT_FAILURE = 1;
   // Commands
   private static final String SET_TABLE_STATE = "setTableState";
-  private static final String ASSIGN = "assign";
-  private static final String UNASSIGN = "unassign";
+  private static final String ASSIGNS = "assigns";
+  private static final String UNASSIGNS = "unassigns";
+  private Configuration conf;
 
-  static TableState setTableState(Configuration conf, TableName tableName, TableState.State state)
+  TableState setTableState(TableName tableName, TableState.State state)
       throws IOException {
-    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
+    try (ClusterConnection conn =
+             (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = conn.getHbck()) {
         return hbck.setTableStateInMeta(new TableState(tableName, state));
       }
     }
   }
 
-  static List<Long> assigns(Configuration conf, List<String> encodedRegionNames)
+  List<Long> assigns(List<String> encodedRegionNames)
   throws IOException {
-    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
+    try (ClusterConnection conn =
+             (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = conn.getHbck()) {
         return hbck.assigns(encodedRegionNames);
       }
     }
   }
 
-  static List<Long> unassigns(Configuration conf, List<String> encodedRegionNames)
+  List<Long> unassigns(List<String> encodedRegionNames)
   throws IOException {
-    try (ClusterConnection conn = (ClusterConnection)ConnectionFactory.createConnection(conf)) {
+    try (ClusterConnection conn =
+             (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = conn.getHbck()) {
         return hbck.unassigns(encodedRegionNames);
       }
@@ -105,7 +113,7 @@ public class HBCK2 {
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println();
-    writer.println(" " + ASSIGN + " <ENCODED_REGIONNAME> ...");
+    writer.println(" " + ASSIGNS + " <ENCODED_REGIONNAME> ...");
     writer.println("   A 'raw' assign that can be used even during Master initialization.");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
     writer.println("   e.g. 1588230740 is hard-coded encoding for hbase:meta region and");
@@ -114,7 +122,7 @@ public class HBCK2 {
     writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid of the created AssignProcedure or -1 if none.");
     writer.println();
-    writer.println(" " + UNASSIGN + " <ENCODED_REGIONNAME> ...");
+    writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME> ...");
     writer.println("   A 'raw' unassign that can be used even during Master initialization.");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
@@ -139,11 +147,18 @@ public class HBCK2 {
         "\nOptions:", options, getCommandUsage());
   }
 
+  @Override
+  public void setConf(Configuration configuration) {
+    this.conf = configuration;
+  }
 
-  /**
-   * @return Return what to exit with.
-   */
-  static int doWork(String [] args) throws IOException {
+  @Override
+  public Configuration getConf() {
+    return this.conf;
+  }
+
+  @Override
+  public int run(String [] args) throws IOException {
     // Configure Options. The below article was more helpful than the commons-cli doc:
     // https://dzone.com/articles/java-command-line-interfaces-part-1-apache-commons
     Options options = new Options();
@@ -151,13 +166,13 @@ public class HBCK2 {
     options.addOption(help);
     Option debug = Option.builder("d").longOpt("debug").desc("run with debug output").build();
     options.addOption(debug);
-    Option quorum = Option.builder().longOpt("hbase.zookeeper.quorum").
+    Option quorum = Option.builder("q").longOpt(HConstants.ZOOKEEPER_QUORUM).hasArg().
         desc("ensemble of target hbase").build();
     options.addOption(quorum);
-    Option parent = Option.builder().longOpt("zookeeper.znode.parent").
+    Option parent = Option.builder("z").longOpt(HConstants.ZOOKEEPER_ZNODE_PARENT).
         desc("parent znode of target hbase").build();
     options.addOption(parent);
-    Option peerPort = Option.builder().longOpt("hbase.zookeeper.peerport").
+    Option peerPort = Option.builder("p").longOpt(HConstants.ZOOKEEPER_CLIENT_PORT).
         desc("peerport of target hbase ensemble").type(Integer.class).build();
     options.addOption(peerPort);
 
@@ -181,17 +196,18 @@ public class HBCK2 {
     }
 
     // Build up Configuration for client to use connecting to hbase zk ensemble.
-    Configuration conf = HBaseConfiguration.create();
-    if (options.hasOption(quorum.getOpt())) {
-      conf.set(HConstants.ZOOKEEPER_QUORUM, commandLine.getOptionValue(quorum.getOpt()));
+    if (commandLine.hasOption(quorum.getOpt())) {
+      getConf().set(HConstants.ZOOKEEPER_QUORUM, commandLine.getOptionValue(quorum.getOpt()));
     }
-    if (options.hasOption(peerPort.getOpt())) {
-      conf.setInt(HConstants.ZOOKEEPER_CLIENT_PORT,
+    if (commandLine.hasOption(peerPort.getOpt())) {
+      getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT,
           Integer.valueOf(commandLine.getOptionValue(peerPort.getOpt())));
     }
-    if (options.hasOption(parent.getOpt())) {
-      conf.set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
+    if (commandLine.hasOption(parent.getOpt())) {
+      getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
     }
+
+    System.out.println("HERE: " + getConf().get("hbase.master.kerberos.principal", "NOTHING"));
 
     // Now process commands.
     String [] commands = commandLine.getArgs();
@@ -202,31 +218,31 @@ public class HBCK2 {
           usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
           return EXIT_FAILURE;
         }
-        System.out.println(setTableState(conf,
-            TableName.valueOf(commands[1]), TableState.State.valueOf(commands[2])));
+        System.out.println(setTableState(TableName.valueOf(commands[1]),
+            TableState.State.valueOf(commands[2])));
         break;
 
-      case ASSIGN:
+      case ASSIGNS:
+        if (commands.length < 2) {
+          usage(options, command + " takes one or more encoded region names");
+          return EXIT_FAILURE;
+        }
+        System.out.println(
+            pidsToString(assigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+        break;
+
+      case UNASSIGNS:
         if (commands.length < 2) {
           usage(options, command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
         System.out.println(pidsToString(
-            assigns(conf, Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
-        break;
-
-      case UNASSIGN:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        System.out.println(pidsToString(
-            unassigns(conf, Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+            unassigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
         break;
 
       default:
         usage(options, "Unsupported command: " + command);
-        System.exit(1);
+        return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
   }
@@ -235,10 +251,15 @@ public class HBCK2 {
    return pids.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
   }
 
-  public static void main(String [] args) throws IOException {
-    int exitCode = doWork(args);
-    if (exitCode != 0) {
-      System.exit(exitCode);
+  HBCK2(Configuration conf) {
+    super(conf);
+  }
+
+  public static void main(String [] args) throws Exception {
+    Configuration conf = HBaseConfiguration.create();
+    int errCode = ToolRunner.run(new HBCK2(conf), args);
+    if (errCode != 0) {
+      System.exit(errCode);
     }
     return;
   }

@@ -11,3 +11,11 @@ hbase-2.x cluster. It may do damage. While _hbck1_ is still bundled inside hbase
 output) -- it's write-facility has been removed. It can report on the state of an
 hbase-2.x cluster but its assessments may be inaccurate.
 
+## Running _HBCK2_
+`org.apache.hbase.HBCK2` is the name of the main class. Running the below
+will dump out the HBCK2 usage:
+
+~~~~
+ $ HBASE_CLASSPATH_PREFIX=/tmp/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2
+~~~~
+
