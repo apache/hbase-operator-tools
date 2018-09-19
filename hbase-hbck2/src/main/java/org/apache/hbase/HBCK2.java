@@ -66,6 +66,7 @@ public class HBCK2 extends Configured implements Tool {
   private static final String SET_TABLE_STATE = "setTableState";
   private static final String ASSIGNS = "assigns";
   private static final String UNASSIGNS = "unassigns";
+  private static final String BYPASS = "bypass";
   private Configuration conf;
 
   TableState setTableState(TableName tableName, TableState.State state)
@@ -98,6 +99,47 @@ public class HBCK2 extends Configured implements Tool {
     }
   }
 
+  /**
+   * @return List of results OR null if failed to run.
+   */
+  List<Boolean> bypass(List<String> args)
+      throws IOException {
+    // Bypass has two options....
+    Options options =  new Options();
+    Option force = Option.builder("f").longOpt("force").
+        desc("'force' the procedure finish").build();
+    options.addOption(force);
+    Option wait = Option.builder("w").longOpt("waitTime").hasArg().
+        desc("time to wait on entity lock before giving up").type(Integer.class).build();
+    options.addOption(wait);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine = null;
+    try {
+      commandLine = parser.parse(options, args.toArray(new String [] {}), false);
+    } catch (ParseException e) {
+      usage(options, e.getMessage());
+      return null;
+    }
+    boolean b = commandLine.hasOption(force.getOpt());
+    long waitTime = 0;
+    if (commandLine.hasOption(wait.getOpt())) {
+      waitTime = Integer.valueOf(commandLine.getOptionValue(wait.getOpt()));
+      waitTime *= 1000; // Because time is in seconds.
+    }
+    String [] pidStrs = commandLine.getArgs();
+    if (pidStrs == null || pidStrs.length <= 0) {
+      usage(options, "No pids supplied.");
+      return null;
+    }
+    List<Long> pids = Arrays.stream(pidStrs).map(i -> Long.valueOf(i)).collect(Collectors.toList());
+    try (ClusterConnection c = (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
+      try (Hbck hbck = c.getHbck()) {
+        return hbck.bypassProcedure(pids, waitTime, b);
+      }
+    }
+  }
+
   private static final String getCommandUsage() {
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
@@ -113,7 +155,7 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println();
-    writer.println(" " + ASSIGNS + " <ENCODED_REGIONNAME> ...");
+    writer.println(" " + ASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   A 'raw' assign that can be used even during Master initialization.");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
     writer.println("   e.g. 1588230740 is hard-coded encoding for hbase:meta region and");
@@ -122,7 +164,15 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid of the created AssignProcedure or -1 if none.");
     writer.println();
-    writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME> ...");
+    writer.println(" " + BYPASS + " [OPTIONS] <PID>...");
+    writer.println("   Pass one (or more) procedure 'pid's to skip to the procedure finish.");
+    writer.println("   Parent procedures will also skip to their finish. Entities will be");
+    writer.println("   left in an inconsistent state and will require manual fixup.");
+    writer.println("   Pass --force to break any outstanding locks.");
+    writer.println("   Pass --waitTime=<seconds> to wait on entity lock before giving up.");
+    writer.println("   Default: force=false and waitTime=0.");
+    writer.println();
+    writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   A 'raw' unassign that can be used even during Master initialization.");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
@@ -130,6 +180,7 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   user-space encoded Region name looks like. For example:");
     writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid of the created UnassignProcedure or -1 if none.");
+
     writer.close();
     return sw.toString();
   }
@@ -143,7 +194,7 @@ public class HBCK2 extends Configured implements Tool {
       System.out.println("ERROR: " + error);
     }
     HelpFormatter formatter = new HelpFormatter();
-    formatter.printHelp( "HBCK2 <OPTIONS> COMMAND [<ARGS>]",
+    formatter.printHelp( "HBCK2 [OPTIONS] COMMAND <ARGS>",
         "\nOptions:", options, getCommandUsage());
   }
 
@@ -180,8 +231,9 @@ public class HBCK2 extends Configured implements Tool {
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine = null;
     try {
-      commandLine = parser.parse(options, args);
+      commandLine = parser.parse(options, args, true);
     } catch (ParseException e) {
+      LOG.info("", e);
       usage(options, e.getMessage());
       return EXIT_FAILURE;
     }
@@ -207,8 +259,6 @@ public class HBCK2 extends Configured implements Tool {
       getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
     }
 
-    System.out.println("HERE: " + getConf().get("hbase.master.kerberos.principal", "NOTHING"));
-
     // Now process commands.
     String [] commands = commandLine.getArgs();
     String command = commands[0];
@@ -228,7 +278,20 @@ public class HBCK2 extends Configured implements Tool {
           return EXIT_FAILURE;
         }
         System.out.println(
-            pidsToString(assigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+            toString(bypass(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+        break;
+
+      case BYPASS:
+        if (commands.length < 2) {
+          usage(options, command + " takes one or more pids");
+          return EXIT_FAILURE;
+        }
+        List<Boolean> bs = bypass(Arrays.stream(commands).skip(1).collect(Collectors.toList()));
+        if (bs == null) {
+          // Something went wrong w/ the parse and command didn't run.
+          return EXIT_FAILURE;
+        }
+        System.out.println(toString(bs));
         break;
 
       case UNASSIGNS:
@@ -236,7 +299,7 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        System.out.println(pidsToString(
+        System.out.println(toString(
             unassigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
         break;
 
@@ -247,8 +310,8 @@ public class HBCK2 extends Configured implements Tool {
     return EXIT_SUCCESS;
   }
 
-  private static String pidsToString(List<Long> pids) {
-   return pids.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
+  private static String toString(List<?> things) {
+    return things.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
   }
 
   HBCK2(Configuration conf) {

@@ -121,9 +121,8 @@
         <version>2.11.1</version>
     </dependency>
     <!--We want to use the shaded client but for testing, we need to rely on hbase-server.
-        HBASE-15666 is about how shaded-client and hbase-server won't work.
-        TODO: Come back and move tests out to separate module so can use shaded client
-        only in here.-->
+        HBASE-15666 is about how shaded-client and hbase-server won't work together.
+        TODO: Fix.-->
       <dependency>
         <groupId>org.apache.hbase</groupId>
         <artifactId>hbase-server</artifactId>

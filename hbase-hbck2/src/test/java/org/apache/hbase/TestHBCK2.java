@@ -35,7 +35,6 @@ import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +43,10 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+/**
+ * Tests commands. For command-line parsing, see adjacent test.
+ * @see TestHBCKCommandLineParsing
+ */
 public class TestHBCK2 {
   private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
@@ -58,21 +61,6 @@ public class TestHBCK2 {
   @AfterClass
   public static void afterClass() throws Exception {
     TEST_UTIL.shutdownMiniCluster();
-  }
-
-  @Test
-  public void testHelp() throws ParseException, IOException {
-    ByteArrayOutputStream os = new ByteArrayOutputStream();
-    PrintStream stream = new PrintStream(os);
-    PrintStream oldOut = System.out;
-    System.setOut(stream);
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    hbck.run(new String [] {"-h"});
-    stream.close();
-    os.close();
-    System.setOut(oldOut);
-    String output = os.toString();
-    assertTrue(output, output.startsWith("usage: HBCK2"));
   }
 
   @Test

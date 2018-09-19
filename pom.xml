@@ -127,6 +127,7 @@
     <maven.compiler.version>3.6.1</maven.compiler.version>
     <surefire.version>2.21.0</surefire.version>
     <surefire.provider>surefire-junit47</surefire.provider>
+    <test.output.tofile>true</test.output.tofile>
   </properties>
   <dependencyManagement>
     <dependencies>
