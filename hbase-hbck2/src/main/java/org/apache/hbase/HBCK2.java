@@ -141,20 +141,11 @@ public class HBCK2 extends Configured implements Tool {
   }
 
   private static final String getCommandUsage() {
+    // NOTE: List commands belonw alphabetically!
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
     writer.println();
     writer.println("Commands:");
-    writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
-    writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
-        map(i -> i.toString()).collect(Collectors.joining(", ")));
-    writer.println("   To read current table state, in the hbase shell run: ");
-    writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
-    writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
-    writer.println("   An example making table name 'user' ENABLED:");
-    writer.println("     $ HBCK2 setTableState users ENABLED");
-    writer.println("   Returns whatever the previous table state was.");
-    writer.println();
     writer.println(" " + ASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   A 'raw' assign that can be used even during Master initialization.");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
@@ -180,6 +171,17 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   user-space encoded Region name looks like. For example:");
     writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid of the created UnassignProcedure or -1 if none.");
+    writer.println();
+    writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
+    writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
+        map(i -> i.toString()).collect(Collectors.joining(", ")));
+    writer.println("   To read current table state, in the hbase shell run: ");
+    writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
+    writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
+    writer.println("   An example making table name 'user' ENABLED:");
+    writer.println("     $ HBCK2 setTableState users ENABLED");
+    writer.println("   Returns whatever the previous table state was.");
+    writer.println();
 
     writer.close();
     return sw.toString();
@@ -233,7 +235,6 @@ public class HBCK2 extends Configured implements Tool {
     try {
       commandLine = parser.parse(options, args, true);
     } catch (ParseException e) {
-      LOG.info("", e);
       usage(options, e.getMessage());
       return EXIT_FAILURE;
     }
