@@ -166,11 +166,11 @@ public class HBCK2 extends Configured implements Tool {
     writer.println();
     writer.println(" " + BYPASS + " [OPTIONS] <PID>...");
     writer.println("   Pass one (or more) procedure 'pid's to skip to the procedure finish.");
-    writer.println("   Parent procedures will also skip to their finish. Entities will be");
-    writer.println("   left in an inconsistent state and will require manual fixup.");
+    writer.println("   Parent of this procedures will also skip to its finish. Entities will");
+    writer.println("   be left in an inconsistent state and will require manual fixup.");
     writer.println("   Pass --force to break any outstanding locks.");
     writer.println("   Pass --waitTime=<seconds> to wait on entity lock before giving up.");
-    writer.println("   Default: force=false and waitTime=0.");
+    writer.println("   Default: force=false and waitTime=0. Returns true if succeeded.");
     writer.println();
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   A 'raw' unassign that can be used even during Master initialization.");
@@ -278,7 +278,7 @@ public class HBCK2 extends Configured implements Tool {
           return EXIT_FAILURE;
         }
         System.out.println(
-            toString(bypass(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+            toString(assigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
         break;
 
       case BYPASS:
