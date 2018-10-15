@@ -31,9 +31,21 @@
   <artifactId>hbase-hbck2</artifactId>
   <name>Apache HBase - HBCK2</name>
   <description>HBCK for HBase 2+</description>
+  <properties>
+    <log4j2.version>2.11.1</log4j2.version>
+  </properties>
 
   <build>
-    <resources />
+    <resources>
+      <resource>
+          <directory>src/main/resources</directory>
+          <filtering>true</filtering>
+          <includes>
+              <include>**/hbck2.properties</include>
+              <include>**/log4j2.xml</include>
+          </includes>
+      </resource>
+    </resources>
     <testResources>
       <testResource>
         <directory>src/test/resources/META-INF/</directory>
@@ -94,6 +106,33 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>pl.project13.maven</groupId>
+        <artifactId>git-commit-id-plugin</artifactId>
+        <version>2.2.5</version>
+        <executions>
+          <execution>
+            <id>get-the-git-infos</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <!-- *NOTE*: The default phase of revision is initialize, but in case you want to change it, you can do so by adding the phase here -->
+            <phase>initialize</phase>
+          </execution>
+          <execution>
+            <id>validate-the-git-infos</id>
+            <goals>
+              <goal>validateRevision</goal>
+            </goals>
+            <!-- *NOTE*: The default phase of validateRevision is verify, but in case you want to change it, you can do so by adding the phase here -->
+            <phase>package</phase>
+          </execution>
+        </executions>
+        <configuration>
+          <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+          <commitIdGenerationMode>flat</commitIdGenerationMode>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
@@ -113,28 +152,35 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
-      <version>2.11.1</version>
+      <version>${log4j2.version}</version>
     </dependency>
     <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-core</artifactId>
-        <version>2.11.1</version>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j2.version}</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-1.2-api -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
+      <version>${log4j2.version}</version>
+    </dependency>
+
     <!--We want to use the shaded client but for testing, we need to rely on hbase-server.
         HBASE-15666 is about how shaded-client and hbase-server won't work together.
         TODO: Fix.-->
-      <dependency>
-        <groupId>org.apache.hbase</groupId>
-        <artifactId>hbase-server</artifactId>
-        <version>${hbase.version}</version>
-        <scope>provided</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.hbase</groupId>
-        <artifactId>hbase-testing-util</artifactId>
-        <version>${hbase.version}</version>
-        <scope>test</scope>
-      </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-server</artifactId>
+      <version>${hbase.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-testing-util</artifactId>
+      <version>${hbase.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <profiles>

@@ -64,13 +64,14 @@ public class TestHBCKCommandLineParsing {
     System.setOut(oldOut);
     String output = os.toString();
     assertTrue(output, output.startsWith("usage: HBCK2"));
+    System.out.println(output);
   }
 
   @Test (expected=NumberFormatException.class)
   public void testCommandWithOptions() throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
-    hbck.run(new String[]{"bypass", "--waitTime=3", "--force", "x"});
+    hbck.run(new String[]{"bypass", "--waitTime=3", "--override", "--recursive", "x"});
   }
 }
 

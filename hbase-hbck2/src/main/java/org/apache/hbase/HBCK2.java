@@ -26,13 +26,17 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.hbase.ClusterMetrics;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ClusterConnection;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Hbck;
 import org.apache.hadoop.hbase.client.TableState;
+import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.logging.log4j.Level;
@@ -40,10 +44,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,12 +60,13 @@ import java.util.stream.Collectors;
  * Supercedes hbck1.
  */
 // TODO:
-// + Add bulk assign/unassigns. If 60k OPENING regions, doing it via shell takes 10-60 seconds each.
 // + On assign, can we look to see if existing assign and if so fail until cancelled?
 // + Add test of Master version to ensure it supports hbck functionality.
+// ++ Hard. Server doesn't volunteer its version. Need to read the status? HBASE-20225
 // + Doc how we just take pointer to zk ensemble... If want to do more exotic config. on client,
 // then add a hbase-site.xml onto CLASSPATH for this tool to pick up.
-// + Kerberized cluster
+// + Add --version
+// + Add emitting what is supported against remote server?
 public class HBCK2 extends Configured implements Tool {
   private static final Logger LOG = LogManager.getLogger(HBCK2.class);
   public static final int EXIT_SUCCESS = 0;
@@ -67,34 +76,82 @@ public class HBCK2 extends Configured implements Tool {
   private static final String ASSIGNS = "assigns";
   private static final String UNASSIGNS = "unassigns";
   private static final String BYPASS = "bypass";
+  private static final String VERSION = "version";
   private Configuration conf;
+  private static final String TWO_POINT_ONE = "2.1.0";
+  private static final String MININUM_VERSION = "2.0.3";
 
-  TableState setTableState(TableName tableName, TableState.State state)
-      throws IOException {
-    try (ClusterConnection conn =
+  /**
+   * Check for HBCK support.
+   */
+  void checkHBCKSupport() throws IOException {
+    try (ClusterConnection connection =
              (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
+      try (Admin admin = connection.getAdmin()) {
+        checkVersion(admin.getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).
+            getHBaseVersion());
+      }
+    }
+  }
+
+  static void checkVersion(final String versionStr) {
+    if (versionStr.startsWith(TWO_POINT_ONE)) {
+      throw new UnsupportedOperationException(TWO_POINT_ONE + " has no support for hbck2");
+    }
+    if (VersionInfo.compareVersion(MININUM_VERSION, versionStr) > 0) {
+      throw new UnsupportedOperationException("Requires " + MININUM_VERSION + " at least.");
+    }
+  }
+
+  TableState setTableState(TableName tableName, TableState.State state) throws IOException {
+    try (ClusterConnection conn =
+             (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = conn.getHbck()) {
         return hbck.setTableStateInMeta(new TableState(tableName, state));
       }
     }
   }
 
-  List<Long> assigns(List<String> encodedRegionNames)
-  throws IOException {
+  List<Long> assigns(String [] args) throws IOException {
+    Options options = new Options();
+    Option override = Option.builder("o").longOpt("override").build();
+    options.addOption(override);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine = null;
+    try {
+      commandLine = parser.parse(options, args, false);
+    } catch (ParseException e) {
+      usage(options, e.getMessage());
+      return null;
+    }
+    boolean overrideFlag = commandLine.hasOption(override.getOpt());
     try (ClusterConnection conn =
-             (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
+             (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = conn.getHbck()) {
-        return hbck.assigns(encodedRegionNames);
+        return hbck.assigns(commandLine.getArgList(), overrideFlag);
       }
     }
   }
 
-  List<Long> unassigns(List<String> encodedRegionNames)
-  throws IOException {
+  List<Long> unassigns(String [] args) throws IOException {
+    Options options = new Options();
+    Option override = Option.builder("o").longOpt("override").build();
+    options.addOption(override);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine = null;
+    try {
+      commandLine = parser.parse(options, args, false);
+    } catch (ParseException e) {
+      usage(options, e.getMessage());
+      return null;
+    }
+    boolean overrideFlag = commandLine.hasOption(override.getOpt());
     try (ClusterConnection conn =
-             (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
+             (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = conn.getHbck()) {
-        return hbck.unassigns(encodedRegionNames);
+        return hbck.unassigns(commandLine.getArgList(), overrideFlag);
       }
     }
   }
@@ -102,42 +159,56 @@ public class HBCK2 extends Configured implements Tool {
   /**
    * @return List of results OR null if failed to run.
    */
-  List<Boolean> bypass(List<String> args)
+  List<Boolean> bypass(String [] args)
       throws IOException {
     // Bypass has two options....
-    Options options =  new Options();
-    Option force = Option.builder("f").longOpt("force").
-        desc("'force' the procedure finish").build();
-    options.addOption(force);
-    Option wait = Option.builder("w").longOpt("waitTime").hasArg().
-        desc("time to wait on entity lock before giving up").type(Integer.class).build();
+    Options options = new Options();
+    // See usage for 'help' on these options.
+    Option override = Option.builder("o").longOpt("override").build();
+    options.addOption(override);
+    Option recursive = Option.builder("r").longOpt("recursive").build();
+    options.addOption(recursive);
+    Option wait = Option.builder("w").longOpt("waitTime").hasArg().type(Integer.class).build();
     options.addOption(wait);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine = null;
     try {
-      commandLine = parser.parse(options, args.toArray(new String [] {}), false);
+      commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
       usage(options, e.getMessage());
       return null;
     }
-    boolean b = commandLine.hasOption(force.getOpt());
     long waitTime = 0;
     if (commandLine.hasOption(wait.getOpt())) {
       waitTime = Integer.valueOf(commandLine.getOptionValue(wait.getOpt()));
       waitTime *= 1000; // Because time is in seconds.
     }
-    String [] pidStrs = commandLine.getArgs();
+    String[] pidStrs = commandLine.getArgs();
     if (pidStrs == null || pidStrs.length <= 0) {
       usage(options, "No pids supplied.");
       return null;
     }
+    boolean overrideFlag = commandLine.hasOption(override.getOpt());
+    boolean recursiveFlag = commandLine.hasOption(override.getOpt());
     List<Long> pids = Arrays.stream(pidStrs).map(i -> Long.valueOf(i)).collect(Collectors.toList());
-    try (ClusterConnection c = (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
+    try (ClusterConnection c = (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = c.getHbck()) {
-        return hbck.bypassProcedure(pids, waitTime, b);
+        return hbck.bypassProcedure(pids, waitTime, overrideFlag, recursiveFlag);
       }
     }
+  }
+
+  private String readHBCK2BuildProperties() throws IOException {
+    ClassLoader classLoader = getClass().getClassLoader();
+    InputStream inputStream = classLoader.getResourceAsStream("hbck2.properties");
+    StringBuilder resultStringBuilder = new StringBuilder();
+    BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+    String line;
+    while ((line = br.readLine()) != null) {
+      resultStringBuilder.append(line).append("\n");
+    }
+    return resultStringBuilder.toString();
   }
 
   private static final String getCommandUsage() {
@@ -146,31 +217,39 @@ public class HBCK2 extends Configured implements Tool {
     PrintWriter writer = new PrintWriter(sw);
     writer.println();
     writer.println("Commands:");
-    writer.println(" " + ASSIGNS + " <ENCODED_REGIONNAME>...");
+    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
+    writer.println("   Options:");
+    writer.println("    -o,--override  override ownership by another procedure");
     writer.println("   A 'raw' assign that can be used even during Master initialization.");
-    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
-    writer.println("   e.g. 1588230740 is hard-coded encoding for hbase:meta region and");
-    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a random");
-    writer.println("   user-space encoded Region name looks like. For example:");
+    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames.");
+    writer.println("   1588230740 is the hard-coded name for the hbase:meta region and");
+    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a user-space");
+    writer.println("   encoded Region name looks like. For example:");
     writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
-    writer.println("   Returns the pid of the created AssignProcedure or -1 if none.");
+    writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
     writer.println();
     writer.println(" " + BYPASS + " [OPTIONS] <PID>...");
-    writer.println("   Pass one (or more) procedure 'pid's to skip to the procedure finish.");
-    writer.println("   Parent of this procedures will also skip to its finish. Entities will");
-    writer.println("   be left in an inconsistent state and will require manual fixup.");
-    writer.println("   Pass --force to break any outstanding locks.");
-    writer.println("   Pass --waitTime=<seconds> to wait on entity lock before giving up.");
-    writer.println("   Default: force=false and waitTime=0. Returns true if succeeded.");
+    writer.println("   Options:");
+    writer.println("    -o,--override   interrupt if procedure is running");
+    writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
+    writer.println("    -w,--waitTime   seconds to wait on lock before giving up; default=0");
+    writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish.");
+    writer.println("   Parent of bypassed procedure will also be skipped to the finish.");
+    writer.println("   Entities will be left in an inconsistent state and will require");
+    writer.println("   manual fixup. Bypass fails if procedure has children. Add 'recursive'");
+    writer.println("   if all you have is a parent pid to finish parent and children. This");
+    writer.println("   is SLOW, and dangerous so use selectively. Does not always work.");
     writer.println();
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
+    writer.println("   Options:");
+    writer.println("    -o,--override  override ownership by another procedure");
     writer.println("   A 'raw' unassign that can be used even during Master initialization.");
     writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
-    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
-    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a random");
-    writer.println("   user-space encoded Region name looks like. For example:");
+    writer.println("   1588230740 is the hard-coded name for the hbase:meta region and");
+    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a user-space");
+    writer.println("   encoded Region name looks like. For example:");
     writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
-    writer.println("   Returns the pid of the created UnassignProcedure or -1 if none.");
+    writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
     writer.println();
     writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
     writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
@@ -196,7 +275,7 @@ public class HBCK2 extends Configured implements Tool {
       System.out.println("ERROR: " + error);
     }
     HelpFormatter formatter = new HelpFormatter();
-    formatter.printHelp( "HBCK2 [OPTIONS] COMMAND <ARGS>",
+    formatter.printHelp("HBCK2 [OPTIONS] COMMAND <ARGS>",
         "\nOptions:", options, getCommandUsage());
   }
 
@@ -211,7 +290,7 @@ public class HBCK2 extends Configured implements Tool {
   }
 
   @Override
-  public int run(String [] args) throws IOException {
+  public int run(String[] args) throws IOException {
     // Configure Options. The below article was more helpful than the commons-cli doc:
     // https://dzone.com/articles/java-command-line-interfaces-part-1-apache-commons
     Options options = new Options();
@@ -226,8 +305,10 @@ public class HBCK2 extends Configured implements Tool {
         desc("parent znode of target hbase").build();
     options.addOption(parent);
     Option peerPort = Option.builder("p").longOpt(HConstants.ZOOKEEPER_CLIENT_PORT).
-        desc("peerport of target hbase ensemble").type(Integer.class).build();
+        desc("port of target hbase ensemble").type(Integer.class).build();
     options.addOption(peerPort);
+    Option version = Option.builder("v").longOpt(VERSION).desc("this hbck2 version").build();
+    options.addOption(version);
 
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
@@ -240,6 +321,10 @@ public class HBCK2 extends Configured implements Tool {
     }
 
     // Process general options.
+    if (commandLine.hasOption(version.getOpt())) {
+      System.out.println(readHBCK2BuildProperties());
+      return EXIT_SUCCESS;
+    }
     if (commandLine.hasOption(help.getOpt()) || commandLine.getArgList().isEmpty()) {
       usage(options);
       return EXIT_SUCCESS;
@@ -259,9 +344,11 @@ public class HBCK2 extends Configured implements Tool {
     if (commandLine.hasOption(parent.getOpt())) {
       getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
     }
+    // Check we can run hbck at all.
+    checkHBCKSupport();
 
     // Now process commands.
-    String [] commands = commandLine.getArgs();
+    String[] commands = commandLine.getArgs();
     String command = commands[0];
     switch (command) {
       case SET_TABLE_STATE:
@@ -278,8 +365,7 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        System.out.println(
-            toString(assigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+        System.out.println(assigns(purgeFirst(commands)));
         break;
 
       case BYPASS:
@@ -287,7 +373,7 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more pids");
           return EXIT_FAILURE;
         }
-        List<Boolean> bs = bypass(Arrays.stream(commands).skip(1).collect(Collectors.toList()));
+        List<Boolean> bs = bypass(purgeFirst(commands));
         if (bs == null) {
           // Something went wrong w/ the parse and command didn't run.
           return EXIT_FAILURE;
@@ -300,8 +386,7 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        System.out.println(toString(
-            unassigns(Arrays.stream(commands).skip(1).collect(Collectors.toList()))));
+        System.out.println(toString(unassigns(purgeFirst(commands))));
         break;
 
       default:
@@ -313,6 +398,20 @@ public class HBCK2 extends Configured implements Tool {
 
   private static String toString(List<?> things) {
     return things.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
+  }
+
+  /**
+   * @return A new array with first element dropped.
+   */
+  private static String[] purgeFirst(String[] args) {
+    int size = args.length;
+    if (size <= 1) {
+      return new String [] {};
+    }
+    size--;
+    String [] result = new String [size];
+    System.arraycopy(args, 1, result, 0, size);
+    return result;
   }
 
   HBCK2(Configuration conf) {

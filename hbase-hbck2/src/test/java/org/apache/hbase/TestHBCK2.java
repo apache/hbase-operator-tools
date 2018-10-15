@@ -18,7 +18,6 @@
 package org.apache.hbase;
 
 import junit.framework.TestCase;
-import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
@@ -33,15 +32,12 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -61,6 +57,26 @@ public class TestHBCK2 {
   @AfterClass
   public static void afterClass() throws Exception {
     TEST_UTIL.shutdownMiniCluster();
+  }
+
+  @Test (expected = UnsupportedOperationException.class)
+  public void testCheckVersion202() {
+    HBCK2.checkVersion("2.0.2");
+  }
+
+  @Test (expected = UnsupportedOperationException.class)
+  public void testCheckVersion210() {
+    HBCK2.checkVersion("2.1.0");
+  }
+
+  @Test
+  public void testCheckVersion203() {
+    HBCK2.checkVersion("2.0.3");
+  }
+
+  @Test
+  public void testCheckVersion211() {
+    HBCK2.checkVersion("2.1.1");
   }
 
   @Test
@@ -83,8 +99,10 @@ public class TestHBCK2 {
         LOG.info("RS: {}", rs.toString());
       }
       HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-      List<Long> pids = hbck.unassigns(
-          regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList()));
+      List<String> regionStrs =
+          regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList());
+      String [] regionStrsArray = regionStrs.toArray(new String[] {});
+      List<Long> pids = hbck.unassigns(regionStrsArray);
       waitOnPids(pids);
       for (RegionInfo ri: regions) {
         RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
@@ -92,8 +110,7 @@ public class TestHBCK2 {
         LOG.info("RS: {}", rs.toString());
         TestCase.assertTrue(rs.toString(), rs.isClosed());
       }
-      pids = hbck.assigns(
-          regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList()));
+      pids = hbck.assigns(regionStrsArray);
       waitOnPids(pids);
       for (RegionInfo ri: regions) {
         RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
@@ -102,8 +119,8 @@ public class TestHBCK2 {
         TestCase.assertTrue(rs.toString(), rs.isOpened());
       }
       // What happens if crappy region list passed?
-      pids = hbck.assigns(
-          Arrays.stream(new String [] {"a", "some rubbish name"}).collect(Collectors.toList()));
+      pids = hbck.assigns(Arrays.stream(new String [] {"a", "some rubbish name"}).
+          collect(Collectors.toList()).toArray(new String [] {}));
       for (long pid: pids) {
         assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
       }
