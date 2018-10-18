@@ -80,6 +80,10 @@ public class HBCK2 extends Configured implements Tool {
   private Configuration conf;
   private static final String TWO_POINT_ONE = "2.1.0";
   private static final String MININUM_VERSION = "2.0.3";
+  /**
+   * Wait 1ms on lock by default.
+   */
+  private static final long DEFAULT_LOCK_WAIT = 1;
 
   /**
    * Check for HBCK support.
@@ -168,7 +172,7 @@ public class HBCK2 extends Configured implements Tool {
     options.addOption(override);
     Option recursive = Option.builder("r").longOpt("recursive").build();
     options.addOption(recursive);
-    Option wait = Option.builder("w").longOpt("waitTime").hasArg().type(Integer.class).build();
+    Option wait = Option.builder("w").longOpt("lockWait").hasArg().type(Integer.class).build();
     options.addOption(wait);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
@@ -179,10 +183,9 @@ public class HBCK2 extends Configured implements Tool {
       usage(options, e.getMessage());
       return null;
     }
-    long waitTime = 0;
+    long lockWait = DEFAULT_LOCK_WAIT;
     if (commandLine.hasOption(wait.getOpt())) {
-      waitTime = Integer.valueOf(commandLine.getOptionValue(wait.getOpt()));
-      waitTime *= 1000; // Because time is in seconds.
+      lockWait = Integer.valueOf(commandLine.getOptionValue(wait.getOpt()));
     }
     String[] pidStrs = commandLine.getArgs();
     if (pidStrs == null || pidStrs.length <= 0) {
@@ -194,7 +197,7 @@ public class HBCK2 extends Configured implements Tool {
     List<Long> pids = Arrays.stream(pidStrs).map(i -> Long.valueOf(i)).collect(Collectors.toList());
     try (ClusterConnection c = (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
       try (Hbck hbck = c.getHbck()) {
-        return hbck.bypassProcedure(pids, waitTime, overrideFlag, recursiveFlag);
+        return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
       }
     }
   }
@@ -230,14 +233,15 @@ public class HBCK2 extends Configured implements Tool {
     writer.println();
     writer.println(" " + BYPASS + " [OPTIONS] <PID>...");
     writer.println("   Options:");
-    writer.println("    -o,--override   interrupt if procedure is running");
+    writer.println("    -o,--override   override if procedure is running/stuck");
     writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
-    writer.println("    -w,--waitTime   seconds to wait on lock before giving up; default=0");
+    writer.println("    -w,--lockWait   milliseconds to wait on lock before giving up; default=1");
     writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish.");
     writer.println("   Parent of bypassed procedure will also be skipped to the finish.");
     writer.println("   Entities will be left in an inconsistent state and will require");
-    writer.println("   manual fixup. Bypass fails if procedure has children. Add 'recursive'");
-    writer.println("   if all you have is a parent pid to finish parent and children. This");
+    writer.println("   manual fixup. May need Master restart to clear locks still held.");
+    writer.println("   Bypass fails if procedure has children. Add 'recursive' if all");
+    writer.println("   you have is a parent pid to finish parent and children. This");
     writer.println("   is SLOW, and dangerous so use selectively. Does not always work.");
     writer.println();
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
