@@ -64,9 +64,10 @@ scenarios in which we use the below tooling to do various fixes.
 The Master runs all assignments, server crash handling, cluster start and
 stop, etc. In hbase-2.x, all that the Master does has been cast as
 Procedures run on a state machine engine. See
-[http://hbase.apache.org/book.html#pv2](Procedure Framework) and
-[http://hbase.apache.org/book.html#amv2](Assignment Manager) for
-detail on how this infrastructure works. Each Procedure has a
+[Procedure Framework](http://hbase.apache.org/book.html#pv2)
+and
+[Assignment Manager](http://hbase.apache.org/book.html#amv2)
+for detail on how this infrastructure works. Each Procedure has a
 Procedure `id`', it's `pid`. You can trace the lifecycle of a
 Procedure as it logs each of its macro steps denoted by its
 `pid`. Procedures start, step through states and finish. Some
@@ -107,7 +108,7 @@ there is a stuck Lock or Procedure or the count of WALs
 doesn't ever come down but only grows, then operator intervention
 is required.
 
-### The [http://hbase.apache.org/book.html#_canary](HBase Canary Tool)
+### The [HBase Canary Tool](http://hbase.apache.org/book.html#_canary)
 
 The Canary tool is useful verifying the state of assign.
 It can be run with a table focus or against the whole cluster.
