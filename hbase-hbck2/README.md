@@ -82,7 +82,8 @@ default=1
    A value of \x08\x00 == ENABLED, \x08\x01 == DISABLED, etc.
    An example making table name 'user' ENABLED:
      $ HBCK2 setTableState users ENABLED
-   Returns whatever the previous table state was.```
+   Returns whatever the previous table state was.
+```
 
 ## _HBCK2_ Overview
 _HBCK2_ is currently a simple tool that does one thing at a time only.
