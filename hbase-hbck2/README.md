@@ -63,10 +63,8 @@ scenarios in which we use the below tooling to do various fixes.
 
 The Master runs all assignments, server crash handling, cluster start and
 stop, etc. In hbase-2.x, all that the Master does has been cast as
-Procedures run on a state machine engine. See
-[Procedure Framework](http://hbase.apache.org/book.html#pv2)
-and
-[Assignment Manager](http://hbase.apache.org/book.html#amv2)
+Procedures run on a state machine engine. See [Procedure Framework](https://hbase.apache.org/book.html#pv2)
+and [Assignment Manager](https://hbase.apache.org/book.html#amv2)
 for detail on how this infrastructure works. Each Procedure has a
 Procedure `id`', it's `pid`. You can trace the lifecycle of a
 Procedure as it logs each of its macro steps denoted by its
@@ -84,7 +82,8 @@ and is not letting go. More on these scenarios below.
 
 ### /master-status#tables
 
-This tab shows a list of tables with columns showing whether a
+This tab on the Master UI home-page shows a list of tables with
+columns showing whether a
 table _ENABLED_, _ENABLING_, _DISABLING_, or _DISABLED_ as well
 as other attributes of table. Also listed are columns with counts
 of Regions in their various transition states: _OPEN_, _CLOSED_,
@@ -127,7 +126,7 @@ in the hbase shell, do something similar. In our example, the
 Region belongs to the table _testtable_ and the Region
 start row is _d1dddd0c_ (For overview on parsing a Region
 name into its constituent parts, see
-[https://hbase.apache.org/apidocs/org/apache/hadoop/hbase/client/RegionInfo.html](RegionInfo API)):
+[RegionInfo API](https://hbase.apache.org/apidocs/org/apache/hadoop/hbase/client/RegionInfo.html)):
 
 ```hbase> scan 'testtable', {STARTROW => 'd1dddd0c', LIMIT => 10}```
 
