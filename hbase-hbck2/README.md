@@ -138,7 +138,8 @@ and is not letting go.
 
 _STUCK_ Procedures look like this:
 
-```2018-09-12 15:29:06,558 WARN org.apache.hadoop.hbase.master.assignment.AssignmentManager: STUCK Region-In-Transition rit=OPENING, location=va1001.example.org,22101,1536173230599, table=IntegrationTestBigLinkedList_20180626110336, region=dbdb56242f17610c46ea044f7a42895b```
+```2018-09-12 15:29:06,558 WARN org.apache.hadoop.hbase.master.assignment.AssignmentManager: STUCK Region-In-Transition rit=OPENING, location=va1001.example.org,22101,1536173230599, table=IntegrationTestBigLinkedList_20180626110336, region=dbdb56242f17610c46ea044f7a42895b
+```
 
 
 #### /master-status#tables
@@ -170,7 +171,8 @@ is needed to alieve the blockage.
 Lists of locks and procedures can also be obtained via the hbase shell:
 
 ```$ echo "list_locks"| hbase shell &> /tmp/locks.txt
-$ echo "list_procedures"| hbase shell &> /tmp/procedures.txt```
+$ echo "list_procedures"| hbase shell &> /tmp/procedures.txt
+```
 
 #### The [HBase Canary Tool](http://hbase.apache.org/book.html#_canary)
 
@@ -179,7 +181,8 @@ It can be run with a table focus or against the whole cluster.
 
 For example, to check cluster assigns:
 
-```$ hbase canary -f false -t 6000000 &>/tmp/canary.log```
+```$ hbase canary -f false -t 6000000 &>/tmp/canary.log
+```
 
 The _-f false_ tells the Canary to keep going across failed Region
 fetches and the _-t 6000000_ tells the Canary run for ~two hours
@@ -191,7 +194,8 @@ For example, given a Region that has a start row of _d1dddd0c_
 belonging to the table _testtable_, do as follows:
 
 
-```hbase> scan 'testtable', {STARTROW => 'd1dddd0c', LIMIT => 10}```
+```hbase> scan 'testtable', {STARTROW => 'd1dddd0c', LIMIT => 10}
+```
 
 For an overview on parsing a Region name into its constituent parts, see
 [RegionInfo API](https://hbase.apache.org/apidocs/org/apache/hadoop/hbase/client/RegionInfo.html).
@@ -203,7 +207,8 @@ _ENABLED_ or _ENABLING_ table, read the _hbase:meta_ table _info:state_ column.
 For example, to find the state of all Regions in the table
 _IntegrationTestBigLinkedList_20180626064758_, do the following:
 
-```$ echo " scan 'hbase:meta', {ROWPREFIXFILTER => 'IntegrationTestBigLinkedList_20180626064758,', COLUMN => 'info:state'}"| hbase shell > /tmp/t.txt```
+```$ echo " scan 'hbase:meta', {ROWPREFIXFILTER => 'IntegrationTestBigLinkedList_20180626064758,', COLUMN => 'info:state'}"| hbase shell > /tmp/t.txt
+```
 
 ...then grep for _OPENING_ or _CLOSING_ Regions.
 
@@ -268,12 +273,14 @@ current list of outstanding Locks.
 
 This should never happen. If it does, here is what it looks like:
 
-```2018-10-01 22:07:42,792 WARN org.apache.hadoop.hbase.master.HMaster: hbase:meta,,1.1588230740 is NOT online; state={1588230740 state=CLOSING, ts=1538456302300, server=ve1017.example.org,22101,1538449648131}; ServerCrashProcedures=true. Master startup cannot progress, in holding-pattern until region onlined.```
+```2018-10-01 22:07:42,792 WARN org.apache.hadoop.hbase.master.HMaster: hbase:meta,,1.1588230740 is NOT online; state={1588230740 state=CLOSING, ts=1538456302300, server=ve1017.example.org,22101,1538449648131}; ServerCrashProcedures=true. Master startup cannot progress, in holding-pattern until region onlined.
+```
 
 The Master is unable to continue startup because there is no Procedure to assign
 _hbase:meta_ (or _hbase:namespace_). To inject one, use the _HBCK2_ tool:
 
-``` HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 assigns 1588230740```
+``` HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 assigns 1588230740
+```
 
 ...where 1588230740 is the encoded name of the _hbase:meta_ Region.
 
