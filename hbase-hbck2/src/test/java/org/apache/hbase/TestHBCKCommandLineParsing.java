@@ -17,29 +17,15 @@
  */
 package org.apache.hbase;
 
-import junit.framework.TestCase;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.RegionInfo;
-import org.apache.hadoop.hbase.client.TableState;
-import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Threads;
 import org.apache.logging.log4j.LogManager;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -71,7 +57,7 @@ public class TestHBCKCommandLineParsing {
   public void testCommandWithOptions() throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
-    hbck.run(new String[]{"bypass", "--waitTime=3", "--override", "--recursive", "x"});
+    hbck.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
   }
 }
 

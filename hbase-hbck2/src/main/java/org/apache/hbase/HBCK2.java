@@ -88,13 +88,10 @@ public class HBCK2 extends Configured implements Tool {
   /**
    * Check for HBCK support.
    */
-  void checkHBCKSupport() throws IOException {
-    try (ClusterConnection connection =
-             (ClusterConnection)ConnectionFactory.createConnection(getConf())) {
-      try (Admin admin = connection.getAdmin()) {
-        checkVersion(admin.getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).
-            getHBaseVersion());
-      }
+  void checkHBCKSupport(Connection connection) throws IOException {
+    try (Admin admin = connection.getAdmin()) {
+      checkVersion(admin.getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).
+          getHBaseVersion());
     }
   }
 
@@ -110,6 +107,7 @@ public class HBCK2 extends Configured implements Tool {
   TableState setTableState(TableName tableName, TableState.State state) throws IOException {
     try (ClusterConnection conn =
              (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
+      checkHBCKSupport(conn);
       try (Hbck hbck = conn.getHbck()) {
         return hbck.setTableStateInMeta(new TableState(tableName, state));
       }
@@ -132,6 +130,7 @@ public class HBCK2 extends Configured implements Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     try (ClusterConnection conn =
              (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
+      checkHBCKSupport(conn);
       try (Hbck hbck = conn.getHbck()) {
         return hbck.assigns(commandLine.getArgList(), overrideFlag);
       }
@@ -154,6 +153,7 @@ public class HBCK2 extends Configured implements Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     try (ClusterConnection conn =
              (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
+      checkHBCKSupport(conn);
       try (Hbck hbck = conn.getHbck()) {
         return hbck.unassigns(commandLine.getArgList(), overrideFlag);
       }
@@ -196,6 +196,7 @@ public class HBCK2 extends Configured implements Tool {
     boolean recursiveFlag = commandLine.hasOption(override.getOpt());
     List<Long> pids = Arrays.stream(pidStrs).map(i -> Long.valueOf(i)).collect(Collectors.toList());
     try (ClusterConnection c = (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
+      checkHBCKSupport(c);
       try (Hbck hbck = c.getHbck()) {
         return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
       }
@@ -348,8 +349,6 @@ public class HBCK2 extends Configured implements Tool {
     if (commandLine.hasOption(parent.getOpt())) {
       getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
     }
-    // Check we can run hbck at all.
-    checkHBCKSupport();
 
     // Now process commands.
     String[] commands = commandLine.getArgs();
