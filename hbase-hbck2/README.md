@@ -1,4 +1,6 @@
-# Apache HBase HBCK2 Tool HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth), the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs against hbase-2.x installs.
+# Apache HBase HBCK2 Tool
+
+HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth), the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs against hbase-2.x installs.
 
 ## _hbck1_
 The _hbck_ tool that ships with hbase-1.x (A.K.A _hbck1_) should not be run against an
