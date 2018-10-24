@@ -1,8 +1,4 @@
-# Apache HBase HBCK2 Tool
-
-HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth),
-the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs
-against hbase-2.x installs.
+# Apache HBase HBCK2 Tool HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth), the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs against hbase-2.x installs.
 
 ## _hbck1_
 The _hbck_ tool that ships with hbase-1.x (A.K.A _hbck1_) should not be run against an
@@ -19,6 +15,13 @@ works in a manner that differs from how _hbck1_ operated, asking the HBase
 Master to do its bidding, rather than replicate functionality outside of the
 Master inside the _hbck1_ tool.
 
+## Building _HBCK2_
+
+Run:
+```
+mvn install
+```
+The built _HBCK2_ fat jar will be in the `target` sub-directory.
 
 ## Running _HBCK2_
 `org.apache.hbase.HBCK2` is the name of the _HBCK2_ main class. After building
