@@ -80,6 +80,7 @@ public class HBCK2 extends Configured implements Tool {
   private Configuration conf;
   private static final String TWO_POINT_ONE = "2.1.0";
   private static final String MININUM_VERSION = "2.0.3";
+  private boolean skipCheck = false;
   /**
    * Wait 1ms on lock by default.
    */
@@ -89,6 +90,10 @@ public class HBCK2 extends Configured implements Tool {
    * Check for HBCK support.
    */
   void checkHBCKSupport(Connection connection) throws IOException {
+    if(skipCheck){
+      LOG.info("hbck support check skipped");
+      return;
+    }
     try (Admin admin = connection.getAdmin()) {
       checkVersion(admin.getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).
           getHBaseVersion());
@@ -314,6 +319,8 @@ public class HBCK2 extends Configured implements Tool {
     options.addOption(peerPort);
     Option version = Option.builder("v").longOpt(VERSION).desc("this hbck2 version").build();
     options.addOption(version);
+    Option skip = Option.builder("s").longOpt("skip").desc("skip hbase version check").build();
+    options.addOption(skip);
 
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
@@ -348,6 +355,9 @@ public class HBCK2 extends Configured implements Tool {
     }
     if (commandLine.hasOption(parent.getOpt())) {
       getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
+    }
+    if(commandLine.hasOption(skip.getOpt())){
+      skipCheck = true;
     }
 
     // Now process commands.
