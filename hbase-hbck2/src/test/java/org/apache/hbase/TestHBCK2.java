@@ -70,6 +70,11 @@ public class TestHBCK2 {
   }
 
   @Test
+  public void testCheckVersionSpecial210() {
+    HBCK2.checkVersion("2.1.0-patchedForHBCK2");
+  }
+
+  @Test
   public void testCheckVersion203() {
     HBCK2.checkVersion("2.0.3");
   }
