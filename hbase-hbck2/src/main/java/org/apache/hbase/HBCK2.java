@@ -101,11 +101,12 @@ public class HBCK2 extends Configured implements Tool {
   }
 
   static void checkVersion(final String versionStr) {
-    if (versionStr.startsWith(TWO_POINT_ONE)) {
-      throw new UnsupportedOperationException(TWO_POINT_ONE + " has no support for hbck2");
-    }
     if (VersionInfo.compareVersion(MININUM_VERSION, versionStr) > 0) {
       throw new UnsupportedOperationException("Requires " + MININUM_VERSION + " at least.");
+    }
+    // except 2.1.0 didn't ship with support
+    if (VersionInfo.compareVersion(TWO_POINT_ONE, versionStr) == 0) {
+      throw new UnsupportedOperationException(TWO_POINT_ONE + " has no support for hbck2");
     }
   }
 
