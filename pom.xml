@@ -252,7 +252,6 @@
               <exclude>**/.idea/**</exclude>
               <exclude>**/*.iml</exclude>
               <exclude>**/CHANGES.txt</exclude>
-              <exclude>README.md</exclude>
               <exclude>**/generated/**</exclude>
               <exclude>**/gen-*/**</exclude>
               <exclude>**/*.avpr</exclude>
