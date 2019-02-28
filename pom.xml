@@ -144,12 +144,10 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>${maven.dependency.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
            <artifactId>maven-javadoc-plugin</artifactId>
-           <version>${maven.javadoc.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -260,25 +258,12 @@
               <exclude>**/*.svg</exclude>
               <!-- vector graphics -->
               <exclude>**/*.vm</exclude>
-              <!-- apache doxia generated -->
-              <exclude>**/control</exclude>
-              <exclude>**/conffile</exclude>
-              <!-- auto-gen docs -->
-              <exclude>docs/*</exclude>
-              <exclude>logs/*</exclude>
               <!--  exclude source control files -->
               <exclude>.git/**</exclude>
-              <exclude>.svn/**</exclude>
               <exclude>**/.settings/**</exclude>
               <exclude>**/patchprocess/**</exclude>
               <exclude>**/dependency-reduced-pom.xml</exclude>
               <exclude>**/rat.txt</exclude>
-              <!-- exclude the shaded protobuf files -->
-              <exclude>**/src/main/patches/**</exclude>
-              <!--Exclude the unpacked google src-->
-              <exclude>**/src/main/java/com/google/protobuf/**</exclude>
-              <exclude>**/src/main/java/google/**</exclude>
-              <exclude>**/src/main/java/META-INF/**</exclude>
             </excludes>
           </configuration>
         </plugin>
