@@ -22,11 +22,14 @@ import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.logging.log4j.LogManager;
 import org.junit.Test;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Does command-line parsing tests. No clusters.
@@ -39,18 +42,8 @@ public class TestHBCKCommandLineParsing {
 
   @Test
   public void testHelp() throws ParseException, IOException {
-    ByteArrayOutputStream os = new ByteArrayOutputStream();
-    PrintStream stream = new PrintStream(os);
-    PrintStream oldOut = System.out;
-    System.setOut(stream);
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    hbck.run(new String[]{"-h"});
-    stream.close();
-    os.close();
-    System.setOut(oldOut);
-    String output = os.toString();
+    String output = retrieveOptionOutput("-h");
     assertTrue(output, output.startsWith("usage: HBCK2"));
-    System.out.println(output);
   }
 
   @Test (expected=NumberFormatException.class)
@@ -65,6 +58,34 @@ public class TestHBCKCommandLineParsing {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
     hbck.run(new String[]{"setRegionState", "region_encoded", "INVALID_STATE"});
+  }
+
+  @Test
+  public void testVersionOption() throws IOException {
+    // Read the hbck version from properties file.
+    String line;
+    String expectedVersionOutput = "";
+    InputStream inputStream = getClass().getClassLoader().getResourceAsStream("hbck2.properties");
+    BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+    while ((line = br.readLine()) != null) {
+      expectedVersionOutput += line;
+    }
+    // Get hbck version option output.
+    String actualVersionOutput = retrieveOptionOutput("-v").trim();
+    assertEquals(expectedVersionOutput, actualVersionOutput);
+  }
+
+  private String retrieveOptionOutput(String option) throws IOException {
+    ByteArrayOutputStream os = new ByteArrayOutputStream();
+    PrintStream stream = new PrintStream(os);
+    PrintStream oldOut = System.out;
+    System.setOut(stream);
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    hbck.run(new String[] { option });
+    stream.close();
+    os.close();
+    System.setOut(oldOut);
+    return os.toString();
   }
 }
 

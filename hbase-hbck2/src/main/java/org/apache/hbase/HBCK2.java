@@ -373,11 +373,11 @@ public class HBCK2 extends Configured implements Tool {
     Option quorum = Option.builder("q").longOpt(HConstants.ZOOKEEPER_QUORUM).hasArg().
         desc("ensemble of target hbase").build();
     options.addOption(quorum);
-    Option parent = Option.builder("z").longOpt(HConstants.ZOOKEEPER_ZNODE_PARENT).
-        desc("parent znode of target hbase").build();
+    Option parent = Option.builder("z").longOpt(HConstants.ZOOKEEPER_ZNODE_PARENT).hasArg()
+        .desc("parent znode of target hbase").build();
     options.addOption(parent);
-    Option peerPort = Option.builder("p").longOpt(HConstants.ZOOKEEPER_CLIENT_PORT).
-        desc("port of target hbase ensemble").type(Integer.class).build();
+    Option peerPort = Option.builder("p").longOpt(HConstants.ZOOKEEPER_CLIENT_PORT).hasArg()
+        .desc("port of target hbase ensemble").type(Integer.class).build();
     options.addOption(peerPort);
     Option version = Option.builder("v").longOpt(VERSION).desc("this hbck2 version").build();
     options.addOption(version);
@@ -412,11 +412,24 @@ public class HBCK2 extends Configured implements Tool {
       getConf().set(HConstants.ZOOKEEPER_QUORUM, commandLine.getOptionValue(quorum.getOpt()));
     }
     if (commandLine.hasOption(peerPort.getOpt())) {
-      getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT,
-          Integer.valueOf(commandLine.getOptionValue(peerPort.getOpt())));
+      String optionValue = commandLine.getOptionValue(peerPort.getOpt());
+      if (optionValue.matches("[0-9]+")) {
+        getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.valueOf(optionValue));
+      } else {
+        usage(options,
+          "Invalid client port. Please provide proper port for target hbase ensemble.");
+        return EXIT_FAILURE;
+      }
     }
     if (commandLine.hasOption(parent.getOpt())) {
-      getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, commandLine.getOptionValue(parent.getOpt()));
+      String optionValue = commandLine.getOptionValue(parent.getOpt());
+      if (optionValue.startsWith("/")) {
+        getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, optionValue);
+      } else {
+        usage(options, "Invalid parent znode. Please provide proper parent znode of target hbase."
+            + " Note that valid znodes must start with \"/\".");
+        return EXIT_FAILURE;
+      }
     }
     if(commandLine.hasOption(skip.getOpt())){
       skipCheck = true;
