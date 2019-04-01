@@ -19,9 +19,14 @@ package org.apache.hbase;
 
 import junit.framework.TestCase;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -29,7 +34,6 @@ import org.apache.hadoop.hbase.util.Threads;
 import org.apache.logging.log4j.LogManager;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -38,6 +42,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -47,6 +52,8 @@ public class TestHBCK2 {
   private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
+  private static final TableName REGION_STATES_TABLE_NAME = TableName.
+    valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
 
   @BeforeClass
   public static void beforeClass() throws Exception {
@@ -130,6 +137,62 @@ public class TestHBCK2 {
         assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
       }
     }
+  }
+
+  @Test
+  public void testSetRegionState() throws IOException {
+    TEST_UTIL.createTable(REGION_STATES_TABLE_NAME, Bytes.toBytes("family1"));
+    try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
+      List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
+      RegionInfo info = regions.get(0);
+      assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
+      HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+      String region = info.getEncodedName();
+      hbck.setRegionState(region, RegionState.State.CLOSING);
+      assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
+    } finally {
+      TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test
+  public void testSetRegionStateInvalidRegion() throws IOException {
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    assertEquals(HBCK2.EXIT_FAILURE, hbck.setRegionState("NO_REGION",
+      RegionState.State.CLOSING));
+  }
+
+  @Test (expected = IllegalArgumentException.class)
+  public void testSetRegionStateInvalidState() throws IOException {
+    TEST_UTIL.createTable(REGION_STATES_TABLE_NAME, Bytes.toBytes("family1"));
+    try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
+      List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
+      RegionInfo info = regions.get(0);
+      assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
+      HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+      String region = info.getEncodedName();
+      hbck.setRegionState(region, null);
+    } finally {
+      TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test (expected = IllegalArgumentException.class)
+  public void testSetRegionStateInvalidRegionAndInvalidState() throws IOException {
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    hbck.setRegionState("NO_REGION", null);
+  }
+
+  private RegionState.State getCurrentRegionState(RegionInfo regionInfo) throws IOException{
+    Table metaTable = TEST_UTIL.getConnection().getTable(TableName.valueOf("hbase:meta"));
+    Get get = new Get(regionInfo.getRegionName());
+    get.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER);
+    Result result = metaTable.get(get);
+    byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
+      HConstants.STATE_QUALIFIER);
+    return currentStateValue != null ?
+      RegionState.State.valueOf(Bytes.toString(currentStateValue))
+      : null;
   }
 
   private void waitOnPids(List<Long> pids) {

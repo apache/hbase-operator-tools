@@ -27,6 +27,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.hbase.ClusterMetrics;
+import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -35,7 +36,15 @@ import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Hbck;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
+import org.apache.hadoop.hbase.filter.RowFilter;
+import org.apache.hadoop.hbase.filter.SubstringComparator;
+import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -77,6 +86,7 @@ public class HBCK2 extends Configured implements Tool {
   private static final String UNASSIGNS = "unassigns";
   private static final String BYPASS = "bypass";
   private static final String VERSION = "version";
+  private static final String SET_REGION_STATE = "setRegionState";
   private Configuration conf;
   private static final String TWO_POINT_ONE = "2.1.0";
   private static final String MININUM_VERSION = "2.0.3";
@@ -118,6 +128,40 @@ public class HBCK2 extends Configured implements Tool {
         return hbck.setTableStateInMeta(new TableState(tableName, state));
       }
     }
+  }
+
+  int setRegionState(String region, RegionState.State newState)
+      throws IOException {
+    if(newState==null){
+      throw new IllegalArgumentException("State can't be null.");
+    }
+    try(Connection connection = ConnectionFactory.createConnection(getConf())){
+      RegionState.State currentState = null;
+      Table table = connection.getTable(TableName.valueOf("hbase:meta"));
+      RowFilter filter = new RowFilter(CompareOperator.EQUAL, new SubstringComparator(region));
+      Scan scan = new Scan();
+      scan.setFilter(filter);
+      Result result = table.getScanner(scan).next();
+      if(result!=null){
+        byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
+          HConstants.STATE_QUALIFIER);
+        if(currentStateValue==null){
+          System.out.println("WARN: Region state info on meta was NULL");
+        }else {
+          currentState = RegionState.State.valueOf(Bytes.toString(currentStateValue));
+        }
+        Put put = new Put(result.getRow());
+        put.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER,
+          Bytes.toBytes(newState.name()));
+        table.put(put);
+        System.out.println("Changed region " + region + " STATE from "
+          + currentState + " to " + newState);
+        return EXIT_SUCCESS;
+      } else {
+        System.out.println("ERROR: Could not find region " + region + " in meta.");
+      }
+    }
+    return EXIT_FAILURE;
   }
 
   List<Long> assigns(String [] args) throws IOException {
@@ -272,6 +316,23 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println();
+    writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
+    writer.println("   Possible region states: " + Arrays.stream(RegionState.State.values()).
+      map(i -> i.toString()).collect(Collectors.joining(", ")));
+    writer.println("   WARNING: This is a very risky option intended for use as last resource.");
+    writer.println("    Example scenarios for this is when unassings/assigns can't move forward ");
+    writer.println("     due region being on an inconsistent state in META. For example, ");
+    writer.println("     'unassigns' command can only proceed ");
+    writer.println("      if passed in region is in one of following states: ");
+    writer.println("                [SPLITTING|SPLIT|MERGING|OPEN|CLOSING]");
+    writer.println("   Before manually setting a region state with this command,");
+    writer.println("   please certify that this region is not being handled by");
+    writer.println("   a running procedure, such as Assign or Split. You can get a view of ");
+    writer.println("   running procedures from hbase shell, using 'list_procedures' command. ");
+    writer.println("   An example setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:");
+    writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
+    writer.println("   Returns whatever the previous region state was.");
+    writer.println();
 
     writer.close();
     return sw.toString();
@@ -403,6 +464,13 @@ public class HBCK2 extends Configured implements Tool {
         System.out.println(toString(unassigns(purgeFirst(commands))));
         break;
 
+      case SET_REGION_STATE:
+        if(commands.length < 3){
+          usage(options, command + " takes region encoded name and state arguments: e.g. "
+            + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+          return EXIT_FAILURE;
+        }
+        return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
       default:
         usage(options, "Unsupported command: " + command);
         return EXIT_FAILURE;
