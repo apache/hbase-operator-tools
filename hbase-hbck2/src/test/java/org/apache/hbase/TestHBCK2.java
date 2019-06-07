@@ -20,9 +20,9 @@ package org.apache.hbase;
 import junit.framework.TestCase;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Result;
@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -175,6 +174,33 @@ public class TestHBCK2 {
     } finally {
       TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
     }
+  }
+
+  @Test
+  public void testAddMissingRegionsInMetaAllRegionsMissing() throws Exception {
+    this.testAddMissingRegionsInMeta(5,5);
+  }
+
+  @Test
+  public void testAddMissingRegionsInMetaTwoMissingOnly() throws Exception {
+    this.testAddMissingRegionsInMeta(2,5);
+  }
+
+  private void testAddMissingRegionsInMeta(int missingRegions, int totalRegions) throws Exception {
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+    MetaTableAccessor.deleteRegions(TEST_UTIL.getConnection(), regions.subList(0,missingRegions));
+    int remaining = totalRegions - missingRegions;
+    assertEquals("Table should had " + remaining + " regions in META.", remaining,
+      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), TABLE_NAME));
+    assertEquals(0,hbck.addMissingRegionsInMeta(TABLE_NAME.getNameAsString()));
+    assertEquals("Table regions should had been re-added in META.", totalRegions,
+      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), TABLE_NAME));
+    //compare the added regions to make sure those are the same
+    List<RegionInfo> newRegions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+    assertEquals("All re-added regions should be the same", regions, newRegions);
   }
 
   @Test (expected = IllegalArgumentException.class)

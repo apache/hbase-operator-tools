@@ -26,6 +26,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ClusterMetrics;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -48,6 +49,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.hbase.hbck2.meta.MetaFixer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -59,9 +61,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -87,6 +93,7 @@ public class HBCK2 extends Configured implements Tool {
   private static final String BYPASS = "bypass";
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
+  private static final String ADD_MISSING_REGIONS_IN_META = "addMissingRegionsInMeta";
   private Configuration conf;
   private static final String TWO_POINT_ONE = "2.1.0";
   private static final String MININUM_VERSION = "2.0.3";
@@ -162,6 +169,86 @@ public class HBCK2 extends Configured implements Tool {
       }
     }
     return EXIT_FAILURE;
+  }
+
+  int addMissingRegionsInMeta(String... tableNames) throws  IOException {
+    ExecutorService executorService = Executors.newFixedThreadPool(
+      tableNames.length > Runtime.getRuntime().availableProcessors() ?
+        Runtime.getRuntime().availableProcessors() : tableNames.length);
+    final CountDownLatch countDownLatch = new CountDownLatch(tableNames.length);
+    final List<String> encodedRegionNames = new ArrayList<>();
+    String result = "No regions added.";
+    try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
+      //reducing number of retries in case disable fails due to namespace table region also missing
+      this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
+      try(Connection conn = ConnectionFactory.createConnection(this.conf)) {
+        final Admin admin = conn.getAdmin();
+        for (String table : tableNames) {
+          final TableName tableName = TableName.valueOf(table);
+          if(admin.tableExists(tableName)) {
+            executorService.submit(new Runnable() {
+              @Override public void run() {
+                try {
+                  LOG.debug("running thread for {}", table);
+                  List<Path> missingRegions = metaFixer.findMissingRegionsInMETA(table);
+                  try {
+                    admin.disableTable(tableName);
+                  } catch (IOException e) {
+                    LOG.warn("Failed to disable table {}, "
+                        + "is namespace table also missing regions? Continue anyway...",
+                      table, e);
+                  }
+                  missingRegions.stream().forEach(path -> {
+                    try {
+                      metaFixer.putRegionInfoFromHdfsInMeta(path);
+                      encodedRegionNames.add(path.getName());
+                    } catch (Exception e) {
+                      e.printStackTrace();
+                    }
+                  });
+                  try {
+                    admin.enableTable(tableName);
+                  } catch (IOException e) {
+                    LOG.warn("Failed enabling table {}. It might be that namespace table "
+                        + "region is also missing.\n"
+                        + "After this command finishes, please make sure on this table state.",
+                      table, e);
+                  }
+                } catch (Exception e) {
+                  e.printStackTrace();
+                } finally {
+                  countDownLatch.countDown();
+                }
+              }
+            });
+          }else{
+            LOG.warn("Table {} does not exist! Skipping...", table);
+            countDownLatch.countDown();
+          }
+        }
+        countDownLatch.await();
+        admin.close();
+      }
+      StringBuilder finalText = new StringBuilder();
+      finalText.append("Regions re-added into Meta: ").append(encodedRegionNames.size());
+      if(encodedRegionNames.size()>0){
+        finalText.append("\n")
+          .append("WARNING: \n\t")
+          .append(encodedRegionNames.size()).append(" regions were added to ")
+          .append("to META, but these are not yet on Masters cache. \n")
+          .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
+          .append(metaFixer.buildHbck2AssignsCommand(encodedRegionNames));
+      }
+      result = finalText.toString();
+    } catch (InterruptedException ie){
+      System.out.println("ERROR executing thread: ");
+      ie.printStackTrace();
+      return EXIT_FAILURE;
+    } finally {
+      executorService.shutdown();
+    }
+    System.out.println(result);
+    return EXIT_SUCCESS;
   }
 
   List<Long> assigns(String [] args) throws IOException {
@@ -333,6 +420,26 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns whatever the previous region state was.");
     writer.println();
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META + " <TABLENAME>...");
+    writer.println("   To be used for scenarios where some regions may be missing in META,");
+    writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
+    writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
+    writer.println("   similar issues on 1.x release line. ");
+    writer.println("   This command needs META to be online. For each table name passed as");
+    writer.println("   parameter, it performs a diff between regions available in META, ");
+    writer.println("   against existing regions dirs on HDFS. Then, for region dirs with ");
+    writer.println("   no matches in META, it reads regioninfo metadata file and ");
+    writer.println("   re-creates given region in META. Regions are re-created in 'CLOSED' ");
+    writer.println("   state at META table only, but not in Masters' cache, and are not ");
+    writer.println("   assigned either. A rolling Masters restart, followed by a ");
+    writer.println("   hbck2 'assigns' command with all re-inserted regions is required. ");
+    writer.println("   This hbck2 'assigns' command is printed for user convenience.");
+    writer.println("   WARNING: To avoid potential region overlapping problems due to ongoing ");
+    writer.println("   splits, this command disables given tables while re-inserting regions. ");
+    writer.println("   An example adding missing regions for tables 'table_1' and 'table_2':");
+    writer.println("     $ HBCK2 addMissingRegionsInMeta table_1 table_2");
+    writer.println("   Returns hbck2 'assigns' command with all re-inserted regions.");
+    writer.println();
 
     writer.close();
     return sw.toString();
@@ -439,51 +546,56 @@ public class HBCK2 extends Configured implements Tool {
     String[] commands = commandLine.getArgs();
     String command = commands[0];
     switch (command) {
-      case SET_TABLE_STATE:
-        if (commands.length < 3) {
-          usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
-          return EXIT_FAILURE;
-        }
-        System.out.println(setTableState(TableName.valueOf(commands[1]),
-            TableState.State.valueOf(commands[2])));
-        break;
+    case SET_TABLE_STATE:
+      if (commands.length < 3) {
+        usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
+        return EXIT_FAILURE;
+      }
+      System.out.println(setTableState(TableName.valueOf(commands[1]), TableState.State.valueOf(commands[2])));
+      break;
 
-      case ASSIGNS:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        System.out.println(assigns(purgeFirst(commands)));
-        break;
+    case ASSIGNS:
+      if (commands.length < 2) {
+        usage(options, command + " takes one or more encoded region names");
+        return EXIT_FAILURE;
+      }
+      System.out.println(assigns(purgeFirst(commands)));
+      break;
 
-      case BYPASS:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more pids");
-          return EXIT_FAILURE;
-        }
-        List<Boolean> bs = bypass(purgeFirst(commands));
-        if (bs == null) {
-          // Something went wrong w/ the parse and command didn't run.
-          return EXIT_FAILURE;
-        }
-        System.out.println(toString(bs));
-        break;
+    case BYPASS:
+      if (commands.length < 2) {
+        usage(options, command + " takes one or more pids");
+        return EXIT_FAILURE;
+      }
+      List<Boolean> bs = bypass(purgeFirst(commands));
+      if (bs == null) {
+        // Something went wrong w/ the parse and command didn't run.
+        return EXIT_FAILURE;
+      }
+      System.out.println(toString(bs));
+      break;
 
-      case UNASSIGNS:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        System.out.println(toString(unassigns(purgeFirst(commands))));
-        break;
+    case UNASSIGNS:
+      if (commands.length < 2) {
+        usage(options, command + " takes one or more encoded region names");
+        return EXIT_FAILURE;
+      }
+      System.out.println(toString(unassigns(purgeFirst(commands))));
+      break;
 
-      case SET_REGION_STATE:
-        if(commands.length < 3){
-          usage(options, command + " takes region encoded name and state arguments: e.g. "
-            + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
-          return EXIT_FAILURE;
-        }
-        return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
+    case SET_REGION_STATE:
+      if (commands.length < 3) {
+        usage(options, command + " takes region encoded name and state arguments: e.g. " + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+        return EXIT_FAILURE;
+      }
+      return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
+    case ADD_MISSING_REGIONS_IN_META:
+      if(commands.length < 2){
+        usage(options, command + " takes one or more table names.");
+        return EXIT_FAILURE;
+      }
+      System.out.println(this.addMissingRegionsInMeta(purgeFirst(commands)));
+      break;
       default:
         usage(options, "Unsupported command: " + command);
         return EXIT_FAILURE;
