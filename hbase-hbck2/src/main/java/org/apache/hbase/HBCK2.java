@@ -26,6 +26,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ClusterMetrics;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -48,6 +49,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.hbase.hbck2.meta.RegionMetaBuilder;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -59,9 +61,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -87,6 +93,7 @@ public class HBCK2 extends Configured implements Tool {
   private static final String BYPASS = "bypass";
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
+  private static final String ADD_MISSING_REGIONS_IN_META = "addMissingRegionsInMeta";
   private Configuration conf;
   private static final String TWO_POINT_ONE = "2.1.0";
   private static final String MININUM_VERSION = "2.0.3";
@@ -162,6 +169,49 @@ public class HBCK2 extends Configured implements Tool {
       }
     }
     return EXIT_FAILURE;
+  }
+
+  int addMissingRegionsInMeta(String... tableNames) throws  IOException {
+    ExecutorService executorService = Executors.newFixedThreadPool(
+      tableNames.length > Runtime.getRuntime().availableProcessors() ?
+        Runtime.getRuntime().availableProcessors() : tableNames.length);
+    final CountDownLatch countDownLatch = new CountDownLatch(tableNames.length);
+    final List<String> encodedRegionNames = new ArrayList<>();
+    String result = "No regions added.";
+    try(final RegionMetaBuilder metaBuilder = new RegionMetaBuilder()){
+      for(String table : tableNames){
+        executorService.submit(new Runnable() {
+          @Override public void run() {
+            try {
+              System.out.println("running thread for " + table);
+              List<Path> missingRegions = metaBuilder.findMissingRegionsInMETA(table);
+              missingRegions.parallelStream().forEach(path -> {
+                try {
+                  metaBuilder.putRegionInfoFromHdfsInMeta(path);
+                  encodedRegionNames.add(path.getName());
+                } catch (Exception e) {
+                  e.printStackTrace();
+                }
+              });
+            } catch (Exception e) {
+              e.printStackTrace();
+            } finally {
+              countDownLatch.countDown();
+            }
+          }
+        });
+      }
+      countDownLatch.await();
+      result = metaBuilder.printHbck2AssignsCommand(encodedRegionNames);
+    } catch (InterruptedException ie){
+      System.out.println("ERROR executing thread: ");
+      ie.printStackTrace();
+      return EXIT_FAILURE;
+    } finally {
+      executorService.shutdown();
+    }
+    System.out.println(result);
+    return EXIT_SUCCESS;
   }
 
   List<Long> assigns(String [] args) throws IOException {
@@ -439,51 +489,56 @@ public class HBCK2 extends Configured implements Tool {
     String[] commands = commandLine.getArgs();
     String command = commands[0];
     switch (command) {
-      case SET_TABLE_STATE:
-        if (commands.length < 3) {
-          usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
-          return EXIT_FAILURE;
-        }
-        System.out.println(setTableState(TableName.valueOf(commands[1]),
-            TableState.State.valueOf(commands[2])));
-        break;
+    case SET_TABLE_STATE:
+      if (commands.length < 3) {
+        usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
+        return EXIT_FAILURE;
+      }
+      System.out.println(setTableState(TableName.valueOf(commands[1]), TableState.State.valueOf(commands[2])));
+      break;
 
-      case ASSIGNS:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        System.out.println(assigns(purgeFirst(commands)));
-        break;
+    case ASSIGNS:
+      if (commands.length < 2) {
+        usage(options, command + " takes one or more encoded region names");
+        return EXIT_FAILURE;
+      }
+      System.out.println(assigns(purgeFirst(commands)));
+      break;
 
-      case BYPASS:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more pids");
-          return EXIT_FAILURE;
-        }
-        List<Boolean> bs = bypass(purgeFirst(commands));
-        if (bs == null) {
-          // Something went wrong w/ the parse and command didn't run.
-          return EXIT_FAILURE;
-        }
-        System.out.println(toString(bs));
-        break;
+    case BYPASS:
+      if (commands.length < 2) {
+        usage(options, command + " takes one or more pids");
+        return EXIT_FAILURE;
+      }
+      List<Boolean> bs = bypass(purgeFirst(commands));
+      if (bs == null) {
+        // Something went wrong w/ the parse and command didn't run.
+        return EXIT_FAILURE;
+      }
+      System.out.println(toString(bs));
+      break;
 
-      case UNASSIGNS:
-        if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        System.out.println(toString(unassigns(purgeFirst(commands))));
-        break;
+    case UNASSIGNS:
+      if (commands.length < 2) {
+        usage(options, command + " takes one or more encoded region names");
+        return EXIT_FAILURE;
+      }
+      System.out.println(toString(unassigns(purgeFirst(commands))));
+      break;
 
-      case SET_REGION_STATE:
-        if(commands.length < 3){
-          usage(options, command + " takes region encoded name and state arguments: e.g. "
-            + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
-          return EXIT_FAILURE;
-        }
-        return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
+    case SET_REGION_STATE:
+      if (commands.length < 3) {
+        usage(options, command + " takes region encoded name and state arguments: e.g. " + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+        return EXIT_FAILURE;
+      }
+      return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
+    case ADD_MISSING_REGIONS_IN_META:
+      if(commands.length < 2){
+        usage(options, command + " takes one or more table names.");
+        return EXIT_FAILURE;
+      }
+      System.out.println(this.addMissingRegionsInMeta(purgeFirst(commands)));
+      break;
       default:
         usage(options, "Unsupported command: " + command);
         return EXIT_FAILURE;
