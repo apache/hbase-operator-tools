@@ -25,8 +25,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import junit.framework.TestCase;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ClusterConnection;
@@ -43,7 +45,15 @@ import org.apache.logging.log4j.LogManager;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
+
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.util.Map;
+
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -55,6 +65,9 @@ public class TestHBCK2 {
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
   private static final TableName REGION_STATES_TABLE_NAME = TableName.
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
+
+  @Rule
+  public TestName testName = new TestName();
 
   /**
    * A 'connected' hbck2 instance.
@@ -173,6 +186,128 @@ public class TestHBCK2 {
     } finally {
       TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
     }
+  }
+
+  @Test
+  public void testAddMissingRegionsInMetaAllRegionsMissing() throws Exception {
+    this.testAddMissingRegionsInMetaForTables(5,5);
+  }
+
+  @Test
+  public void testAddMissingRegionsInMetaTwoMissingOnly() throws Exception {
+    this.testAddMissingRegionsInMetaForTables(2,5);
+  }
+
+  @Test
+  public void testReportMissingRegionsInMetaAllNsTbls() throws Exception {
+    this.testReportMissingRegionsInMeta(5, 5,null);
+  }
+
+  @Test
+  public void testReportMissingRegionsInMetaSpecificTbl() throws Exception {
+    this.testReportMissingRegionsInMeta(5, 5,
+      TABLE_NAME.getNameWithNamespaceInclAsString());
+  }
+
+  @Test
+  public void testReportMissingRegionsInMetaSpecificTblAndNsTbl() throws Exception {
+    this.testReportMissingRegionsInMeta(5, 5,
+      TABLE_NAME.getNameWithNamespaceInclAsString(), "hbase:namespace");
+  }
+
+  @Test
+  public void testReportMissingRegionsInMetaSpecificTblAndNsTblAlsoMissing() throws Exception {
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), TableName.valueOf("hbase:namespace"));
+    MetaTableAccessor.deleteRegions(TEST_UTIL.getConnection(),
+      regions.subList(0,1));
+    this.testReportMissingRegionsInMeta(5, 6,
+      TABLE_NAME.getNameWithNamespaceInclAsString(), "hbase:namespace");
+  }
+
+  @Test
+  public void testFormatReportMissingRegionsInMetaNoMissing() throws IOException {
+    final String expectedResult = "Missing Regions for each table:\n"
+      + "\tTestHBCK2 -> No missing regions\n\thbase:namespace -> No missing regions\n\t\n";
+    String result = testFormatMissingRegionsInMetaReport();
+    assertTrue(result.contains(expectedResult));
+  }
+
+  @Test
+  public void testFormatReportMissingInMetaOneMissing() throws IOException {
+    TableName tableName = createTestTable(5);
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    MetaTableAccessor.deleteRegions(TEST_UTIL.getConnection(), regions.subList(0,1));
+    String expectedResult = "Missing Regions for each table:\n";
+    String result = testFormatMissingRegionsInMetaReport();
+    //validates initial report message
+    assertTrue(result.contains(expectedResult));
+    //validates our test table region is reported missing
+    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
+      + regions.get(0).getEncodedName();
+    assertTrue(result.contains(expectedResult));
+    //validates namespace region is not reported missing
+    expectedResult = "\n\thbase:namespace -> No missing regions\n\t";
+    assertTrue(result.contains(expectedResult));
+  }
+
+  private String testFormatMissingRegionsInMetaReport()
+      throws IOException {
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    final StringBuilder builder = new StringBuilder();
+    PrintStream originalOS = System.out;
+    OutputStream testOS = new OutputStream() {
+      @Override public void write(int b) throws IOException {
+        builder.append((char)b);
+      }
+    };
+    System.setOut(new PrintStream(testOS));
+
+    hbck.run(new String[]{"reportMissingRegionsInMeta"});
+    System.setOut(originalOS);
+    return builder.toString();
+  }
+
+  private TableName createTestTable(int totalRegions) throws IOException {
+    TableName tableName = TableName.valueOf(testName.getMethodName());
+    TEST_UTIL.createMultiRegionTable(tableName, Bytes.toBytes("family1"), totalRegions);
+    return tableName;
+  }
+
+  private void testAddMissingRegionsInMetaForTables(int missingRegions, int totalRegions)
+    throws Exception {
+    TableName tableName = createTestTable(totalRegions);
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    MetaTableAccessor.deleteRegions(TEST_UTIL.getConnection(), regions.subList(0,missingRegions));
+    int remaining = totalRegions - missingRegions;
+    assertEquals("Table should have " + remaining + " regions in META.", remaining,
+      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+    assertEquals(missingRegions,hbck.addMissingRegionsInMetaForTables("default:"
+      + tableName.getNameAsString()).getFirst().size());
+    assertEquals("Table regions should had been re-added in META.", totalRegions,
+      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+    //compare the added regions to make sure those are the same
+    List<RegionInfo> newRegions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    assertEquals("All re-added regions should be the same", regions, newRegions);
+  }
+
+  private void testReportMissingRegionsInMeta(int missingRegionsInTestTbl,
+      int expectedTotalMissingRegions, String... namespaceOrTable) throws Exception {
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+    MetaTableAccessor.deleteRegions(TEST_UTIL.getConnection(),
+      regions.subList(0,missingRegionsInTestTbl));
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    final Map<TableName,List<Path>> report =
+      hbck.reportTablesWithMissingRegionsInMeta(namespaceOrTable);
+    long resultingMissingRegions = report.keySet().stream().mapToLong( nsTbl ->
+      report.get(nsTbl).size()).sum();
+    assertEquals(expectedTotalMissingRegions, resultingMissingRegions);
+    hbck.addMissingRegionsInMetaForTables(null);
   }
 
   @Test (expected = IllegalArgumentException.class)
