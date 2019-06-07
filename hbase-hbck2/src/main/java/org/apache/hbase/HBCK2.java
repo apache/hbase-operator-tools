@@ -441,6 +441,26 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 addMissingRegionsInMeta table_1 table_2");
     writer.println("   Returns hbck2 'assigns' command with all re-inserted regions.");
     writer.println();
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META + " <TABLENAME>...");
+    writer.println("   To be used for scenarios where some regions may be missing in META,");
+    writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
+    writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
+    writer.println("   similar issues on 1.x release line. ");
+    writer.println("   This command needs META to be online. For each table name passed as");
+    writer.println("   parameter, it performs a diff between regions available in META, ");
+    writer.println("   against existing regions dirs on HDFS. Then, for region dirs with ");
+    writer.println("   no matches in META, it reads regioninfo metadata file and ");
+    writer.println("   re-creates given region in META. Regions are re-created in 'CLOSED' ");
+    writer.println("   state at META table only, but not in Masters' cache, and are not ");
+    writer.println("   assigned either. A rolling Masters restart, followed by a ");
+    writer.println("   hbck2 'assigns' command with all re-inserted regions is required. ");
+    writer.println("   This hbck2 'assigns' command is printed for user convenience.");
+    writer.println("   WARNING: To avoid potential region overlapping problems due to ongoing ");
+    writer.println("   splits, this command disables given tables while re-inserting regions. ");
+    writer.println("   An example adding missing regions for tables 'table_1' and 'table_2':");
+    writer.println("     $ HBCK2 addMissingRegionsInMeta table_1 table_2");
+    writer.println("   Returns hbck2 'assigns' command with all re-inserted regions.");
+    writer.println();
 
     writer.close();
     return sw.toString();
