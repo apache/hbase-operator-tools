@@ -49,7 +49,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.hbase.hbck2.meta.RegionMetaBuilder;
+import org.apache.hbase.hbck2.meta.MetaFixer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -178,16 +178,16 @@ public class HBCK2 extends Configured implements Tool {
     final CountDownLatch countDownLatch = new CountDownLatch(tableNames.length);
     final List<String> encodedRegionNames = new ArrayList<>();
     String result = "No regions added.";
-    try(final RegionMetaBuilder metaBuilder = new RegionMetaBuilder()){
+    try(final MetaFixer metaFixer = new MetaFixer()){
       for(String table : tableNames){
         executorService.submit(new Runnable() {
           @Override public void run() {
             try {
               System.out.println("running thread for " + table);
-              List<Path> missingRegions = metaBuilder.findMissingRegionsInMETA(table);
+              List<Path> missingRegions = metaFixer.findMissingRegionsInMETA(table);
               missingRegions.parallelStream().forEach(path -> {
                 try {
-                  metaBuilder.putRegionInfoFromHdfsInMeta(path);
+                  metaFixer.putRegionInfoFromHdfsInMeta(path);
                   encodedRegionNames.add(path.getName());
                 } catch (Exception e) {
                   e.printStackTrace();
@@ -202,7 +202,15 @@ public class HBCK2 extends Configured implements Tool {
         });
       }
       countDownLatch.await();
-      result = metaBuilder.printHbck2AssignsCommand(encodedRegionNames);
+      StringBuilder finalText = new StringBuilder();
+      finalText.append("Regions re-added into Meta: ").append(encodedRegionNames.size());
+      if(encodedRegionNames.size()>0){
+        finalText.append("\n\t")
+          .append("You need to run below hbck2 'assigns' command to bring these regions online:")
+          .append("\n\t\t")
+          .append(metaFixer.printHbck2AssignsCommand(encodedRegionNames));
+      }
+      result = finalText.toString();
     } catch (InterruptedException ie){
       System.out.println("ERROR executing thread: ");
       ie.printStackTrace();
@@ -382,6 +390,26 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   An example setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:");
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns whatever the previous region state was.");
+    writer.println();
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META + " <TABLENAME>...");
+    writer.println("   Possible region states: " + Arrays.stream(RegionState.State.values()).
+      map(i -> i.toString()).collect(Collectors.joining(", ")));
+    writer.println("   To be used for scenarios where some regions may be missing in META table,");
+    writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
+    writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
+    writer.println("   similar issues on 1.x release line. This command needs META to be online. ");
+    writer.println("   For each table name passed as parameter, it performs a diff between ");
+    writer.println("   regions available in META, against existing regions dirs on HDFS. ");
+    writer.println("   Then, for region dirs with no matches in META, it reads regioninfo' ");
+    writer.println("   metdata file and re-creates given region in META. ");
+    writer.println("   Regions are re-created in 'CLOSED' state, and are not assigned. ");
+    writer.println("   An hbck2 'assigns' command with all re-inserted regions is printed for ");
+    writer.println("   user convenience.");
+    writer.println("   WARNING: To avoid potential region overlapping problems due to ongoing ");
+    writer.println("   splits, this command disables given tables while re-inserting regions. ");
+    writer.println("   An example adding missing regions for tables 'table_1' and 'table_2':");
+    writer.println("     $ HBCK2 addMissingRegionsInMeta table_1 table_2");
+    writer.println("   Returns hbck2 'assigns' command with all re-inserted regions.");
     writer.println();
 
     writer.close();
