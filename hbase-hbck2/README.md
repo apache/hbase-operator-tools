@@ -107,6 +107,25 @@ default=1
    An example making table name 'user' ENABLED:
      $ HBCK2 setTableState users ENABLED
    Returns whatever the previous table state was.
+
+ setRegionState <ENCODED_REGINNAME> <STATE>
+      Possible region states: OFFLINE, OPENING, OPEN, CLOSING, CLOSED,
+      SPLITTING, SPLIT, FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED,
+      SPLITTING_NEW, MERGING_NEW
+      WARNING: This is a very risky option intended for use as last resort.
+       Example scenarios are when unassigns/assigns can't move
+   forward
+        due to region being in an inconsistent state in META. For example,
+        'unassigns' command can only proceed
+         if passed in region is in one of following states:
+                   [SPLITTING|SPLIT|MERGING|OPEN|CLOSING]
+      Before manually setting a region state with this command,
+      please certify that this region is not being handled
+      by a running procedure, such as Assign or Split.
+      An example setting region 'de00010733901a05f5a2a3a382e27dd4' to
+   CLOSING:
+        $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING
+      Returns "0" SUCCESS code if it informed region state is changed, "1" FAIL code otherwise.
 ```
 
 ## _HBCK2_ Overview
@@ -115,17 +134,25 @@ _HBCK2_ is currently a simple tool that does one thing at a time only.
 _HBCK2_ does not do diagnosis, leaving that function to other tooling,
 described below.
 
-In hbase-2.x, the Master is the final arbiter of all state, so a general principal of
-_HBCK2_ is that it asks the Master to effect all repair. This means a Master must be
+In hbase-2.x, the Master is the final arbiter of all state, so a general principal for most of
+_HBCK2_ commands is that it asks the Master to effect all repair. This means a Master must be
 up before you can run an _HBCK2_ command.
 
-_HBCK2_ works by making use of an intentionally obscured `HbckService` hosted on the
-Master. The Service publishes a few methods for the _HBCK2_ tool to pull on. The
+_HBCK2_ commands preferable implementation approach is to make use of an intentionally obscured
+`HbckService` hosted on the Master. The Service publishes a few methods for the _HBCK2_ tool to
+pull on. Therefore, for _HBCK2_ commands relying on Master's `HbckService` facade,
 first thing _HBCK2_ does is poke the cluster to ensure the service is available.
-It will fail if it is not or if the `HbckService` is lacking a wanted facility.
+It will fail if it is not or if the `HbckService` is lacking the given method, and the same does
+not have a client side counterpart implementation.
+
 _HBCK2_ versions should be able to work across multiple hbase-2 releases. It will
 fail with a complaint if it is unable to run. There is no `HbckService` in versions
 of hbase before 2.0.3 and 2.1.1. _HBCK2_ will not work against these versions.
+
+As _HBCK2_ evolves independently from _HBase_ main project, there will be eventually the need to
+define new fix methods with client side implementations (at least until a related one can be added
+on Master's `HbckService` facade), so that _HBCK2_ can operate on such _HBase_ releases without
+requiring a cluster upgrade. One example of such methods is the _setRegionState_.
 
 ## Finding Problems
 

@@ -319,19 +319,20 @@ public class HBCK2 extends Configured implements Tool {
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states: " + Arrays.stream(RegionState.State.values()).
       map(i -> i.toString()).collect(Collectors.joining(", ")));
-    writer.println("   WARNING: This is a very risky option intended for use as last resource.");
-    writer.println("    Example scenarios for this is when unassings/assigns can't move forward ");
-    writer.println("     due region being on an inconsistent state in META. For example, ");
+    writer.println("   WARNING: This is a very risky option intended for use as last resort.");
+    writer.println("    Example scenarios are when unassigns/assigns can't move forward ");
+    writer.println("     due to region being in an inconsistent state in META. For example, ");
     writer.println("     'unassigns' command can only proceed ");
     writer.println("      if passed in region is in one of following states: ");
     writer.println("                [SPLITTING|SPLIT|MERGING|OPEN|CLOSING]");
     writer.println("   Before manually setting a region state with this command,");
     writer.println("   please certify that this region is not being handled by");
-    writer.println("   a running procedure, such as Assign or Split. You can get a view of ");
+    writer.println("   by a running procedure, such as Assign or Split. You can get a view of ");
     writer.println("   running procedures from hbase shell, using 'list_procedures' command. ");
     writer.println("   An example setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:");
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
-    writer.println("   Returns whatever the previous region state was.");
+    writer.println("   Returns \"0\" SUCCESS code if it informed region state is changed, "
+      + "\"1\" FAIL code otherwise.");
     writer.println();
 
     writer.close();
