@@ -20,13 +20,13 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RegionMetaBuilder implements Closeable {
+public class MetaFixer implements Closeable {
   private static final String HBASE_DATA_DIR = "/hbase/data/";
   private static final String HBASE_DEFAULT_NAMESPACE = "default/";
   private FileSystem fs;
   private Connection conn;
 
-  public RegionMetaBuilder() throws IOException {
+  public MetaFixer() throws IOException {
     Configuration config = HBaseConfiguration.create();
     this.fs = FileSystem.get(config);
     this.conn = ConnectionFactory.createConnection(config);
