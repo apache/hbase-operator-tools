@@ -178,37 +178,66 @@ public class HBCK2 extends Configured implements Tool {
     final CountDownLatch countDownLatch = new CountDownLatch(tableNames.length);
     final List<String> encodedRegionNames = new ArrayList<>();
     String result = "No regions added.";
-    try(final MetaFixer metaFixer = new MetaFixer()){
-      for(String table : tableNames){
-        executorService.submit(new Runnable() {
-          @Override public void run() {
-            try {
-              System.out.println("running thread for " + table);
-              List<Path> missingRegions = metaFixer.findMissingRegionsInMETA(table);
-              missingRegions.parallelStream().forEach(path -> {
+    try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
+      //reducing number of retries in case disable fails due to namespace table region also missing
+      this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
+      try(Connection conn = ConnectionFactory.createConnection(this.conf)) {
+        final Admin admin = conn.getAdmin();
+        for (String table : tableNames) {
+          final TableName tableName = TableName.valueOf(table);
+          if(admin.tableExists(tableName)) {
+            executorService.submit(new Runnable() {
+              @Override public void run() {
                 try {
-                  metaFixer.putRegionInfoFromHdfsInMeta(path);
-                  encodedRegionNames.add(path.getName());
+                  LOG.debug("running thread for {}", table);
+                  List<Path> missingRegions = metaFixer.findMissingRegionsInMETA(table);
+                  try {
+                    admin.disableTable(tableName);
+                  } catch (IOException e) {
+                    LOG.warn("Failed to disable table {}, "
+                        + "is namespace table also missing regions? Continue anyway...",
+                      table, e);
+                  }
+                  missingRegions.stream().forEach(path -> {
+                    try {
+                      metaFixer.putRegionInfoFromHdfsInMeta(path);
+                      encodedRegionNames.add(path.getName());
+                    } catch (Exception e) {
+                      e.printStackTrace();
+                    }
+                  });
+                  try {
+                    admin.enableTable(tableName);
+                  } catch (IOException e) {
+                    LOG.warn("Failed enabling table {}. It might be that namespace table "
+                        + "region is also missing.\n"
+                        + "After this command finishes, please make sure on this table state.",
+                      table, e);
+                  }
                 } catch (Exception e) {
                   e.printStackTrace();
+                } finally {
+                  countDownLatch.countDown();
                 }
-              });
-            } catch (Exception e) {
-              e.printStackTrace();
-            } finally {
-              countDownLatch.countDown();
-            }
+              }
+            });
+          }else{
+            LOG.warn("Table {} does not exist! Skipping...", table);
+            countDownLatch.countDown();
           }
-        });
+        }
+        countDownLatch.await();
+        admin.close();
       }
-      countDownLatch.await();
       StringBuilder finalText = new StringBuilder();
       finalText.append("Regions re-added into Meta: ").append(encodedRegionNames.size());
       if(encodedRegionNames.size()>0){
-        finalText.append("\n\t")
-          .append("You need to run below hbck2 'assigns' command to bring these regions online:")
-          .append("\n\t\t")
-          .append(metaFixer.printHbck2AssignsCommand(encodedRegionNames));
+        finalText.append("\n")
+          .append("WARNING: \n\t")
+          .append(encodedRegionNames.size()).append(" regions were added to ")
+          .append("to META, but these are not yet on Masters cache. \n")
+          .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
+          .append(metaFixer.buildHbck2AssignsCommand(encodedRegionNames));
       }
       result = finalText.toString();
     } catch (InterruptedException ie){
@@ -392,19 +421,19 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   Returns whatever the previous region state was.");
     writer.println();
     writer.println(" " + ADD_MISSING_REGIONS_IN_META + " <TABLENAME>...");
-    writer.println("   Possible region states: " + Arrays.stream(RegionState.State.values()).
-      map(i -> i.toString()).collect(Collectors.joining(", ")));
-    writer.println("   To be used for scenarios where some regions may be missing in META table,");
+    writer.println("   To be used for scenarios where some regions may be missing in META,");
     writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
     writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
-    writer.println("   similar issues on 1.x release line. This command needs META to be online. ");
-    writer.println("   For each table name passed as parameter, it performs a diff between ");
-    writer.println("   regions available in META, against existing regions dirs on HDFS. ");
-    writer.println("   Then, for region dirs with no matches in META, it reads regioninfo' ");
-    writer.println("   metdata file and re-creates given region in META. ");
-    writer.println("   Regions are re-created in 'CLOSED' state, and are not assigned. ");
-    writer.println("   An hbck2 'assigns' command with all re-inserted regions is printed for ");
-    writer.println("   user convenience.");
+    writer.println("   similar issues on 1.x release line. ");
+    writer.println("   This command needs META to be online. For each table name passed as");
+    writer.println("   parameter, it performs a diff between regions available in META, ");
+    writer.println("   against existing regions dirs on HDFS. Then, for region dirs with ");
+    writer.println("   no matches in META, it reads regioninfo metadata file and ");
+    writer.println("   re-creates given region in META. Regions are re-created in 'CLOSED' ");
+    writer.println("   state at META table only, but not in Masters' cache, and are not ");
+    writer.println("   assigned either. A rolling Masters restart, followed by a ");
+    writer.println("   hbck2 'assigns' command with all re-inserted regions is required. ");
+    writer.println("   This hbck2 'assigns' command is printed for user convenience.");
     writer.println("   WARNING: To avoid potential region overlapping problems due to ongoing ");
     writer.println("   splits, this command disables given tables while re-inserting regions. ");
     writer.println("   An example adding missing regions for tables 'table_1' and 'table_2':");
