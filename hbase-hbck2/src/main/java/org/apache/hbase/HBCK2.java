@@ -64,10 +64,15 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 /**
@@ -171,13 +176,15 @@ public class HBCK2 extends Configured implements Tool {
     return EXIT_FAILURE;
   }
 
-  int addMissingRegionsInMeta(String... tableNames) throws  IOException {
+  int addMissingRegionsInMeta(String... tableNames) throws IOException {
     ExecutorService executorService = Executors.newFixedThreadPool(
       tableNames.length > Runtime.getRuntime().availableProcessors() ?
         Runtime.getRuntime().availableProcessors() : tableNames.length);
-    final CountDownLatch countDownLatch = new CountDownLatch(tableNames.length);
+    List<Future<List<String>>> futures = new ArrayList<>(tableNames.length);
     final List<String> encodedRegionNames = new ArrayList<>();
-    String result = "No regions added.";
+    List<ExecutionException> executionErrors = new ArrayList<>();
+    String resultText = "No regions added.";
+    int result = EXIT_SUCCESS;
     try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
       //reducing number of retries in case disable fails due to namespace table region also missing
       this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
@@ -186,50 +193,49 @@ public class HBCK2 extends Configured implements Tool {
         for (String table : tableNames) {
           final TableName tableName = TableName.valueOf(table);
           if(admin.tableExists(tableName)) {
-            executorService.submit(new Runnable() {
-              @Override public void run() {
+            futures.add(executorService.submit(new Callable<List<String>>() {
+              @Override
+              public List<String> call() throws Exception {
+                List<String> reAddedRegions = new ArrayList<>();
+                LOG.debug("running thread for {}", table);
+                List<Path> missingRegions = metaFixer.findMissingRegionsInMETA(table);
                 try {
-                  LOG.debug("running thread for {}", table);
-                  List<Path> missingRegions = metaFixer.findMissingRegionsInMETA(table);
-                  try {
-                    admin.disableTable(tableName);
-                  } catch (IOException e) {
-                    LOG.warn("Failed to disable table {}, "
-                        + "is namespace table also missing regions? Continue anyway...",
-                      table, e);
-                  }
-                  missingRegions.stream().forEach(path -> {
-                    try {
-                      metaFixer.putRegionInfoFromHdfsInMeta(path);
-                      encodedRegionNames.add(path.getName());
-                    } catch (Exception e) {
-                      e.printStackTrace();
-                    }
-                  });
-                  try {
-                    admin.enableTable(tableName);
-                  } catch (IOException e) {
-                    LOG.warn("Failed enabling table {}. It might be that namespace table "
-                        + "region is also missing.\n"
-                        + "After this command finishes, please make sure on this table state.",
-                      table, e);
-                  }
-                } catch (Exception e) {
-                  e.printStackTrace();
-                } finally {
-                  countDownLatch.countDown();
+                  admin.disableTable(tableName);
+                } catch (IOException e) {
+                  LOG.debug("Failed to disable table {}, "
+                      + "is namespace table also missing regions? Continue anyway...", table, e);
                 }
+                for(Path regionPath : missingRegions){
+                  metaFixer.putRegionInfoFromHdfsInMeta(regionPath);
+                  reAddedRegions.add(regionPath.getName());
+                }
+                try {
+                  admin.enableTable(tableName);
+                } catch (IOException e) {
+                  LOG.debug("Failed enabling table {}. It might be that namespace table "
+                      + "region is also missing.\n"
+                      + "After this command finishes, please make sure on this table state.",
+                    table, e);
+                }
+                return reAddedRegions;
               }
-            });
+            }));
           }else{
             LOG.warn("Table {} does not exist! Skipping...", table);
-            countDownLatch.countDown();
           }
         }
-        countDownLatch.await();
+        for(Future<List<String>> f : futures){
+          try {
+            encodedRegionNames.addAll(f.get());
+          } catch (ExecutionException e){
+            //we want to allow potential running threads to finish, so we collect execution
+            //errors and show those later
+            executionErrors.add(e);
+          }
+        }
         admin.close();
       }
-      StringBuilder finalText = new StringBuilder();
+      final StringBuilder finalText = new StringBuilder();
       finalText.append("Regions re-added into Meta: ").append(encodedRegionNames.size());
       if(encodedRegionNames.size()>0){
         finalText.append("\n")
@@ -239,16 +245,23 @@ public class HBCK2 extends Configured implements Tool {
           .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
           .append(metaFixer.buildHbck2AssignsCommand(encodedRegionNames));
       }
-      result = finalText.toString();
-    } catch (InterruptedException ie){
+      if(executionErrors.size()>0){
+        finalText.append("\n")
+          .append("ERROR: \n\t")
+          .append("There were following errors on at least one table thread:\n");
+        executionErrors.stream().forEach(e -> finalText.append(e.getMessage()).append("\n"));
+        result = EXIT_FAILURE;
+      }
+      resultText = finalText.toString();
+    } catch (Exception ie){
       System.out.println("ERROR executing thread: ");
       ie.printStackTrace();
       return EXIT_FAILURE;
     } finally {
       executorService.shutdown();
     }
-    System.out.println(result);
-    return EXIT_SUCCESS;
+    System.out.println(resultText);
+    return result;
   }
 
   List<Long> assigns(String [] args) throws IOException {

@@ -81,7 +81,7 @@ public class MetaFixer implements Closeable {
     return missingRegions;
   }
 
-  public void putRegionInfoFromHdfsInMeta(Path region) throws Exception{
+  public void putRegionInfoFromHdfsInMeta(Path region) throws IOException {
     RegionInfo info = HRegionFileSystem.loadRegionInfoFileContent(fs, region);
     MetaTableAccessor.addRegionToMeta(conn, info);
   }
