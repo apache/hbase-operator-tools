@@ -37,7 +37,9 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,6 +49,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class TestMetaFixer {
 
@@ -85,6 +88,18 @@ public class TestMetaFixer {
       .setQualifier(Bytes.toBytes("regioninfo"))
       .setType(Cell.Type.Put)
       .setValue(regionInfoValue)
+      .build();
+    return cell;
+  }
+
+  private Cell createCellForTableState(TableName tableName){
+    Cell cell = CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
+      .setRow(tableName.getName())
+      .setFamily(Bytes.toBytes("table"))
+      .setQualifier(Bytes.toBytes("state"))
+      .setType(Cell.Type.Put)
+      .setValue(HBaseProtos.TableState.newBuilder()
+        .setState(TableState.State.ENABLED.convert()).build().toByteArray())
       .build();
     return cell;
   }
@@ -143,6 +158,26 @@ public class TestMetaFixer {
     regions.add("region2");
     String result = fixer.buildHbck2AssignsCommand(regions);
     assertEquals("assigns region1 region2 ", result);
+  }
+
+  @Test
+  public void testReportTablesMissingRegionsOneMissing() throws  Exception {
+    ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
+    Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
+    List<Cell> cells = new ArrayList();
+    cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
+    Result result = Result.create(cells);
+    Mockito.when(mockedRS.next()).thenReturn(result,null);
+    FileStatus status = new FileStatus();
+    Path p = new Path(this.testTblDir+ "/182182182121");
+    status.setPath(p);
+    Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
+      .thenReturn(new FileStatus[]{status});
+    Mockito.when(this.mockedConnection.getTable(TableName.META_TABLE_NAME)).thenReturn(this.mockedTable);
+    Map<String, List<Path>> report = fixer.reportTablesMissingRegions(null);
+    assertEquals("Should had returned 1 missing region",
+      1,report.size());
+//    assertEquals(p, missingRegions.get(0));
   }
 
   private class TestInputStreamSeekable extends FSInputStream {

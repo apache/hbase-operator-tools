@@ -31,7 +31,11 @@ import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class MetaFixer implements Closeable {
   private static final String HBASE_DATA_DIR = "/data/";
@@ -61,6 +65,32 @@ public class MetaFixer implements Closeable {
     return fs.listStatus(new Path(tableRootDir));
   }
 
+  public Map<String,List<Path>> reportTablesMissingRegions(final List<String> namespacesOrTables)
+      throws IOException {
+    final Map<String,List<Path>> result = new HashMap<>();
+    List<TableName> tableNames = MetaTableAccessor.getTableStates(this.conn).keySet().stream()
+      .filter(tableName -> {
+        if(namespacesOrTables==null || namespacesOrTables.size()==0){
+          return true;
+        } else {
+          Optional<String> findings = namespacesOrTables.stream().filter(
+            name -> (name.indexOf(":") > 0) ?
+              tableName.getNameWithNamespaceInclAsString().equals(name) :
+              tableName.getNamespaceAsString().equals(name)).findFirst();
+          return findings.isPresent();
+        }
+      }).collect(Collectors.toList());
+    tableNames.stream().forEach(tableName -> {
+      try {
+        result.put(tableName.getNameWithNamespaceInclAsString(),
+          findMissingRegionsInMETA(tableName.getNameWithNamespaceInclAsString()));
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    });
+    return result;
+  }
+
   public List<Path> findMissingRegionsInMETA(String table) throws Exception {
     final List<Path> missingRegions = new ArrayList<>();
     final FileStatus[] regionsDirs = getTableRegionsDirs(table);
@@ -69,7 +99,6 @@ public class MetaFixer implements Closeable {
       getTableRegions(this.conn, tableName, false);
     for(final FileStatus regionDir : regionsDirs){
       if(!regionDir.getPath().getName().equals(".tabledesc")&&!regionDir.getPath().getName().equals(".tmp")) {
-        System.out.println("looking for " + regionDir + " in META.");
         boolean foundInMeta = regionInfos.stream()
           .anyMatch(info -> info.getEncodedName().equals(regionDir.getPath().getName()));
         if (!foundInMeta) {
