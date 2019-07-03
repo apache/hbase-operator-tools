@@ -152,15 +152,6 @@ public class TestMetaFixer {
   }
 
   @Test
-  public void testPrintHbck2AssignsCommand() throws Exception {
-    List<String> regions = new ArrayList<>();
-    regions.add("region1");
-    regions.add("region2");
-    String result = fixer.buildHbck2AssignsCommand(regions);
-    assertEquals("assigns region1 region2 ", result);
-  }
-
-  @Test
   public void testReportTablesMissingRegionsOneMissing() throws  Exception {
     ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
     Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
@@ -173,11 +164,11 @@ public class TestMetaFixer {
     status.setPath(p);
     Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
       .thenReturn(new FileStatus[]{status});
-    Mockito.when(this.mockedConnection.getTable(TableName.META_TABLE_NAME)).thenReturn(this.mockedTable);
-    Map<String, List<Path>> report = fixer.reportTablesMissingRegions(null);
+    Mockito.when(this.mockedConnection.getTable(TableName.META_TABLE_NAME))
+      .thenReturn(this.mockedTable);
+    Map<TableName, List<Path>> report = fixer.reportTablesMissingRegions(null);
     assertEquals("Should had returned 1 missing region",
       1,report.size());
-//    assertEquals(p, missingRegions.get(0));
   }
 
   private class TestInputStreamSeekable extends FSInputStream {

@@ -40,6 +40,8 @@ import java.util.stream.Collectors;
 public class MetaFixer implements Closeable {
   private static final String HBASE_DATA_DIR = "/data/";
   private static final String HBASE_DEFAULT_NAMESPACE = "default/";
+  private static final String TABLE_DESC_FILE = ".tabledesc";
+  private static final String TEMP_DIR = ".tmp";
   private FileSystem fs;
   private Connection conn;
   private Configuration config;
@@ -65,9 +67,9 @@ public class MetaFixer implements Closeable {
     return fs.listStatus(new Path(tableRootDir));
   }
 
-  public Map<String,List<Path>> reportTablesMissingRegions(final List<String> namespacesOrTables)
+  public Map<TableName,List<Path>> reportTablesMissingRegions(final List<String> namespacesOrTables)
       throws IOException {
-    final Map<String,List<Path>> result = new HashMap<>();
+    final Map<TableName,List<Path>> result = new HashMap<>();
     List<TableName> tableNames = MetaTableAccessor.getTableStates(this.conn).keySet().stream()
       .filter(tableName -> {
         if(namespacesOrTables==null || namespacesOrTables.size()==0){
@@ -82,7 +84,7 @@ public class MetaFixer implements Closeable {
       }).collect(Collectors.toList());
     tableNames.stream().forEach(tableName -> {
       try {
-        result.put(tableName.getNameWithNamespaceInclAsString(),
+        result.put(tableName,
           findMissingRegionsInMETA(tableName.getNameWithNamespaceInclAsString()));
       } catch (Exception e) {
         e.printStackTrace();
@@ -98,7 +100,8 @@ public class MetaFixer implements Closeable {
     List<RegionInfo> regionInfos = MetaTableAccessor.
       getTableRegions(this.conn, tableName, false);
     for(final FileStatus regionDir : regionsDirs){
-      if(!regionDir.getPath().getName().equals(".tabledesc")&&!regionDir.getPath().getName().equals(".tmp")) {
+      if(!regionDir.getPath().getName().equals(TABLE_DESC_FILE) &&
+          !regionDir.getPath().getName().equals(TEMP_DIR)) {
         boolean foundInMeta = regionInfos.stream()
           .anyMatch(info -> info.getEncodedName().equals(regionDir.getPath().getName()));
         if (!foundInMeta) {
@@ -113,13 +116,6 @@ public class MetaFixer implements Closeable {
   public void putRegionInfoFromHdfsInMeta(Path region) throws IOException {
     RegionInfo info = HRegionFileSystem.loadRegionInfoFileContent(fs, region);
     MetaTableAccessor.addRegionToMeta(conn, info);
-  }
-
-  public String buildHbck2AssignsCommand(List<String> regions) {
-    final StringBuilder builder = new StringBuilder();
-    builder.append("assigns ");
-    regions.forEach(region -> builder.append(region).append(" "));
-    return builder.toString();
   }
 
   @Override public void close() throws IOException {

@@ -46,6 +46,7 @@ import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -177,125 +178,96 @@ public class HBCK2 extends Configured implements Tool {
     return EXIT_FAILURE;
   }
 
-  Map<String,List<Path>> reportTablesWithMissingRegionsInMeta(String... nameSpaceOrTable)
+  Map<TableName,List<Path>> reportTablesWithMissingRegionsInMeta(String... nameSpaceOrTable)
       throws Exception {
-    final StringBuilder builder = new StringBuilder();
-    Map<String,List<Path>> report;
+    Map<TableName,List<Path>> report;
     try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
       List<String> names = nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
       report = metaFixer.reportTablesMissingRegions(names);
-      builder.append("Missing Regions for each table:\n\t");
-      report.keySet().stream().forEach(table -> {
-        builder.append(table);
-        if (report.get(table).size()>0){
-          builder.append("->\n\t\t");
-          report.get(table).stream().forEach(region -> builder.append(region.getName())
-            .append(" "));
-        } else {
-          builder.append(" -> No missing regions");
-        }
-        builder.append("\n\t");
-      });
     } catch (Exception e) {
       LOG.error("Error reporting missing regions: ", e);
       throw e;
     }
-    System.out.println(builder);
+    if(LOG.isDebugEnabled()) {
+      LOG.debug(formatMissingRegionsInMetaReport(report));
+    }
     return report;
   }
 
   List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
-    List<String> reAddedRegions = new ArrayList<>();
+    List<String> reAddedRegionsEncodedNames = new ArrayList<>();
     try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
       for(Path regionPath : regionsPath){
         metaFixer.putRegionInfoFromHdfsInMeta(regionPath);
-        reAddedRegions.add(regionPath.getName());
+        reAddedRegionsEncodedNames.add(regionPath.getName());
       }
     }
-    return reAddedRegions;
+    return reAddedRegionsEncodedNames;
   }
 
-  int addMissingRegionsInMetaForTables(String... nameSpaceOrTable) throws IOException {
+  Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
+      nameSpaceOrTable) {
     ExecutorService executorService = Executors.newFixedThreadPool(
       nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors() ?
         Runtime.getRuntime().availableProcessors() : nameSpaceOrTable.length);
     List<Future<List<String>>> futures = new ArrayList<>(nameSpaceOrTable.length);
-    final List<String> encodedRegionNames = new ArrayList<>();
+    final List<String> readdedRegionNames = new ArrayList<>();
     List<ExecutionException> executionErrors = new ArrayList<>();
-    String resultText = "No regions added.";
-    int result = EXIT_SUCCESS;
     try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
       //reducing number of retries in case disable fails due to namespace table region also missing
       this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
-      try(Connection conn = ConnectionFactory.createConnection(this.conf)) {
-        final Admin admin = conn.getAdmin();
-        Map<String,List<Path>> report = this.reportTablesWithMissingRegionsInMeta(nameSpaceOrTable);
-        for (String table : report.keySet()) {
-          final TableName tableName = TableName.valueOf(table);
+      try(Connection conn = ConnectionFactory.createConnection(this.conf);
+        final Admin admin = conn.getAdmin()) {
+        Map<TableName,List<Path>> report = reportTablesWithMissingRegionsInMeta(nameSpaceOrTable);
+        for (TableName tableName : report.keySet()) {
           if(admin.tableExists(tableName)) {
             futures.add(executorService.submit(new Callable<List<String>>() {
               @Override
               public List<String> call() throws Exception {
-                LOG.debug("running thread for {}", table);
+                LOG.debug("running thread for {}", tableName.getNameWithNamespaceInclAsString());
                 try {
                   admin.disableTable(tableName);
                 } catch (IOException e) {
                   LOG.debug("Failed to disable table {}, "
-                      + "is namespace table also missing regions? Continue anyway...", table, e);
+                      + "is namespace table also missing regions? Continue anyway...",
+                    tableName.getNameWithNamespaceInclAsString(), e);
                 }
-                List<String> reAddedRegions = addMissingRegionsInMeta(report.get(table));
+                List<String> reAddedRegions = addMissingRegionsInMeta(report.get(tableName));
                 try {
                   admin.enableTable(tableName);
                 } catch (IOException e) {
                   LOG.debug("Failed enabling table {}. It might be that namespace table "
                       + "region is also missing.\n"
                       + "After this command finishes, please make sure on this table state.",
-                    table, e);
+                    tableName.getNameWithNamespaceInclAsString(), e);
                 }
                 return reAddedRegions;
               }
             }));
-          }else{
-            LOG.warn("Table {} does not exist! Skipping...", table);
+          } else {
+            LOG.warn("Table {} does not exist! Skipping...",
+              tableName.getNameWithNamespaceInclAsString());
           }
         }
         for(Future<List<String>> f : futures){
           try {
-            encodedRegionNames.addAll(f.get());
+            readdedRegionNames.addAll(f.get());
           } catch (ExecutionException e){
             //we want to allow potential running threads to finish, so we collect execution
             //errors and show those later
             executionErrors.add(e);
           }
         }
-        admin.close();
       }
-      final StringBuilder finalText = new StringBuilder();
-      finalText.append("Regions re-added into Meta: ").append(encodedRegionNames.size());
-      if(encodedRegionNames.size()>0){
-        finalText.append("\n")
-          .append("WARNING: \n\t")
-          .append(encodedRegionNames.size()).append(" regions were added ")
-          .append("to META, but these are not yet on Masters cache. \n")
-          .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
-          .append(metaFixer.buildHbck2AssignsCommand(encodedRegionNames));
-      }
-      if(executionErrors.size()>0){
-        finalText.append("\n")
-          .append("ERROR: \n\t")
-          .append("There were following errors on at least one table thread:\n");
-        executionErrors.stream().forEach(e -> finalText.append(e.getMessage()).append("\n"));
-        result = EXIT_FAILURE;
-      }
-      resultText = finalText.toString();
     } catch (Exception ie){
       System.out.println("ERROR executing thread: ");
       ie.printStackTrace();
-      return EXIT_FAILURE;
     } finally {
       executorService.shutdown();
     }
-    System.out.println(resultText);
+    Pair<List<String>, List<ExecutionException>> result = new Pair<>();
+    result.setFirst(readdedRegionNames);
+    result.setSecond(executionErrors);
     return result;
   }
 
@@ -669,11 +641,15 @@ public class HBCK2 extends Configured implements Tool {
         usage(options, command + " takes one or more table names.");
         return EXIT_FAILURE;
       }
-      System.out.println(this.addMissingRegionsInMetaForTables(purgeFirst(commands)));
+      Pair<List<String>, List<ExecutionException>> result =
+        addMissingRegionsInMetaForTables(purgeFirst(commands));
+      System.out.println(formatReAddedRegionsMessage(result.getFirst(),result.getSecond()));
       break;
     case REPORT_MISSING_REGIONS_IN_META:
       try {
-        this.reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
+        Map<TableName,List<Path>> report =
+          reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
+        System.out.println(formatMissingRegionsInMetaReport(report));
       } catch (Exception e) {
         return EXIT_FAILURE;
       }
@@ -687,6 +663,51 @@ public class HBCK2 extends Configured implements Tool {
 
   private static String toString(List<?> things) {
     return things.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
+  }
+
+  private String formatMissingRegionsInMetaReport(Map<TableName,List<Path>> report) {
+    final StringBuilder builder = new StringBuilder();
+    builder.append("Missing Regions for each table:\n\t");
+    report.keySet().stream().forEach(table -> {
+      builder.append(table);
+      if (report.get(table).isEmpty()){
+        builder.append("->\n\t\t");
+        report.get(table).stream().forEach(region -> builder.append(region.getName())
+          .append(" "));
+      } else {
+        builder.append(" -> No missing regions");
+      }
+      builder.append("\n\t");
+    });
+    return builder.toString();
+  }
+
+  private String formatReAddedRegionsMessage(List<String> readdedRegionNames,
+    List<ExecutionException> executionErrors) {
+    final StringBuilder finalText = new StringBuilder();
+    finalText.append("Regions re-added into Meta: ").append(readdedRegionNames.size());
+    if(readdedRegionNames.isEmpty()){
+      finalText.append("\n")
+        .append("WARNING: \n\t")
+        .append(readdedRegionNames.size()).append(" regions were added ")
+        .append("to META, but these are not yet on Masters cache. \n")
+        .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
+        .append(buildHbck2AssignsCommand(readdedRegionNames));
+    }
+    if(executionErrors.isEmpty()){
+      finalText.append("\n")
+        .append("ERROR: \n\t")
+        .append("There were following errors on at least one table thread:\n");
+      executionErrors.stream().forEach(e -> finalText.append(e.getMessage()).append("\n"));
+    }
+    return finalText.toString();
+  }
+
+  private String buildHbck2AssignsCommand(List<String> regions) {
+    final StringBuilder builder = new StringBuilder();
+    builder.append("assigns ");
+    regions.forEach(region -> builder.append(region).append(" "));
+    return builder.toString();
   }
 
   /**
