@@ -42,9 +42,9 @@ public class MetaFixer implements Closeable {
   private static final String HBASE_DEFAULT_NAMESPACE = "default/";
   private static final String TABLE_DESC_FILE = ".tabledesc";
   private static final String TEMP_DIR = ".tmp";
-  private FileSystem fs;
-  private Connection conn;
-  private Configuration config;
+  private final FileSystem fs;
+  private final Connection conn;
+  private final Configuration config;
 
   public MetaFixer(Configuration configuration) throws IOException {
     this.config = configuration;
