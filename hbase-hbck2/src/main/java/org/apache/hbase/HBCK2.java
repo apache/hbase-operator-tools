@@ -473,7 +473,7 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   This is a checking only method, designed for reporting purposes and");
     writer.println("   doesn't perform any fixes, providing a view of which regions (if any) ");
     writer.println("   would get re-added to meta, grouped by respective table/namespace. ");
-    writer.println("   To effectively re-added regions in meta, "
+    writer.println("   To effectively re-add regions in meta, "
       + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " should be executed. ");
     writer.println("   This command needs META to be online. For each namespace/table passed");
     writer.println("   as parameter, it performs a diff between regions available in META, ");
