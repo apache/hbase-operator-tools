@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -78,13 +78,14 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 // + Add emitting what is supported against remote server?
 public class HBCK2 extends Configured implements Tool {
   private static final Logger LOG = LogManager.getLogger(HBCK2.class);
-  public static final int EXIT_SUCCESS = 0;
-  public static final int EXIT_FAILURE = 1;
+  private static final int EXIT_SUCCESS = 0;
+  static final int EXIT_FAILURE = 1;
   // Commands
   private static final String SET_TABLE_STATE = "setTableState";
   private static final String ASSIGNS = "assigns";
   private static final String UNASSIGNS = "unassigns";
   private static final String BYPASS = "bypass";
+  private static final String FILESYSTEM = "filesystem";
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
   private Configuration conf;
@@ -99,7 +100,7 @@ public class HBCK2 extends Configured implements Tool {
   /**
    * Check for HBCK support.
    */
-  void checkHBCKSupport(Connection connection) throws IOException {
+  private void checkHBCKSupport(Connection connection) throws IOException {
     if(skipCheck){
       LOG.info("hbck support check skipped");
       return;
@@ -170,7 +171,7 @@ public class HBCK2 extends Configured implements Tool {
     options.addOption(override);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine = null;
+    CommandLine commandLine;
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
@@ -193,7 +194,7 @@ public class HBCK2 extends Configured implements Tool {
     options.addOption(override);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine = null;
+    CommandLine commandLine;
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
@@ -213,7 +214,7 @@ public class HBCK2 extends Configured implements Tool {
   /**
    * @return List of results OR null if failed to run.
    */
-  List<Boolean> bypass(String [] args)
+  private List<Boolean> bypass(String[] args)
       throws IOException {
     // Bypass has two options....
     Options options = new Options();
@@ -226,7 +227,7 @@ public class HBCK2 extends Configured implements Tool {
     options.addOption(wait);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine = null;
+    CommandLine commandLine;
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
@@ -244,7 +245,7 @@ public class HBCK2 extends Configured implements Tool {
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean recursiveFlag = commandLine.hasOption(override.getOpt());
-    List<Long> pids = Arrays.stream(pidStrs).map(i -> Long.valueOf(i)).collect(Collectors.toList());
+    List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
     try (ClusterConnection c = (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
       checkHBCKSupport(c);
       try (Hbck hbck = c.getHbck()) {
@@ -253,6 +254,9 @@ public class HBCK2 extends Configured implements Tool {
     }
   }
 
+  /**
+   * Read property from hbck2.properties file.
+   */
   private String readHBCK2BuildProperties(final String propertyKey) throws IOException {
     ClassLoader classLoader = getClass().getClassLoader();
     InputStream inputStream = classLoader.getResourceAsStream("hbck2.properties");
@@ -260,7 +264,8 @@ public class HBCK2 extends Configured implements Tool {
     properties.load(inputStream);
     return properties.getProperty(propertyKey);
   }
-  private static final String getCommandUsage() {
+
+  private static String getCommandUsage() {
     // NOTE: List commands belonw alphabetically!
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
@@ -291,32 +296,22 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   you have is a parent pid to finish parent and children. This");
     writer.println("   is SLOW, and dangerous so use selectively. Does not always work.");
     writer.println();
-    writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
+    // out.println("   -checkCorruptHFiles     Check all Hfiles by opening them to make sure they are valid");
+    // out.println("   -sidelineCorruptHFiles  Quarantine corrupted HFiles.  implies -checkCorruptHFiles");
+    // out.println("   -fixVersionFile   Try to fix missing hbase.version file in hdfs.");
+    // out.println("   -fixReferenceFiles  Try to offline lingering reference store files");
+    // out.println("   -fixHFileLinks  Try to offline lingering HFileLinks");
+    writer.println(" " + FILESYSTEM + " [OPTIONS] [<TABLENAME...]");
     writer.println("   Options:");
-    writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("   A 'raw' unassign that can be used even during Master initialization");
-    writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one or");
-    writer.println("   more encoded region names. 1588230740 is the hard-coded name for");
-    writer.println("   the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an");
-    writer.println("   example of what a userspace encoded region name looks like.");
-    writer.println("   For example:");
-    writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
-    writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
-    writer.println();
-    writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
-    writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
-        map(i -> i.toString()).collect(Collectors.joining(", ")));
-    writer.println("   To read current table state, in the hbase shell run: ");
-    writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
-    writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
-    writer.println("   Can also run a 'describe \"<TABLENAME>\"' at the shell prompt.");
-    writer.println("   An example making table name 'user' ENABLED:");
-    writer.println("     $ HBCK2 setTableState users ENABLED");
-    writer.println("   Returns whatever the previous table state was.");
+    writer.println("    -f, --fix    sideline corrupt hfiles, bad links and references.");
+    writer.println("   Report corrupt hfiles and broken links. Pass '--fix' to sideline");
+    writer.println("   corrupt files and links. Pass one or more tablenames to narrow");
+    writer.println("   the checkup. Default checks all tables. Modified regions will");
+    writer.println("   need to be reopened to pickup changes.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states:");
-    writer.println("      " + Arrays.stream(RegionState.State.values()).map(i -> i.toString()).
+    writer.println("      " + Arrays.stream(RegionState.State.values()).map(Enum::toString).
         collect(Collectors.joining(", ")));
     writer.println("   WARNING: This is a very risky option intended for use as last resort.");
     writer.println("   Example scenarios include unassigns/assigns that can't move forward");
@@ -331,13 +326,36 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
     writer.println();
+    writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
+    writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
+        map(Enum::toString).collect(Collectors.joining(", ")));
+    writer.println("   To read current table state, in the hbase shell run: ");
+    writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
+    writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
+    writer.println("   Can also run a 'describe \"<TABLENAME>\"' at the shell prompt.");
+    writer.println("   An example making table name 'user' ENABLED:");
+    writer.println("     $ HBCK2 setTableState users ENABLED");
+    writer.println("   Returns whatever the previous table state was.");
+    writer.println();
+    writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
+    writer.println("   Options:");
+    writer.println("    -o,--override  override ownership by another procedure");
+    writer.println("   A 'raw' unassign that can be used even during Master initialization");
+    writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one or");
+    writer.println("   more encoded region names. 1588230740 is the hard-coded name for");
+    writer.println("   the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an");
+    writer.println("   example of what a userspace encoded region name looks like.");
+    writer.println("   For example:");
+    writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
+    writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
     writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
     writer.close();
     return sw.toString();
   }
 
-  static void usage(Options options) {
+  private static void usage(Options options) {
     usage(options, null);
   }
 
@@ -386,7 +404,7 @@ public class HBCK2 extends Configured implements Tool {
 
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine = null;
+    CommandLine commandLine;
     try {
       commandLine = parser.parse(options, args, true);
     } catch (ParseException e) {
@@ -484,6 +502,15 @@ public class HBCK2 extends Configured implements Tool {
           return EXIT_FAILURE;
         }
         return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
+
+      case FILESYSTEM:
+        try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
+          if (fsfsck.fsck(options, purgeFirst(commands)) != 0) {
+            return EXIT_FAILURE;
+          }
+        }
+        break;
+
       default:
         usage(options, "Unsupported command: " + command);
         return EXIT_FAILURE;
@@ -492,7 +519,7 @@ public class HBCK2 extends Configured implements Tool {
   }
 
   private static String toString(List<?> things) {
-    return things.stream().map(i -> i.toString()).collect(Collectors.joining(", "));
+    return things.stream().map(Object::toString).collect(Collectors.joining(", "));
   }
 
   /**
@@ -519,6 +546,5 @@ public class HBCK2 extends Configured implements Tool {
     if (errCode != 0) {
       System.exit(errCode);
     }
-    return;
   }
 }

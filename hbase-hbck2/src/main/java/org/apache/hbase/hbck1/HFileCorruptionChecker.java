@@ -508,14 +508,14 @@ public class HFileCorruptionChecker {
    * Print a human readable summary of hfile quarantining operations.
    */
   public void report(HBaseFsck.ErrorReporter out) {
-    out.print("Checked " + hfilesChecked.get() + " hfile for corruption");
-    out.print("  HFiles corrupted:                  " + corrupted.size());
+    out.print("Checked " + hfilesChecked.get() + " hfiles for corruption");
+    out.print("  Corrupt HFiles:                    " + corrupted.size());
     if (inQuarantineMode) {
-      out.print("    HFiles successfully quarantined: " + quarantined.size());
+      out.print("    Successfully Quarantined HFiles: " + quarantined.size());
       for (Path sq : quarantined) {
         out.print("      " + sq);
       }
-      out.print("    HFiles failed quarantine:        " + failures.size());
+      out.print("    Failed Quarantine HFiles:        " + failures.size());
       for (Path fq : failures) {
         out.print("      " + fq);
       }
@@ -529,18 +529,26 @@ public class HFileCorruptionChecker {
     String fixedState = (corrupted.size() == quarantined.size()) ? "OK"
         : "CORRUPTED";
 
-    // print mob-related report
     if (inQuarantineMode) {
-      out.print("    Mob files successfully quarantined: " + quarantinedMobFiles.size());
+      out.print("Summary:     " + initialState + " => " + fixedState);
+    } else {
+      out.print("Summary:     " + initialState);
+    }
+
+    // print mob-related report
+    out.print("Checked " + mobFilesChecked.get() + " MOB files for corruption");
+    out.print("  Corrupt MOB files:                 " + corruptedMobFiles.size());
+    if (inQuarantineMode) {
+      out.print("    Successfully Quarantined MOB files: " + quarantinedMobFiles.size());
       for (Path sq : quarantinedMobFiles) {
         out.print("      " + sq);
       }
-      out.print("    Mob files failed quarantine:        " + failureMobFiles.size());
+      out.print("    Failed Quarantine MOB files:        " + failureMobFiles.size());
       for (Path fq : failureMobFiles) {
         out.print("      " + fq);
       }
     }
-    out.print("    Mob files moved while checking:     " + missedMobFiles.size());
+    out.print("    MOB files moved while checking:  " + missedMobFiles.size());
     for (Path mq : missedMobFiles) {
       out.print("      " + mq);
     }
@@ -549,11 +557,9 @@ public class HFileCorruptionChecker {
         : "CORRUPTED";
 
     if (inQuarantineMode) {
-      out.print("Summary: " + initialState + " => " + fixedState);
-      out.print("Mob summary: " + initialMobState + " => " + fixedMobState);
+      out.print("MOB summary: " + initialMobState + " => " + fixedMobState);
     } else {
-      out.print("Summary: " + initialState);
-      out.print("Mob summary: " + initialMobState);
+      out.print("MOB summary: " + initialMobState);
     }
   }
 }
