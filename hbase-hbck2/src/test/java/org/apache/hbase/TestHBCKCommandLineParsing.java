@@ -20,12 +20,11 @@ package org.apache.hbase;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.util.Properties;
 
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
@@ -64,13 +63,10 @@ public class TestHBCKCommandLineParsing {
   @Test
   public void testVersionOption() throws IOException {
     // Read the hbck version from properties file.
-    String line;
-    String expectedVersionOutput = "";
     InputStream inputStream = getClass().getClassLoader().getResourceAsStream("hbck2.properties");
-    BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
-    while ((line = br.readLine()) != null) {
-      expectedVersionOutput += line;
-    }
+    final Properties properties = new Properties();
+    properties.load(inputStream);
+    String expectedVersionOutput = properties.getProperty("version");
     // Get hbck version option output.
     String actualVersionOutput = retrieveOptionOutput("-v").trim();
     assertEquals(expectedVersionOutput, actualVersionOutput);
