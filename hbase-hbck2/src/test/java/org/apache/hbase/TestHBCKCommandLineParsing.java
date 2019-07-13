@@ -17,10 +17,8 @@
  */
 package org.apache.hbase;
 
-import org.apache.commons.cli.ParseException;
-import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.logging.log4j.LogManager;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -29,7 +27,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 
-import static org.junit.Assert.*;
+import org.apache.commons.cli.ParseException;
+import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.apache.logging.log4j.LogManager;
+import org.junit.Test;
 
 /**
  * Does command-line parsing tests. No clusters.
