@@ -17,6 +17,16 @@
  */
 package org.apache.hbase;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.stream.Collectors;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -52,17 +62,6 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * HBase fixup tool version 2, for hbase-2.0.0+ clusters.
@@ -253,18 +252,13 @@ public class HBCK2 extends Configured implements Tool {
     }
   }
 
-  private String readHBCK2BuildProperties() throws IOException {
+  private String readHBCK2BuildProperties(final String propertyKey) throws IOException {
     ClassLoader classLoader = getClass().getClassLoader();
     InputStream inputStream = classLoader.getResourceAsStream("hbck2.properties");
-    StringBuilder resultStringBuilder = new StringBuilder();
-    BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
-    String line;
-    while ((line = br.readLine()) != null) {
-      resultStringBuilder.append(line).append("\n");
-    }
-    return resultStringBuilder.toString();
+    final Properties properties = new Properties();
+    properties.load(inputStream);
+    return properties.getProperty(propertyKey);
   }
-
   private static final String getCommandUsage() {
     // NOTE: List commands belonw alphabetically!
     StringWriter sw = new StringWriter();
@@ -397,7 +391,7 @@ public class HBCK2 extends Configured implements Tool {
 
     // Process general options.
     if (commandLine.hasOption(version.getOpt())) {
-      System.out.println(readHBCK2BuildProperties());
+      System.out.println(readHBCK2BuildProperties(VERSION));
       return EXIT_SUCCESS;
     }
     if (commandLine.hasOption(help.getOpt()) || commandLine.getArgList().isEmpty()) {
