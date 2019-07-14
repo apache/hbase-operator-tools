@@ -312,7 +312,7 @@
           </dependencies>
           <configuration>
             <configLocation>hbase/checkstyle.xml</configLocation>
-            <suppressionsLocation>dev-support/checkstyle-suppressions.xml</suppressionsLocation>
+            <suppressionsLocation>build-support/checkstyle-suppressions.xml</suppressionsLocation>
             <includeTestSourceDirectory>true</includeTestSourceDirectory>
           </configuration>
         </plugin>
