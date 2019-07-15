@@ -269,11 +269,12 @@ public class HBCK2 extends Configured implements Tool {
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("   A 'raw' assign that can be used even during Master initialization.");
-    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames.");
-    writer.println("   1588230740 is the hard-coded name for the hbase:meta region and");
-    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a user-space");
-    writer.println("   encoded Region name looks like. For example:");
+    writer.println("   A 'raw' assign that can be used even during Master initialization");
+    writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one");
+    writer.println("   or more encoded region names. 1588230740 is the hard-coded name");
+    writer.println("   for the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is");
+    writer.println("   an example of what a user-space encoded region name looks like.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
     writer.println();
@@ -281,7 +282,7 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   Options:");
     writer.println("    -o,--override   override if procedure is running/stuck");
     writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
-    writer.println("    -w,--lockWait   milliseconds to wait on lock before giving up; default=1");
+    writer.println("    -w,--lockWait   milliseconds to wait before giving up; default=1");
     writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish.");
     writer.println("   Parent of bypassed procedure will also be skipped to the finish.");
     writer.println("   Entities will be left in an inconsistent state and will require");
@@ -293,11 +294,12 @@ public class HBCK2 extends Configured implements Tool {
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("   A 'raw' unassign that can be used even during Master initialization.");
-    writer.println("   Skirts Coprocessors. Pass one or more encoded RegionNames:");
-    writer.println("   1588230740 is the hard-coded name for the hbase:meta region and");
-    writer.println("   de00010733901a05f5a2a3a382e27dd4 is an example of what a user-space");
-    writer.println("   encoded Region name looks like. For example:");
+    writer.println("   A 'raw' unassign that can be used even during Master initialization");
+    writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one or");
+    writer.println("   more encoded region names. 1588230740 is the hard-coded name for");
+    writer.println("   the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an");
+    writer.println("   example of what a userspace encoded region name looks like.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
     writer.println();
@@ -307,29 +309,30 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   To read current table state, in the hbase shell run: ");
     writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
     writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
+    writer.println("   Can also run a 'describe \"<TABLENAME>\"' at the shell prompt.");
     writer.println("   An example making table name 'user' ENABLED:");
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
-    writer.println("   Possible region states: " + Arrays.stream(RegionState.State.values()).
-      map(i -> i.toString()).collect(Collectors.joining(", ")));
+    writer.println("   Possible region states:");
+    writer.println("      " + Arrays.stream(RegionState.State.values()).map(i -> i.toString()).
+        collect(Collectors.joining(", ")));
     writer.println("   WARNING: This is a very risky option intended for use as last resort.");
-    writer.println("    Example scenarios are when unassigns/assigns can't move forward ");
-    writer.println("     due to region being in an inconsistent state in META. For example, ");
-    writer.println("     'unassigns' command can only proceed ");
-    writer.println("      if passed in region is in one of following states: ");
-    writer.println("                [SPLITTING|SPLIT|MERGING|OPEN|CLOSING]");
-    writer.println("   Before manually setting a region state with this command,");
-    writer.println("   please certify that this region is not being handled by");
-    writer.println("   by a running procedure, such as Assign or Split. You can get a view of ");
-    writer.println("   running procedures from hbase shell, using 'list_procedures' command. ");
-    writer.println("   An example setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:");
+    writer.println("   Example scenarios include unassigns/assigns that can't move forward");
+    writer.println("   because region is in an inconsistent state in 'hbase:meta'. For");
+    writer.println("   example, the 'unassigns' command can only proceed if passed a region");
+    writer.println("   in one of the following states: SPLITTING|SPLIT|MERGING|OPEN|CLOSING");
+    writer.println("   Before manually setting a region state with this command, please");
+    writer.println("   certify that this region is not being handled by a running procedure,");
+    writer.println("   such as 'assign' or 'split'. You can get a view of running procedures");
+    writer.println("   in the hbase shell using the 'list_procedures' command. An example");
+    writer.println("   setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:");
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
-    writer.println("   Returns \"0\" SUCCESS code if it informed region state is changed, "
-      + "\"1\" FAIL code otherwise.");
+    writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
     writer.println();
-
+    writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
+    writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
     writer.close();
     return sw.toString();
   }
@@ -377,7 +380,8 @@ public class HBCK2 extends Configured implements Tool {
     options.addOption(peerPort);
     Option version = Option.builder("v").longOpt(VERSION).desc("this hbck2 version").build();
     options.addOption(version);
-    Option skip = Option.builder("s").longOpt("skip").desc("skip hbase version check").build();
+    Option skip = Option.builder("s").longOpt("skip").
+        desc("skip hbase version check/PleaseHoldException/Master initializing").build();
     options.addOption(skip);
 
     // Parse command-line.
