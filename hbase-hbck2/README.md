@@ -345,3 +345,47 @@ HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.H
 The same may happen to the _hbase:namespace_ system table. Look for the
 encoded Region name of the _hbase:namespace_ Region and do similar to
 what we did for _hbase:meta_.
+
+### Missing Regions in META
+
+There's been some extra-ordinary cases where table regions are removed from META table.
+Some triage on such cases revealed those were operator-induced, after execution
+attempts of the obsolete _OfflineMetaRepair_ tool. _OfflineMetaRepair_ is a well known tool
+for fixing META table related issues on HBase 1.x versions. This tool is not compatible with
+HBase 2.x or higher versions, its usage can create the type of damage described here. That
+ultimately motivated its complete removal on HBASE-22690, and it's no longer available from
+HBase 2.3.0 onwards.
+
+For recovering from missing regions in META scenarios, HBCK2 provides _addMissingRegionsInMeta_
+command. On such cases, _namespace_ table region usually will also be among those missing in
+META. This will cause master (hbase) initialization to fail after some initial period. A META
+scan can help confirm if this condition is being reached:
+
+```
+echo "scan 'hbase:meta', {COLUMN=>'info:regioninfo'}" | hbase shell | grep namespace
+```
+
+If above doesn't return anything, it means _namespace_ region info is missing in META. The same
+command can be adjusted for checking other tables regions as well.
+
+HBCK2 _addMissingRegionsInMeta_ reads region metadata info available on the FS region dirs, in
+order to re-create regions in META. It can check for specific tables/namespaces, or all tables
+from all namespaces. An example adding missing regions for tables 'tbl_1' on default namespace,
+'tbl_2' on namespace 'n1' and for all tables from namespace 'n2':
+
+```
+$ HBCK2 addMissingRegionsInMeta default:tbl_1 n1:tbl_2 n2
+```
+
+As it operates independently from Master, once it finishes successfully, additional steps are
+required to actually have the re-added regions assigned. These are listed below:
+
+1. _addMissingRegionsInMeta_ outputs an _assigns_ command with all regions that got re-added. This
+command needs to be executed later, so copy and save it for convenience.
+
+2. After _addMissingRegionsInMeta_ finished successfully and output has been saved, restart all
+running HBase Masters.
+
+3. Once Master's are restarted and META is already online (check if Web UI is accessible), run
+_assigns_ command from _addMissingRegionsInMeta_ output saved per instructions from #1.
+

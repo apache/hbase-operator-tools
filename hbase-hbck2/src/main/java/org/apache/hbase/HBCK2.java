@@ -208,12 +208,15 @@ public class HBCK2 extends Configured implements Tool {
   Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
       nameSpaceOrTable) {
     ExecutorService executorService = Executors.newFixedThreadPool(
-      nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors() ?
-        Runtime.getRuntime().availableProcessors() : nameSpaceOrTable.length);
-    List<Future<List<String>>> futures = new ArrayList<>(nameSpaceOrTable.length);
+      (nameSpaceOrTable == null ||
+        nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors()) ?
+          Runtime.getRuntime().availableProcessors() :
+          nameSpaceOrTable.length);
+    List<Future<List<String>>> futures = new ArrayList<>( nameSpaceOrTable == null ? 1 :
+      nameSpaceOrTable.length);
     final List<String> readdedRegionNames = new ArrayList<>();
     List<ExecutionException> executionErrors = new ArrayList<>();
-    try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
+    try {
       //reducing number of retries in case disable fails due to namespace table region also missing
       this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
       try(Connection conn = ConnectionFactory.createConnection(this.conf);
@@ -255,13 +258,13 @@ public class HBCK2 extends Configured implements Tool {
           } catch (ExecutionException e){
             //we want to allow potential running threads to finish, so we collect execution
             //errors and show those later
+            LOG.debug("Caught execution error: ", e);
             executionErrors.add(e);
           }
         }
       }
     } catch (Exception ie){
-      System.out.println("ERROR executing thread: ");
-      ie.printStackTrace();
+      LOG.error("ERROR executing thread: ", ie);
     } finally {
       executorService.shutdown();
     }
@@ -677,7 +680,7 @@ public class HBCK2 extends Configured implements Tool {
     builder.append("Missing Regions for each table:\n\t");
     report.keySet().stream().forEach(table -> {
       builder.append(table);
-      if (report.get(table).isEmpty()){
+      if (!report.get(table).isEmpty()){
         builder.append("->\n\t\t");
         report.get(table).stream().forEach(region -> builder.append(region.getName())
           .append(" "));
