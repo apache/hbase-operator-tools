@@ -17,12 +17,11 @@
  */
 package org.apache.hbase;
 
-import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.stream.Collectors;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -30,11 +29,12 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hbase.hbck1.HBaseFsck;
 import org.apache.hbase.hbck1.HFileCorruptionChecker;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.stream.Collectors;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
 /**
  * Checks and repairs for hbase filesystem.
@@ -59,7 +59,7 @@ public class FileSystemFsck implements Closeable {
   int fsck(Options hbck2Options, String[] args) throws IOException {
     Options options = new Options();
     Option fixOption = Option.builder("f").longOpt("fix").build();
-      options.addOption(fixOption);
+    options.addOption(fixOption);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
