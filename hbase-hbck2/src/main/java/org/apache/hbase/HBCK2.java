@@ -296,8 +296,10 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   you have is a parent pid to finish parent and children. This");
     writer.println("   is SLOW, and dangerous so use selectively. Does not always work.");
     writer.println();
-    // out.println("   -checkCorruptHFiles     Check all Hfiles by opening them to make sure they are valid");
-    // out.println("   -sidelineCorruptHFiles  Quarantine corrupted HFiles.  implies -checkCorruptHFiles");
+    // out.println("   -checkCorruptHFiles     Check all Hfiles by opening them to make
+    // sure they are valid");
+    // out.println("   -sidelineCorruptHFiles  Quarantine corrupted HFiles.  implies
+    // -checkCorruptHFiles");
     // out.println("   -fixVersionFile   Try to fix missing hbase.version file in hdfs.");
     // out.println("   -fixReferenceFiles  Try to offline lingering reference store files");
     // out.println("   -fixHFileLinks  Try to offline lingering HFileLinks");
