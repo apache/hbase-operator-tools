@@ -841,6 +841,13 @@ public class HBaseFsck extends Configured implements Closeable {
     }
   }
 
+  public void offlineHbck() throws IOException, InterruptedException {
+    // Do offline check and repair first
+    offlineHdfsIntegrityRepair();
+    offlineReferenceFileRepair();
+    offlineHLinkFileRepair();
+  }
+
   /**
    * Contacts the master and prints out cluster-wide information
    * @return 0 on success, non-zero on failure
@@ -853,9 +860,7 @@ public class HBaseFsck extends Configured implements Closeable {
     // Clean start
     clearState();
     // Do offline check and repair first
-    offlineHdfsIntegrityRepair();
-    offlineReferenceFileRepair();
-    offlineHLinkFileRepair();
+    offlineHbck();
     // If Master runs maintenance tasks (such as balancer, catalog janitor, etc) during online
     // hbck, it is likely that hbck would be misled and report transient errors.  Therefore, it
     // is better to set Master into maintenance mode during online hbck.
@@ -1187,9 +1192,7 @@ public class HBaseFsck extends Configured implements Closeable {
     FileSystem fs = hbaseRoot.getFileSystem(conf);
     LOG.info("Computing mapping of all store files");
     Map<String, Path> allFiles = FSUtils.getTableStoreFilePathMap(fs, hbaseRoot,
-      new FSUtils.ReferenceFileFilter(fs), executor,
-        null/* Used to report progress only! errors*/);
-    errors.print("");
+      new FSUtils.ReferenceFileFilter(fs), executor, null/*Used to emit 'progress' and thats it*/);
     LOG.info("Validating mapping using HDFS state");
     for (Path path: allFiles.values()) {
       Path referredToFile = StoreFileInfo.getReferredToFile(path);
@@ -1246,9 +1249,7 @@ public class HBaseFsck extends Configured implements Closeable {
     LOG.info("Computing mapping of all link files");
     Map<String, Path> allFiles = FSUtils
         .getTableStoreFilePathMap(fs, hbaseRoot, new FSUtils.HFileLinkFilter(), executor,
-            null /* Used to report progress only! errors*/);
-    errors.print("");
-
+            null/*Used to emit 'progress' w/o context.*/);
     LOG.info("Validating mapping using HDFS state");
     for (Path path : allFiles.values()) {
       // building HFileLink object to gather locations
@@ -1877,7 +1878,7 @@ public class HBaseFsck extends Configured implements Closeable {
         fs.mkdirs(dst);
 
         LOG.info("Sidelining files from " + src + " into containing region " + dst);
-        // FileSystem.rename is inconsistent with directories -- if the
+        // FileSystemFsck.rename is inconsistent with directories -- if the
         // dst (foo/a) exists and is a dir, and the src (foo/b) is a dir,
         // it moves the src into the dst dir resulting in (foo/a/b).  If
         // the dst does not exist, and the src a dir, src becomes dst. (foo/b)
@@ -1969,6 +1970,25 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   /**
+   * @return True if the hbase version file exists.
+   */
+  // TODO: Add an hbase.version file integrity check.
+  public static boolean versionFileExists(FileSystem fs, Path rootDir) throws IOException {
+    return fs.exists(new Path(rootDir, HConstants.VERSION_FILE_NAME));
+  }
+
+  /**
+   * Create hbase.version file.
+   */
+  public static void versionFileCreate(Configuration configuration, FileSystem fs, Path rootDir)
+      throws IOException {
+    FSUtils.setVersion(fs, rootDir,
+        configuration.getInt(HConstants.THREAD_WAKE_FREQUENCY, 10 * 1000),
+        configuration.getInt(HConstants.VERSION_FILE_WRITE_ATTEMPTS,
+            HConstants.DEFAULT_VERSION_FILE_WRITE_ATTEMPTS));
+  }
+
+  /**
    * Scan HDFS for all regions, recording their information into
    * regionInfoMap
    */
@@ -1980,8 +2000,6 @@ public class HBaseFsck extends Configured implements Closeable {
     // List all tables from HDFS
     List<FileStatus> tableDirs = Lists.newArrayList();
 
-    boolean foundVersionFile = fs.exists(new Path(rootDir, HConstants.VERSION_FILE_NAME));
-
     List<Path> paths = FSUtils.getTableDirs(fs, rootDir);
     for (Path path : paths) {
       TableName tableName = FSUtils.getTableName(path);
@@ -1992,17 +2010,12 @@ public class HBaseFsck extends Configured implements Closeable {
     }
 
     // Verify that version file exists
-    if (!foundVersionFile) {
+    if (!versionFileExists(fs, rootDir)) {
       errors.reportError(ErrorReporter.ERROR_CODE.NO_VERSION_FILE,
-          "Version file does not exist in root dir " + rootDir);
+          "Version file does not exist under " + rootDir);
       if (shouldFixVersionFile()) {
-        LOG.info("Trying to create a new " + HConstants.VERSION_FILE_NAME
-            + " file.");
         setShouldRerun();
-        FSUtils.setVersion(fs, rootDir, getConf().getInt(
-            HConstants.THREAD_WAKE_FREQUENCY, 10 * 1000), getConf().getInt(
-            HConstants.VERSION_FILE_WRITE_ATTEMPTS,
-            HConstants.DEFAULT_VERSION_FILE_WRITE_ATTEMPTS));
+        versionFileCreate(getConf(), fs, rootDir);
       }
     }
 
@@ -2886,7 +2899,7 @@ public class HBaseFsck extends Configured implements Closeable {
       }
 
       LOG.info("[" + thread + "] Moving files from " + src + " into containing region " + dst);
-      // FileSystem.rename is inconsistent with directories -- if the
+      // FileSystemFsck.rename is inconsistent with directories -- if the
       // dst (foo/a) exists and is a dir, and the src (foo/b) is a dir,
       // it moves the src into the dst dir resulting in (foo/a/b).  If
       // the dst does not exist, and the src a dir, src becomes dst. (foo/b)
@@ -4747,7 +4760,7 @@ public class HBaseFsck extends Configured implements Closeable {
    * Display the full report from fsck. This displays all live and dead
    * region servers, and all known regions.
    */
-  void setShouldRerun() {
+  public void setShouldRerun() {
     rerun = true;
   }
 
@@ -4790,7 +4803,7 @@ public class HBaseFsck extends Configured implements Closeable {
     checkHdfs = checking;
   }
 
-  boolean shouldCheckHdfs() {
+  public boolean shouldCheckHdfs() {
     return checkHdfs;
   }
 
@@ -4943,7 +4956,7 @@ public class HBaseFsck extends Configured implements Closeable {
     this.sidelineDir = new Path(sidelineDir);
   }
 
-  protected HFileCorruptionChecker createHFileCorruptionChecker(boolean sidelineCorruptHFiles)
+  public HFileCorruptionChecker createHFileCorruptionChecker(boolean sidelineCorruptHFiles)
       throws IOException {
     return new HFileCorruptionChecker(getConf(), executor, sidelineCorruptHFiles);
   }

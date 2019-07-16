@@ -385,3 +385,7 @@ The rebuild of _hbase:meta_ adds the user tables in _DISABLED_ state and the reg
 Do it one-at-a-time or see the `enable_all ".*"` command to enable all tables in one shot.
 
 The rebuild meta will likely be missing edits and may need subsequent repair and cleaning using facility outlined higher up in this README.
+
+### Dropped reference files, missing hbase.version file, and corrupted hfiles
+
+HBCK2 can check for hanging references and corrupt hfiles. You can ask it to sideline bad files which may be needed to get over humps where regions won't online or reads are failing. See the _filesystem_ command in the HBCK2 listing. Pass one or more tablename (or 'none' to check all tables). It will report bad files. Pass the _--fix_ option to effect repairs.
