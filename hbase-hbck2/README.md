@@ -52,25 +52,25 @@ _HBCK2_ to generate the _HBCK2_ jar file, running the below will dump out the _H
 ~~~~
 
 ```
-usage: HBCK2 [OPTIONS] COMMAND <ARGS>
-
 Options:
- -d,--debug                                 run with debug output
- -h,--help                                  output this help message
- -p,--hbase.zookeeper.property.clientPort   port of target hbase ensemble
- -q,--hbase.zookeeper.quorum <arg>          ensemble of target hbase
- -v,--version                               this hbck2 version
- -z,--zookeeper.znode.parent                parent znode of target hbase
+ -d,--debug                                      run with debug output
+ -h,--help                                       output this help message
+ -p,--hbase.zookeeper.property.clientPort <arg>  port of target hbase ensemble
+ -q,--hbase.zookeeper.quorum <arg>               ensemble of target hbase
+ -s,--skip                                       skip hbase version check/PleaseHoldException/Master initializing
+ -v,--version                                    this hbck2 version
+ -z,--zookeeper.znode.parent <arg>               parent znode of target hbase
 
 Commands:
  assigns [OPTIONS] <ENCODED_REGIONNAME>...
    Options:
     -o,--override  override ownership by another procedure
-   A 'raw' assign that can be used even during Master initialization.
-   Skirts Coprocessors. Pass one or more encoded RegionNames.
-   1588230740 is the hard-coded name for the hbase:meta region and
-   de00010733901a05f5a2a3a382e27dd4 is an example of what a user-space
-   encoded Region name looks like. For example:
+   A 'raw' assign that can be used even during Master initialization
+   (if the -skip flag is specified). Skirts Coprocessors. Pass one
+   or more encoded region names. 1588230740 is the hard-coded name
+   for the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is
+   an example of what a user-space encoded region name looks like.
+   For example:
      $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created AssignProcedure(s) or -1 if none.
 
@@ -78,8 +78,7 @@ Commands:
    Options:
     -o,--override   override if procedure is running/stuck
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
-    -w,--lockWait   milliseconds to wait on lock before giving up;
-default=1
+    -w,--lockWait   milliseconds to wait before giving up; default=1
    Pass one (or more) procedure 'pid's to skip to procedure finish.
    Parent of bypassed procedure will also be skipped to the finish.
    Entities will be left in an inconsistent state and will require
@@ -91,11 +90,12 @@ default=1
  unassigns <ENCODED_REGIONNAME>...
    Options:
     -o,--override  override ownership by another procedure
-   A 'raw' unassign that can be used even during Master initialization.
-   Skirts Coprocessors. Pass one or more encoded RegionNames:
-   1588230740 is the hard-coded name for the hbase:meta region and
-   de00010733901a05f5a2a3a382e27dd4 is an example of what a user-space
-   encoded Region name looks like. For example:
+   A 'raw' unassign that can be used even during Master initialization
+   (if the -skip flag is specified). Skirts Coprocessors. Pass one or
+   more encoded region names. 1588230740 is the hard-coded name for
+   the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an
+   example of what a userspace encoded region name looks like.
+   For example:
      $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.
 
@@ -104,46 +104,43 @@ default=1
    To read current table state, in the hbase shell run:
      hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'
    A value of \x08\x00 == ENABLED, \x08\x01 == DISABLED, etc.
+   Can also run a 'describe "<TABLENAME>"' at the shell prompt.
    An example making table name 'user' ENABLED:
      $ HBCK2 setTableState users ENABLED
    Returns whatever the previous table state was.
 
- setRegionState <ENCODED_REGINNAME> <STATE>
-      Possible region states: OFFLINE, OPENING, OPEN, CLOSING, CLOSED,
-      SPLITTING, SPLIT, FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED,
-      SPLITTING_NEW, MERGING_NEW
-      WARNING: This is a very risky option intended for use as last resort.
-       Example scenarios are when unassigns/assigns can't move
-   forward
-        due to region being in an inconsistent state in META. For example,
-        'unassigns' command can only proceed
-         if passed in region is in one of following states:
-                   [SPLITTING|SPLIT|MERGING|OPEN|CLOSING]
-      Before manually setting a region state with this command,
-      please certify that this region is not being handled
-      by a running procedure, such as Assign or Split.
-      An example setting region 'de00010733901a05f5a2a3a382e27dd4' to
-   CLOSING:
-        $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING
-      Returns "0" SUCCESS code if it informed region state is changed, "1" FAIL code otherwise.
+ setRegionState <ENCODED_REGIONNAME> <STATE>
+   Possible region states:
+      OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,
+      FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW, MERGING_NEW,
+      ABNORMALLY_CLOSED
+   WARNING: This is a very risky option intended for use as last resort.
+   Example scenarios include unassigns/assigns that can't move forward
+   because region is in an inconsistent state in 'hbase:meta'. For
+   example, the 'unassigns' command can only proceed if passed a region
+   in one of the following states: SPLITTING|SPLIT|MERGING|OPEN|CLOSING
+   Before manually setting a region state with this command, please
+   certify that this region is not being handled by a running procedure,
+   such as 'assign' or 'split'. You can get a view of running procedures
+   in the hbase shell using the 'list_procedures' command. An example
+   setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:
+     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING
+   Returns "0" if region state changed and "1" otherwise.
 ```
 
 ## _HBCK2_ Overview
 _HBCK2_ is currently a simple tool that does one thing at a time only.
 
-_HBCK2_ does not do diagnosis, leaving that function to other tooling,
-described below.
-
 In hbase-2.x, the Master is the final arbiter of all state, so a general principal for most of
 _HBCK2_ commands is that it asks the Master to effect all repair. This means a Master must be
 up before you can run an _HBCK2_ command.
 
-_HBCK2_ commands preferable implementation approach is to make use of an intentionally obscured
+_HBCK2_ implementation approach is to make use of an intentionally obscured
 `HbckService` hosted on the Master. The Service publishes a few methods for the _HBCK2_ tool to
 pull on. Therefore, for _HBCK2_ commands relying on Master's `HbckService` facade,
 first thing _HBCK2_ does is poke the cluster to ensure the service is available.
-It will fail if it is not or if the `HbckService` is lacking the given method, and the same does
-not have a client side counterpart implementation.
+This will fail if the remote Server does not publish the Service or if the
+`HbckService` is lacking the requested method.
 
 _HBCK2_ versions should be able to work across multiple hbase-2 releases. It will
 fail with a complaint if it is unable to run. There is no `HbckService` in versions
@@ -337,11 +334,54 @@ The Master is unable to continue startup because there is no Procedure to assign
 _hbase:meta_ (or _hbase:namespace_). To inject one, use the _HBCK2_ tool:
 
 ```
-HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 assigns 1588230740
+HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 assigns -skip 1588230740
 ```
 
-...where 1588230740 is the encoded name of the _hbase:meta_ Region.
+...where 1588230740 is the encoded name of the _hbase:meta_ Region. Pass the '-skip' option to
+stop HBCK2 doing a verstion check against the remote master. If the remote master is not up,
+the version check will prompt a 'Master is initializing response' or 'PleaseHoldException'
+and drop the assign attempt. The '-skip' command punts on version check and will land the
+scheduled assign.
 
 The same may happen to the _hbase:namespace_ system table. Look for the
 encoded Region name of the _hbase:namespace_ Region and do similar to
-what we did for _hbase:meta_.
+what we did for _hbase:meta_. In this latter case, the Master actually
+prints out a helpful message that looks like the following:
+
+```2019-07-09 22:08:38,966 WARN  [master/localhost:16000:becomeActiveMaster] master.HMaster: hbase:namespace,,1562733904278.9559cf72b8e81e1291c626a8e781a6ae. is NOT online; state={9559cf72b8e81e1291c626a8e781a6ae state=CLOSED, ts=1562735318897, server=null}; ServerCrashProcedures=true. Master startup cannot progress, in holding-pattern until region onlined.```
+
+To schedule an assign for the hbase:namespace table noted in the above log line, you would do:
+```HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 -skip assigns 9559cf72b8e81e1291c626a8e781a6ae```
+... passing the encoded name for the namespace region (the encoded name will differ per deploy).
+
+### hbase:meta region/table restore/rebuild
+
+Should a cluster suffer a catastrophic loss of the `hbase:meta` region, a rough rebuild is possible following the below recipe. In outline: stop the cluster; run the _OfflineMetaRepair_ tool which reads directories and metadata dropped into the filesystem making a best effort at reconstructing a viable _hbase:meta_ table; restart your cluster; inject an assign to bring the system namespace table online; and then finally, re-assign userspace tables you'd like enabled (the rebuilt _hbase:meta_ creates a table with all tables offline and no regions assigned).
+
+#### Detailed rebuild recipe
+Stop the cluster.
+
+Run the rebuild _hbase:meta_ command from _HBCK2_. This will move aside the original _hbase:meta_ and put in place a newly rebuilt one. Below is an example of how to run the tool.  It adds the `-details` flag so the tool dumps info on the regions its found in hdfs:
+```$ HBASE_CLASSPATH_PREFIX=~/checkouts/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.hbck1.OfflineMetaRepair -details```
+
+Start the cluster up. It won’t come up fully. It will be stuck because the _namespace_ table is not online and there is no assign procedure in the procedure store for this contingency. The hbase master log will show this state. Here is an example of what it will log:
+```2019-07-10 18:30:51,090 WARN  [master/localhost:16000:becomeActiveMaster] master.HMaster: hbase:namespace,,1562808216225.725a0fe6c2c869d3d0a9ed82bfa80fa3. is NOT online; state={725a0fe6c2c869d3d0a9ed82bfa80fa3 state=CLOSED, ts=1562808619952, server=null}; ServerCrashProcedures=false. Master startup cannot progress, in holding-pattern until region onlined.```
+
+To assign the namespace table region, you cannot use the shell. If you use the shell, it will fail with a `PleaseHoldException` because the master is not yet up (it is waiting for the namepace table to come online before it declares itself ‘up’). You have to use the `HBCK2` _assigns_ command. To assign, you will need the namespace encoded name. It shows in the log quoted above: i.e. _725a0fe6c2c869d3d0a9ed82bfa80fa3_ in this case. You will also have to pass the -skip command to ‘skip’ the master version check (without it, your `HBCK2` invocation will also elicit the above `PleaseHoldException` because the master is not yet up). Here is an example adding an assign of the namespace table:
+```$ HBASE_CLASSPATH_PREFIX=~/checkouts/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2 -skip assigns 725a0fe6c2c869d3d0a9ed82bfa80fa3```
+
+If the invocation comes back with ‘Connection refused’, is the Master up? The Master will shut down after a while if it can’t initialize itself. Just restart the cluster/master and rerun the above assigns command.
+
+When the assigns runs successfully, you’ll see it emit the likes of the following. The ‘48’ on the end is the pid of the assign procedure schedule. If the pid returned is ‘-1’, then the  master startup has not progressed sufficently… retry. Or, the encoded regionname is incorrect. Check.
+{{{$  HBASE_CLASSPATH_PREFIX=~/checkouts/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2 -skip assigns 725a0fe6c2c869d3d0a9ed82bfa80fa3
+18:40:43.817 [main] WARN  org.apache.hadoop.util.NativeCodeLoader - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+18:40:44.315 [main] INFO  org.apache.hbase.HBCK2 - hbck support check skipped
+[48]}}}
+
+Check the master logs. The master should have come up. You’ll see successful completion of pid=48. Look for a line like this to verify successful master launch:
+```master.HMaster: Master has completed initialization 132.515sec``` It might take a while to appear.
+
+The rebuild of _hbase:meta_ adds the user tables in _DISABLED_ state and the regions in _CLOSED_ mode. Reenable tables via the shell to bring all table regions back online.
+Do it one-at-a-time or see the `enable_all ".*"` command to enable all tables in one shot.
+
+The rebuild meta will likely be missing edits and may need subsequent repair and cleaning using facility outlined higher up in this README.
