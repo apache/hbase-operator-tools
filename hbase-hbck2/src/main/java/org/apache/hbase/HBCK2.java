@@ -50,9 +50,6 @@ import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
-
-import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -75,7 +72,7 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 // + Doc how we just take pointer to zk ensemble... If want to do more exotic config. on client,
 // then add a hbase-site.xml onto CLASSPATH for this tool to pick up.
 // + Add --version
-public class HBCK2 extends Configured implements Tool {
+public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final Logger LOG = LogManager.getLogger(HBCK2.class);
   private static final int EXIT_SUCCESS = 0;
   static final int EXIT_FAILURE = 1;
@@ -597,7 +594,7 @@ public class HBCK2 extends Configured implements Tool {
 
   public static void main(String [] args) throws Exception {
     Configuration conf = HBaseConfiguration.create();
-    int errCode = ToolRunner.run(new HBCK2(conf), args);
+    int errCode = org.apache.hadoop.util.ToolRunner.run(new HBCK2(conf), args);
     if (errCode != 0) {
       System.exit(errCode);
     }
