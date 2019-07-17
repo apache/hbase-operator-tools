@@ -696,7 +696,7 @@ public class HBCK2 extends Configured implements Tool {
     List<ExecutionException> executionErrors) {
     final StringBuilder finalText = new StringBuilder();
     finalText.append("Regions re-added into Meta: ").append(readdedRegionNames.size());
-    if(readdedRegionNames.isEmpty()){
+    if(!readdedRegionNames.isEmpty()){
       finalText.append("\n")
         .append("WARNING: \n\t")
         .append(readdedRegionNames.size()).append(" regions were added ")
@@ -704,7 +704,7 @@ public class HBCK2 extends Configured implements Tool {
         .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
         .append(buildHbck2AssignsCommand(readdedRegionNames));
     }
-    if(executionErrors.isEmpty()){
+    if(!executionErrors.isEmpty()){
       finalText.append("\n")
         .append("ERROR: \n\t")
         .append("There were following errors on at least one table thread:\n");
