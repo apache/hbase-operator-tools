@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,9 +26,7 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Properties;
 
-import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.logging.log4j.LogManager;
 import org.junit.Test;
 
 /**
@@ -36,12 +34,10 @@ import org.junit.Test;
  * @see TestHBCK2 for cluster-tests.
  */
 public class TestHBCKCommandLineParsing {
-  private static final org.apache.logging.log4j.Logger LOG =
-      LogManager.getLogger(TestHBCKCommandLineParsing.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
 
   @Test
-  public void testHelp() throws ParseException, IOException {
+  public void testHelp() throws IOException {
     String output = retrieveOptionOutput("-h");
     assertTrue(output, output.startsWith("usage: HBCK2"));
   }
@@ -50,7 +46,7 @@ public class TestHBCKCommandLineParsing {
   public void testCommandWithOptions() throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
-    hbck.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
+    hbck.run(new String[]{"--skip", "bypass", "--lockWait=3", "--override", "--recursive", "x"});
   }
 
   @Test (expected=IllegalArgumentException.class)
