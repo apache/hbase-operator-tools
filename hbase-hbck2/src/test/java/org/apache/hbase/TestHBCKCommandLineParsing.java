@@ -46,13 +46,13 @@ public class TestHBCKCommandLineParsing {
   public void testCommandWithOptions() throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
-    hbck.run(new String[]{"--skip", "bypass", "--lockWait=3", "--override", "--recursive", "x"});
+    hbck.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
   }
 
   @Test (expected=IllegalArgumentException.class)
   public void testSetRegionStateCommandInvalidState() throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    // The 'x' below should cause the NumberFormatException. The Options should all be good.
+    // The 'x' below should cause the IllegalArgumentException. The Options should all be good.
     hbck.run(new String[]{"setRegionState", "region_encoded", "INVALID_STATE"});
   }
 

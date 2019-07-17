@@ -103,8 +103,7 @@ public class HBCK2 extends Configured implements Tool {
    * Expects created connection.
    * @param supportedVersions list of zero or more supported versions.
    */
-  void checkHBCKSupport(ClusterConnection connection, String cmd,
-        String ... supportedVersions)
+  void checkHBCKSupport(ClusterConnection connection, String cmd, String ... supportedVersions)
       throws IOException {
     if (skipCheck) {
       LOG.info("Skipped {} command version check; 'skip' set", cmd);
@@ -132,7 +131,7 @@ public class HBCK2 extends Configured implements Tool {
   int setRegionState(ClusterConnection connection, String region,
         RegionState.State newState)
       throws IOException {
-    if (newState==null) {
+    if (newState == null) {
       throw new IllegalArgumentException("State can't be null.");
     }
     RegionState.State currentState = null;
@@ -141,10 +140,10 @@ public class HBCK2 extends Configured implements Tool {
     Scan scan = new Scan();
     scan.setFilter(filter);
     Result result = table.getScanner(scan).next();
-    if(result!=null){
+    if (result != null) {
       byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
         HConstants.STATE_QUALIFIER);
-      if(currentStateValue==null){
+      if (currentStateValue == null) {
         System.out.println("WARN: Region state info on meta was NULL");
       } else {
         currentState = RegionState.State.valueOf(Bytes.toString(currentStateValue));
@@ -199,7 +198,7 @@ public class HBCK2 extends Configured implements Tool {
   /**
    * @return List of results OR null if failed to run.
    */
-  private List<Boolean> bypass(Hbck hbck, String[] args) throws IOException {
+  private List<Boolean> bypass(String[] args) throws IOException {
     // Bypass has two options....
     Options options = new Options();
     // See usage for 'help' on these options.
@@ -230,7 +229,10 @@ public class HBCK2 extends Configured implements Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean recursiveFlag = commandLine.hasOption(override.getOpt());
     List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
-    return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkHBCKSupport(connection, BYPASS);
+      return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
+    }
   }
 
   List<Long> scheduleRecoveries(Hbck hbck, String[] args) throws IOException {
@@ -506,15 +508,17 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more pids");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkHBCKSupport(connection, command);
-          List<Boolean> bs = bypass(hbck, purgeFirst(commands));
-          if (bs == null) {
-            // Something went wrong w/ the parse and command didn't run.
-            return EXIT_FAILURE;
-          }
-          System.out.println(toString(bs));
+        // bypass does the connection setup and the checkHBCKSupport down
+        // inside in the bypass method delaying connection setup until last
+        // moment. It does this because it has another set of command options
+        // to process and wants to do that before setting up connection.
+        // This is why it is not like the other command processings.
+        List<Boolean> bs = bypass(purgeFirst(commands));
+        if (bs == null) {
+          // Something went wrong w/ the parse and command didn't run.
+          return EXIT_FAILURE;
         }
+        System.out.println(toString(bs));
         break;
 
       case UNASSIGNS:
@@ -534,9 +538,10 @@ public class HBCK2 extends Configured implements Tool {
               + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
           return EXIT_FAILURE;
         }
+        RegionState.State state = RegionState.State.valueOf(commands[2]);
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
-          return setRegionState(connection, commands[1], RegionState.State.valueOf(commands[2]));
+          return setRegionState(connection, commands[1], state);
         }
 
       case FILESYSTEM:
