@@ -50,7 +50,6 @@ import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
-import org.apache.hadoop.hbase.util.Bytes;
 
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -146,11 +145,12 @@ public class HBCK2 extends Configured implements Tool {
       if (currentStateValue == null) {
         System.out.println("WARN: Region state info on meta was NULL");
       } else {
-        currentState = RegionState.State.valueOf(Bytes.toString(currentStateValue));
+        currentState = RegionState.State.valueOf(
+            org.apache.hadoop.hbase.util.Bytes.toString(currentStateValue));
       }
       Put put = new Put(result.getRow());
       put.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER,
-        Bytes.toBytes(newState.name()));
+        org.apache.hadoop.hbase.util.Bytes.toBytes(newState.name()));
       table.put(put);
       System.out.println("Changed region " + region + " STATE from "
         + currentState + " to " + newState);

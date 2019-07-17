@@ -17,6 +17,9 @@
  */
 package org.apache.hbase;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -30,8 +33,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class TestSchedulingRecoveries {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
