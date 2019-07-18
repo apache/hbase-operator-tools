@@ -89,6 +89,17 @@ public class FileSystemFsck implements Closeable {
       // Now check links.
       hbaseFsck.setFixReferenceFiles(fix);
       hbaseFsck.setFixHFileLinks(fix);
+      hbaseFsck.setCheckHdfs(true);
+      /*
+      The below are too radical for hbck2. They are filesystem changes only.
+      Need to connect them to hbase:meta and master; master should repair
+      holes and overlaps and adopt regions.
+
+      hbaseFsck.setFixHdfsOrphans(fix);
+      hbaseFsck.setFixHdfsHoles(fix);
+      hbaseFsck.setFixHdfsOverlaps(fix);
+      hbaseFsck.setFixTableOrphans(fix);
+      */
       hbaseFsck.setShouldRerun();
       hbaseFsck.offlineHbck();
     } catch (ClassNotFoundException | InterruptedException e) {

@@ -165,13 +165,14 @@ import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 import org.apache.hbase.thirdparty.com.google.common.collect.TreeMultimap;
 
 /**
- * HBaseFsck (hbck) is a tool for checking and repairing region consistency and
+ * HBaseFsck (hbck) is(WAS) a tool for checking and repairing region consistency and
  * table integrity problems in a corrupted HBase. This tool was written for hbase-1.x.
- * Parts were subsequently ported here for use by hbck2 (hbck1 does not work
- * against hbase2; its presumptions about how hbase works do not hold for hbase2).
- * <p>The main method has been removed from this class so it is not directly
- * accessible</p>
+ * It was then ported here for use by hbck2 (hbck1 does not work against hbase2; its
+ * presumptions about how hbase works do not hold for hbase2). hbck2 exposes pieces
+ * of this hbck1 but not all, intentionally. The main method has been removed from
+ * this class so it is not directly accessible</p>
  *
+ * <p>Below is the old overview for hbck1.</p>
  * <p>
  * Region consistency checks verify that hbase:meta, region deployment on region
  * servers and the state of data in HDFS (.regioninfo files) all are in
@@ -694,7 +695,7 @@ public class HBaseFsck extends Configured implements Closeable {
    */
   public void offlineHdfsIntegrityRepair() throws IOException, InterruptedException {
     // Initial pass to fix orphans.
-    if (shouldCheckHdfs() && (shouldFixHdfsOrphans() || shouldFixHdfsHoles()
+    if (shouldCheckHdfs() || (shouldFixHdfsOrphans() || shouldFixHdfsHoles()
         || shouldFixHdfsOverlaps() || shouldFixTableOrphans())) {
       LOG.info("Loading regioninfos HDFS");
       // if nothing is happening this should always complete in two iterations.
@@ -1139,7 +1140,6 @@ public class HBaseFsck extends Configured implements Closeable {
    */
   private int restoreHdfsIntegrity() throws IOException, InterruptedException {
     // Determine what's on HDFS
-    LOG.info("Loading HBase regioninfo from HDFS...");
     loadHdfsRegionDirs(); // populating regioninfo table.
 
     int errs = errors.getErrorList().size();
@@ -1148,7 +1148,7 @@ public class HBaseFsck extends Configured implements Closeable {
     checkHdfsIntegrity(false, false);
 
     if (errors.getErrorList().size() == errs) {
-      LOG.info("No integrity errors.  We are done with this phase. Glorious.");
+      LOG.info("No integrity errors.");
       return 0;
     }
 
@@ -1190,10 +1190,8 @@ public class HBaseFsck extends Configured implements Closeable {
     Configuration conf = getConf();
     Path hbaseRoot = FSUtils.getRootDir(conf);
     FileSystem fs = hbaseRoot.getFileSystem(conf);
-    LOG.info("Computing mapping of all store files");
     Map<String, Path> allFiles = FSUtils.getTableStoreFilePathMap(fs, hbaseRoot,
       new FSUtils.ReferenceFileFilter(fs), executor, null/*Used to emit 'progress' and thats it*/);
-    LOG.info("Validating mapping using HDFS state");
     for (Path path: allFiles.values()) {
       Path referredToFile = StoreFileInfo.getReferredToFile(path);
       if (fs.exists(referredToFile)) {
@@ -1246,11 +1244,9 @@ public class HBaseFsck extends Configured implements Closeable {
     Configuration conf = getConf();
     Path hbaseRoot = FSUtils.getRootDir(conf);
     FileSystem fs = hbaseRoot.getFileSystem(conf);
-    LOG.info("Computing mapping of all link files");
     Map<String, Path> allFiles = FSUtils
         .getTableStoreFilePathMap(fs, hbaseRoot, new FSUtils.HFileLinkFilter(), executor,
             null/*Used to emit 'progress' w/o context.*/);
-    LOG.info("Validating mapping using HDFS state");
     for (Path path : allFiles.values()) {
       // building HFileLink object to gather locations
       HFileLink actualLink = HFileLink.buildFromHFileLinkPattern(conf, path);
@@ -1785,17 +1781,16 @@ public class HBaseFsck extends Configured implements Closeable {
    */
   private void logParallelMerge() {
     if (getConf().getBoolean("hbasefsck.overlap.merge.parallel", true)) {
-      LOG.info("Handling overlap merges in parallel; set hbasefsck.overlap.merge.parallel to" +
+      LOG.trace("Running overlap check in parallel; set hbasefsck.overlap.merge.parallel to" +
           " false to run serially.");
     } else {
-      LOG.info("Handling overlap merges serially;  set hbasefsck.overlap.merge.parallel to" +
+      LOG.trace("Handling overlap check serially;  set hbasefsck.overlap.merge.parallel to" +
           " true to run in parallel.");
     }
   }
 
   private SortedMap<TableName, TableInfo> checkHdfsIntegrity(boolean fixHoles,
       boolean fixOverlaps) throws IOException {
-    LOG.info("Checking HBase region split map from HDFS data...");
     logParallelMerge();
     for (TableInfo tInfo : tablesInfo.values()) {
       TableIntegrityErrorHandler handler;
@@ -1993,7 +1988,6 @@ public class HBaseFsck extends Configured implements Closeable {
    * regionInfoMap
    */
   public void loadHdfsRegionDirs() throws IOException, InterruptedException {
-    LOG.info("Loading HBase regioninfo from HDFS...");
     Path rootDir = FSUtils.getRootDir(getConf());
     FileSystem fs = rootDir.getFileSystem(getConf());
 
@@ -2037,7 +2031,6 @@ public class HBaseFsck extends Configured implements Closeable {
             tableDir.getPath(), e.getCause());
       }
     }
-    errors.print("");
   }
 
   /**
@@ -3961,7 +3954,6 @@ public class HBaseFsck extends Configured implements Closeable {
       MetaTableAccessor.fullScanRegions(connection, visitor);
     }
 
-    errors.print("");
     return true;
   }
 
@@ -4461,9 +4453,6 @@ public class HBaseFsck extends Configured implements Closeable {
     @Override
     public synchronized void progress() {
       if (showProgress++ == progressThreshold) {
-        if (!summary) {
-          System.out.print(".");
-        }
         showProgress = 0;
       }
     }
@@ -4591,7 +4580,7 @@ public class HBaseFsck extends Configured implements Closeable {
                 HdfsEntry he = new HdfsEntry();
                 synchronized (hbi) {
                   if (hbi.getHdfsRegionDir() != null) {
-                    errors.print("Directory " + encodedName + " duplicate??" +
+                    errors.print("Directory " + encodedName + " duplicate?? " +
                                  hbi.getHdfsRegionDir());
                   }
 
