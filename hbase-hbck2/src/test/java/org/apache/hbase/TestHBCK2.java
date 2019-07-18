@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -29,7 +29,9 @@ import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Hbck;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Table;
@@ -39,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Threads;
 import org.apache.logging.log4j.LogManager;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -53,6 +56,11 @@ public class TestHBCK2 {
   private static final TableName REGION_STATES_TABLE_NAME = TableName.
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
 
+  /**
+   * A 'connected' hbck2 instance.
+   */
+  private HBCK2 hbck2;
+
   @BeforeClass
   public static void beforeClass() throws Exception {
     TEST_UTIL.startMiniCluster(3);
@@ -64,39 +72,27 @@ public class TestHBCK2 {
     TEST_UTIL.shutdownMiniCluster();
   }
 
-  @Test (expected = UnsupportedOperationException.class)
-  public void testCheckVersion202() {
-    HBCK2.checkVersion("2.0.2");
+  @Before
+  public void before() {
+    this.hbck2 = new HBCK2(TEST_UTIL.getConfiguration());
   }
 
   @Test (expected = UnsupportedOperationException.class)
-  public void testCheckVersion210() {
-    HBCK2.checkVersion("2.1.0");
-  }
-
-  @Test
-  public void testCheckVersionSpecial210() {
-    HBCK2.checkVersion("2.1.0-patchedForHBCK2");
-  }
-
-  @Test
-  public void testCheckVersion203() {
-    HBCK2.checkVersion("2.0.3");
-  }
-
-  @Test
-  public void testCheckVersion211() {
-    HBCK2.checkVersion("2.1.1");
+  public void testVersions() throws IOException {
+    try (ClusterConnection connection = this.hbck2.connect()) {
+      this.hbck2.checkHBCKSupport(connection, "test", "10.0.0");
+    }
   }
 
   @Test
   public void testSetTableStateInMeta() throws IOException {
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    TableState state = hbck.setTableState(TABLE_NAME, TableState.State.DISABLED);
-    TestCase.assertTrue("Found=" + state.getState(), state.isEnabled());
-    // Restore the state.
-    state = hbck.setTableState(TABLE_NAME, state.getState());
-    TestCase.assertTrue("Found=" + state.getState(), state.isDisabled());
+    try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
+      TableState state = this.hbck2.setTableState(hbck, TABLE_NAME, TableState.State.DISABLED);
+      TestCase.assertTrue("Found=" + state.getState(), state.isEnabled());
+      // Restore the state.
+      state = this.hbck2.setTableState(hbck, TABLE_NAME, state.getState());
+      TestCase.assertTrue("Found=" + state.getState(), state.isDisabled());
+    }
   }
 
   @Test
@@ -108,31 +104,32 @@ public class TestHBCK2 {
             getRegionStates().getRegionState(ri.getEncodedName());
         LOG.info("RS: {}", rs.toString());
       }
-      HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
       List<String> regionStrs =
-          regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList());
+          regions.stream().map(RegionInfo::getEncodedName).collect(Collectors.toList());
       String [] regionStrsArray = regionStrs.toArray(new String[] {});
-      List<Long> pids = hbck.unassigns(regionStrsArray);
-      waitOnPids(pids);
-      for (RegionInfo ri: regions) {
-        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-            getRegionStates().getRegionState(ri.getEncodedName());
-        LOG.info("RS: {}", rs.toString());
-        TestCase.assertTrue(rs.toString(), rs.isClosed());
-      }
-      pids = hbck.assigns(regionStrsArray);
-      waitOnPids(pids);
-      for (RegionInfo ri: regions) {
-        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-            getRegionStates().getRegionState(ri.getEncodedName());
-        LOG.info("RS: {}", rs.toString());
-        TestCase.assertTrue(rs.toString(), rs.isOpened());
-      }
-      // What happens if crappy region list passed?
-      pids = hbck.assigns(Arrays.stream(new String [] {"a", "some rubbish name"}).
-          collect(Collectors.toList()).toArray(new String [] {}));
-      for (long pid: pids) {
-        assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
+      try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
+        List<Long> pids = this.hbck2.unassigns(hbck, regionStrsArray);
+        waitOnPids(pids);
+        for (RegionInfo ri : regions) {
+          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+              getRegionStates().getRegionState(ri.getEncodedName());
+          LOG.info("RS: {}", rs.toString());
+          TestCase.assertTrue(rs.toString(), rs.isClosed());
+        }
+        pids = this.hbck2.assigns(hbck, regionStrsArray);
+        waitOnPids(pids);
+        for (RegionInfo ri : regions) {
+          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+              getRegionStates().getRegionState(ri.getEncodedName());
+          LOG.info("RS: {}", rs.toString());
+          TestCase.assertTrue(rs.toString(), rs.isOpened());
+        }
+        // What happens if crappy region list passed?
+        pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
+            collect(Collectors.toList()).toArray(new String[]{}));
+        for (long pid : pids) {
+          assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
+        }
       }
     }
   }
@@ -144,9 +141,10 @@ public class TestHBCK2 {
       List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
       RegionInfo info = regions.get(0);
       assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
-      HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
       String region = info.getEncodedName();
-      hbck.setRegionState(region, RegionState.State.CLOSING);
+      try (ClusterConnection connection = this.hbck2.connect()) {
+        this.hbck2.setRegionState(connection, region, RegionState.State.CLOSING);
+      }
       assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
     } finally {
       TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
@@ -155,9 +153,10 @@ public class TestHBCK2 {
 
   @Test
   public void testSetRegionStateInvalidRegion() throws IOException {
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    assertEquals(HBCK2.EXIT_FAILURE, hbck.setRegionState("NO_REGION",
-      RegionState.State.CLOSING));
+    try (ClusterConnection connection = this.hbck2.connect()) {
+      assertEquals(HBCK2.EXIT_FAILURE, this.hbck2.setRegionState(connection, "NO_REGION",
+          RegionState.State.CLOSING));
+    }
   }
 
   @Test (expected = IllegalArgumentException.class)
@@ -167,9 +166,10 @@ public class TestHBCK2 {
       List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
       RegionInfo info = regions.get(0);
       assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
-      HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
       String region = info.getEncodedName();
-      hbck.setRegionState(region, null);
+      try (ClusterConnection connection = this.hbck2.connect()) {
+        this.hbck2.setRegionState(connection, region, null);
+      }
     } finally {
       TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
     }
@@ -177,8 +177,9 @@ public class TestHBCK2 {
 
   @Test (expected = IllegalArgumentException.class)
   public void testSetRegionStateInvalidRegionAndInvalidState() throws IOException {
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    hbck.setRegionState("NO_REGION", null);
+    try (ClusterConnection connection = this.hbck2.connect()) {
+      this.hbck2.setRegionState(connection, "NO_REGION", null);
+    }
   }
 
   private RegionState.State getCurrentRegionState(RegionInfo regionInfo) throws IOException{

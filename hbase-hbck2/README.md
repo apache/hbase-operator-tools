@@ -18,7 +18,8 @@
 
 # Apache HBase HBCK2 Tool
 
-HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth), the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs against hbase-2.x installs.
+HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth),
+the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs against hbase-2.x installs.
 
 ## _hbck1_
 The _hbck_ tool that ships with hbase-1.x (A.K.A _hbck1_) should not be run against an
@@ -52,25 +53,26 @@ _HBCK2_ to generate the _HBCK2_ jar file, running the below will dump out the _H
 ~~~~
 
 ```
+usage: HBCK2 [OPTIONS] COMMAND <ARGS>
 Options:
- -d,--debug                                      run with debug output
- -h,--help                                       output this help message
- -p,--hbase.zookeeper.property.clientPort <arg>  port of target hbase ensemble
- -q,--hbase.zookeeper.quorum <arg>               ensemble of target hbase
- -s,--skip                                       skip hbase version check/PleaseHoldException/Master initializing
- -v,--version                                    this hbck2 version
- -z,--zookeeper.znode.parent <arg>               parent znode of target hbase
-
-Commands:
+ -d,--debug                                       run with debug output
+ -h,--help                                        output this help message
+ -p,--hbase.zookeeper.property.clientPort <arg>   port of hbase ensemble
+ -q,--hbase.zookeeper.quorum <arg>                hbase ensemble
+ -s,--skip                                        skip hbase version check
+                                                  (PleaseHoldException)
+ -v,--version                                     this hbck2 version
+ -z,--zookeeper.znode.parent <arg>                parent znode of hbase
+                                                  ensemble
+Command:
  assigns [OPTIONS] <ENCODED_REGIONNAME>...
    Options:
     -o,--override  override ownership by another procedure
-   A 'raw' assign that can be used even during Master initialization
-   (if the -skip flag is specified). Skirts Coprocessors. Pass one
-   or more encoded region names. 1588230740 is the hard-coded name
-   for the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is
-   an example of what a user-space encoded region name looks like.
-   For example:
+   A 'raw' assign that can be used even during Master initialization (if
+   the -skip flag is specified). Skirts Coprocessors. Pass one or more
+   encoded region names. 1588230740 is the hard-coded name for the
+   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example of
+   what a user-space encoded region name looks like. For example:
      $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created AssignProcedure(s) or -1 if none.
 
@@ -79,41 +81,27 @@ Commands:
     -o,--override   override if procedure is running/stuck
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
     -w,--lockWait   milliseconds to wait before giving up; default=1
-   Pass one (or more) procedure 'pid's to skip to procedure finish.
-   Parent of bypassed procedure will also be skipped to the finish.
-   Entities will be left in an inconsistent state and will require
-   manual fixup. May need Master restart to clear locks still held.
-   Bypass fails if procedure has children. Add 'recursive' if all
-   you have is a parent pid to finish parent and children. This
-   is SLOW, and dangerous so use selectively. Does not always work.
+   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
+   of bypassed procedure will also be skipped to the finish. Entities will
+   be left in an inconsistent state and will require manual fixup. May
+   need Master restart to clear locks still held. Bypass fails if
+   procedure has children. Add 'recursive' if all you have is a parent pid
+   to finish parent and children. This is SLOW, and dangerous so use
+   selectively. Does not always work.
 
- unassigns <ENCODED_REGIONNAME>...
+ filesystem [OPTIONS] [<TABLENAME...]
    Options:
-    -o,--override  override ownership by another procedure
-   A 'raw' unassign that can be used even during Master initialization
-   (if the -skip flag is specified). Skirts Coprocessors. Pass one or
-   more encoded region names. 1588230740 is the hard-coded name for
-   the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an
-   example of what a userspace encoded region name looks like.
-   For example:
-     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
-   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.
-
- setTableState <TABLENAME> <STATE>
-   Possible table states: ENABLED, DISABLED, DISABLING, ENABLING
-   To read current table state, in the hbase shell run:
-     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'
-   A value of \x08\x00 == ENABLED, \x08\x01 == DISABLED, etc.
-   Can also run a 'describe "<TABLENAME>"' at the shell prompt.
-   An example making table name 'user' ENABLED:
-     $ HBCK2 setTableState users ENABLED
-   Returns whatever the previous table state was.
+    -f, --fix    sideline corrupt hfiles, bad links and references.
+   Report corrupt hfiles and broken links. Pass '--fix' to sideline
+   corrupt files and links. Pass one or more tablenames to narrow the
+   checkup. Default checks all tables. Modified regions will need to be
+   reopened to pick-up changes.
 
  setRegionState <ENCODED_REGIONNAME> <STATE>
    Possible region states:
-      OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,
-      FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW, MERGING_NEW,
-      ABNORMALLY_CLOSED
+    OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,
+    FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW,
+    MERGING_NEW, ABNORMALLY_CLOSED
    WARNING: This is a very risky option intended for use as last resort.
    Example scenarios include unassigns/assigns that can't move forward
    because region is in an inconsistent state in 'hbase:meta'. For
@@ -126,6 +114,39 @@ Commands:
    setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:
      $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING
    Returns "0" if region state changed and "1" otherwise.
+
+ setTableState <TABLENAME> <STATE>
+   Possible table states: ENABLED, DISABLED, DISABLING, ENABLING
+   To read current table state, in the hbase shell run:
+     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'
+   A value of \x08\x00 == ENABLED, \x08\x01 == DISABLED, etc.
+   Can also run a 'describe "<TABLENAME>"' at the shell prompt.
+   An example making table name 'user' ENABLED:
+     $ HBCK2 setTableState users ENABLED
+   Returns whatever the previous table state was.
+
+ scheduleRecovery <SERVERNAME>...
+   Schedule ServerCrashProcedure(SCP) for list of RegionServers. Format
+   server name as '<HOSTNAME>,<PORT>,<STARTCODE>' (See HBase UI/logs).
+   Example using RegionServer 'a.example.org,29100,1540348649479':
+     $ HBCK2 scheduleRecovery a.example.org,29100,1540348649479
+   Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if
+   no procedure created (see master logs for why not).
+   Command only supported in hbase versions 2.0.3, 2.1.2, 2.2.0 (or newer).
+
+ unassigns <ENCODED_REGIONNAME>...
+   Options:
+    -o,--override  override ownership by another procedure
+   A 'raw' unassign that can be used even during Master initialization
+   (if the -skip flag is specified). Skirts Coprocessors. Pass one or
+   more encoded region names. 1588230740 is the hard-coded name for the
+   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example
+   of what a userspace encoded region name looks like. For example:
+     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
+   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.
+
+   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline
+   hbase:meta tool. See the HBCK2 README for how to use.
 ```
 
 ## _HBCK2_ Overview

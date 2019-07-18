@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -33,10 +34,10 @@ import org.apache.hadoop.hbase.ClusterMetrics;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ClusterConnection;
-import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Hbck;
 import org.apache.hadoop.hbase.client.Put;
@@ -47,10 +48,7 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.VersionInfo;
-import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -70,13 +68,10 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
  */
 // TODO:
 // + On assign, can we look to see if existing assign and if so fail until cancelled?
-// + Add test of Master version to ensure it supports hbck functionality.
-// ++ Hard. Server doesn't volunteer its version. Need to read the status? HBASE-20225
 // + Doc how we just take pointer to zk ensemble... If want to do more exotic config. on client,
 // then add a hbase-site.xml onto CLASSPATH for this tool to pick up.
 // + Add --version
-// + Add emitting what is supported against remote server?
-public class HBCK2 extends Configured implements Tool {
+public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final Logger LOG = LogManager.getLogger(HBCK2.class);
   private static final int EXIT_SUCCESS = 0;
   static final int EXIT_FAILURE = 1;
@@ -88,10 +83,11 @@ public class HBCK2 extends Configured implements Tool {
   private static final String FILESYSTEM = "filesystem";
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
+  private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
   private Configuration conf;
-  private static final String TWO_POINT_ONE = "2.1.0";
-  private static final String MININUM_VERSION = "2.0.3";
+  static String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
+
   /**
    * Wait 1ms on lock by default.
    */
@@ -99,73 +95,69 @@ public class HBCK2 extends Configured implements Tool {
 
   /**
    * Check for HBCK support.
+   * Expects created connection.
+   * @param supportedVersions list of zero or more supported versions.
    */
-  private void checkHBCKSupport(Connection connection) throws IOException {
-    if(skipCheck){
-      LOG.info("hbck support check skipped");
+  void checkHBCKSupport(ClusterConnection connection, String cmd, String ... supportedVersions)
+      throws IOException {
+    if (skipCheck) {
+      LOG.info("Skipped {} command version check; 'skip' set", cmd);
       return;
     }
     try (Admin admin = connection.getAdmin()) {
-      checkVersion(admin.getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).
-          getHBaseVersion());
-    }
-  }
-
-  static void checkVersion(final String versionStr) {
-    if (VersionInfo.compareVersion(MININUM_VERSION, versionStr) > 0) {
-      throw new UnsupportedOperationException("Requires " + MININUM_VERSION + " at least.");
-    }
-    // except 2.1.0 didn't ship with support
-    if (VersionInfo.compareVersion(TWO_POINT_ONE, versionStr) == 0) {
-      throw new UnsupportedOperationException(TWO_POINT_ONE + " has no support for hbck2");
-    }
-  }
-
-  TableState setTableState(TableName tableName, TableState.State state) throws IOException {
-    try (ClusterConnection conn =
-             (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
-      checkHBCKSupport(conn);
-      try (Hbck hbck = conn.getHbck()) {
-        return hbck.setTableStateInMeta(new TableState(tableName, state));
+      String serverVersion = admin.
+          getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).getHBaseVersion();
+      String [] thresholdVersions = supportedVersions == null?
+          MINIMUM_HBCK2_VERSION: supportedVersions;
+      boolean supported = Version.check(serverVersion, thresholdVersions);
+      if (!supported) {
+        throw new UnsupportedOperationException(cmd + " not supported on server version=" +
+            serverVersion + "; needs at least a server that matches or exceeds " +
+            Arrays.toString(thresholdVersions));
       }
     }
   }
 
-  int setRegionState(String region, RegionState.State newState)
+  TableState setTableState(Hbck hbck, TableName tableName, TableState.State state)
       throws IOException {
-    if(newState==null){
+    return hbck.setTableStateInMeta(new TableState(tableName, state));
+  }
+
+  int setRegionState(ClusterConnection connection, String region,
+        RegionState.State newState)
+      throws IOException {
+    if (newState == null) {
       throw new IllegalArgumentException("State can't be null.");
     }
-    try(Connection connection = ConnectionFactory.createConnection(getConf())){
-      RegionState.State currentState = null;
-      Table table = connection.getTable(TableName.valueOf("hbase:meta"));
-      RowFilter filter = new RowFilter(CompareOperator.EQUAL, new SubstringComparator(region));
-      Scan scan = new Scan();
-      scan.setFilter(filter);
-      Result result = table.getScanner(scan).next();
-      if(result!=null){
-        byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
-          HConstants.STATE_QUALIFIER);
-        if(currentStateValue==null){
-          System.out.println("WARN: Region state info on meta was NULL");
-        }else {
-          currentState = RegionState.State.valueOf(Bytes.toString(currentStateValue));
-        }
-        Put put = new Put(result.getRow());
-        put.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER,
-          Bytes.toBytes(newState.name()));
-        table.put(put);
-        System.out.println("Changed region " + region + " STATE from "
-          + currentState + " to " + newState);
-        return EXIT_SUCCESS;
+    RegionState.State currentState = null;
+    Table table = connection.getTable(TableName.valueOf("hbase:meta"));
+    RowFilter filter = new RowFilter(CompareOperator.EQUAL, new SubstringComparator(region));
+    Scan scan = new Scan();
+    scan.setFilter(filter);
+    Result result = table.getScanner(scan).next();
+    if (result != null) {
+      byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
+        HConstants.STATE_QUALIFIER);
+      if (currentStateValue == null) {
+        System.out.println("WARN: Region state info on meta was NULL");
       } else {
-        System.out.println("ERROR: Could not find region " + region + " in meta.");
+        currentState = RegionState.State.valueOf(
+            org.apache.hadoop.hbase.util.Bytes.toString(currentStateValue));
       }
+      Put put = new Put(result.getRow());
+      put.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER,
+        org.apache.hadoop.hbase.util.Bytes.toBytes(newState.name()));
+      table.put(put);
+      System.out.println("Changed region " + region + " STATE from "
+        + currentState + " to " + newState);
+      return EXIT_SUCCESS;
+    } else {
+      System.out.println("ERROR: Could not find region " + region + " in meta.");
     }
     return EXIT_FAILURE;
   }
 
-  List<Long> assigns(String [] args) throws IOException {
+  List<Long> assigns(Hbck hbck, String [] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
     options.addOption(override);
@@ -179,16 +171,10 @@ public class HBCK2 extends Configured implements Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-    try (ClusterConnection conn =
-             (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
-      checkHBCKSupport(conn);
-      try (Hbck hbck = conn.getHbck()) {
-        return hbck.assigns(commandLine.getArgList(), overrideFlag);
-      }
-    }
+    return hbck.assigns(commandLine.getArgList(), overrideFlag);
   }
 
-  List<Long> unassigns(String [] args) throws IOException {
+  List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
     options.addOption(override);
@@ -202,20 +188,13 @@ public class HBCK2 extends Configured implements Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-    try (ClusterConnection conn =
-             (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
-      checkHBCKSupport(conn);
-      try (Hbck hbck = conn.getHbck()) {
-        return hbck.unassigns(commandLine.getArgList(), overrideFlag);
-      }
-    }
+    return hbck.unassigns(commandLine.getArgList(), overrideFlag);
   }
 
   /**
    * @return List of results OR null if failed to run.
    */
-  private List<Boolean> bypass(String[] args)
-      throws IOException {
+  private List<Boolean> bypass(String[] args) throws IOException {
     // Bypass has two options....
     Options options = new Options();
     // See usage for 'help' on these options.
@@ -246,12 +225,24 @@ public class HBCK2 extends Configured implements Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean recursiveFlag = commandLine.hasOption(override.getOpt());
     List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
-    try (ClusterConnection c = (ClusterConnection) ConnectionFactory.createConnection(getConf())) {
-      checkHBCKSupport(c);
-      try (Hbck hbck = c.getHbck()) {
-        return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
-      }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkHBCKSupport(connection, BYPASS);
+      return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
     }
+  }
+
+  List<Long> scheduleRecoveries(Hbck hbck, String[] args) throws IOException {
+    List<HBaseProtos.ServerName> serverNames = new ArrayList<>();
+    for (String serverName: args) {
+      serverNames.add(parseServerName(serverName));
+    }
+    return hbck.scheduleServerCrashProcedure(serverNames);
+  }
+
+  private HBaseProtos.ServerName parseServerName(String serverName) {
+    ServerName sn = ServerName.parseServerName(serverName);
+    return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).
+        setPort(sn.getPort()).setStartCode(sn.getStartcode()).build();
   }
 
   /**
@@ -269,17 +260,15 @@ public class HBCK2 extends Configured implements Tool {
     // NOTE: List commands belonw alphabetically!
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
-    writer.println();
-    writer.println("Commands:");
+    writer.println("Command:");
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("   A 'raw' assign that can be used even during Master initialization");
-    writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one");
-    writer.println("   or more encoded region names. 1588230740 is the hard-coded name");
-    writer.println("   for the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is");
-    writer.println("   an example of what a user-space encoded region name looks like.");
-    writer.println("   For example:");
+    writer.println("   A 'raw' assign that can be used even during Master initialization (if");
+    writer.println("   the -skip flag is specified). Skirts Coprocessors. Pass one or more");
+    writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
+    writer.println("   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example of");
+    writer.println("   what a user-space encoded region name looks like. For example:");
     writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
     writer.println();
@@ -288,13 +277,13 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("    -o,--override   override if procedure is running/stuck");
     writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
     writer.println("    -w,--lockWait   milliseconds to wait before giving up; default=1");
-    writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish.");
-    writer.println("   Parent of bypassed procedure will also be skipped to the finish.");
-    writer.println("   Entities will be left in an inconsistent state and will require");
-    writer.println("   manual fixup. May need Master restart to clear locks still held.");
-    writer.println("   Bypass fails if procedure has children. Add 'recursive' if all");
-    writer.println("   you have is a parent pid to finish parent and children. This");
-    writer.println("   is SLOW, and dangerous so use selectively. Does not always work.");
+    writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent");
+    writer.println("   of bypassed procedure will also be skipped to the finish. Entities will");
+    writer.println("   be left in an inconsistent state and will require manual fixup. May");
+    writer.println("   need Master restart to clear locks still held. Bypass fails if");
+    writer.println("   procedure has children. Add 'recursive' if all you have is a parent pid");
+    writer.println("   to finish parent and children. This is SLOW, and dangerous so use");
+    writer.println("   selectively. Does not always work.");
     writer.println();
     // out.println("   -checkCorruptHFiles     Check all Hfiles by opening them to make
     // sure they are valid");
@@ -307,14 +296,15 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("   Options:");
     writer.println("    -f, --fix    sideline corrupt hfiles, bad links and references.");
     writer.println("   Report corrupt hfiles and broken links. Pass '--fix' to sideline");
-    writer.println("   corrupt files and links. Pass one or more tablenames to narrow");
-    writer.println("   the checkup. Default checks all tables. Modified regions will");
-    writer.println("   need to be reopened to pickup changes.");
+    writer.println("   corrupt files and links. Pass one or more tablenames to narrow the");
+    writer.println("   checkup. Default checks all tables. Modified regions will need to be");
+    writer.println("   reopened to pick-up changes.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states:");
-    writer.println("      " + Arrays.stream(RegionState.State.values()).map(Enum::toString).
-        collect(Collectors.joining(", ")));
+    writer.println("    OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,");
+    writer.println("    FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW,");
+    writer.println("    MERGING_NEW, ABNORMALLY_CLOSED");
     writer.println("   WARNING: This is a very risky option intended for use as last resort.");
     writer.println("   Example scenarios include unassigns/assigns that can't move forward");
     writer.println("   because region is in an inconsistent state in 'hbase:meta'. For");
@@ -339,15 +329,23 @@ public class HBCK2 extends Configured implements Tool {
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println();
+    writer.println(" " + SCHEDULE_RECOVERIES + " <SERVERNAME>...");
+    writer.println("   Schedule ServerCrashProcedure(SCP) for list of RegionServers. Format");
+    writer.println("   server name as '<HOSTNAME>,<PORT>,<STARTCODE>' (See HBase UI/logs).");
+    writer.println("   Example using RegionServer 'a.example.org,29100,1540348649479':");
+    writer.println("     $ HBCK2 scheduleRecoveries a.example.org,29100,1540348649479");
+    writer.println("   Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if");
+    writer.println("   no procedure created (see master logs for why not).");
+    writer.println("   Command support added in hbase versions 2.0.3, 2.1.2, 2.2.0 or newer.");
+    writer.println();
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
     writer.println("   A 'raw' unassign that can be used even during Master initialization");
     writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one or");
-    writer.println("   more encoded region names. 1588230740 is the hard-coded name for");
-    writer.println("   the hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an");
-    writer.println("   example of what a userspace encoded region name looks like.");
-    writer.println("   For example:");
+    writer.println("   more encoded region names. 1588230740 is the hard-coded name for the");
+    writer.println("   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example");
+    writer.println("   of what a userspace encoded region name looks like. For example:");
     writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
     writer.println();
@@ -367,7 +365,7 @@ public class HBCK2 extends Configured implements Tool {
     }
     HelpFormatter formatter = new HelpFormatter();
     formatter.printHelp("HBCK2 [OPTIONS] COMMAND <ARGS>",
-        "\nOptions:", options, getCommandUsage());
+        "Options:", options, getCommandUsage());
   }
 
   @Override
@@ -380,6 +378,9 @@ public class HBCK2 extends Configured implements Tool {
     return this.conf;
   }
 
+  /**
+   * Process command line general options.
+   */
   @Override
   public int run(String[] args) throws IOException {
     // Configure Options. The below article was more helpful than the commons-cli doc:
@@ -390,18 +391,18 @@ public class HBCK2 extends Configured implements Tool {
     Option debug = Option.builder("d").longOpt("debug").desc("run with debug output").build();
     options.addOption(debug);
     Option quorum = Option.builder("q").longOpt(HConstants.ZOOKEEPER_QUORUM).hasArg().
-        desc("ensemble of target hbase").build();
+        desc("hbase ensemble").build();
     options.addOption(quorum);
     Option parent = Option.builder("z").longOpt(HConstants.ZOOKEEPER_ZNODE_PARENT).hasArg()
-        .desc("parent znode of target hbase").build();
+        .desc("parent znode of hbase ensemble").build();
     options.addOption(parent);
     Option peerPort = Option.builder("p").longOpt(HConstants.ZOOKEEPER_CLIENT_PORT).hasArg()
-        .desc("port of target hbase ensemble").type(Integer.class).build();
+        .desc("port of hbase ensemble").type(Integer.class).build();
     options.addOption(peerPort);
     Option version = Option.builder("v").longOpt(VERSION).desc("this hbck2 version").build();
     options.addOption(version);
     Option skip = Option.builder("s").longOpt("skip").
-        desc("skip hbase version check/PleaseHoldException/Master initializing").build();
+        desc("skip hbase version check (PleaseHoldException)").build();
     options.addOption(skip);
 
     // Parse command-line.
@@ -413,7 +414,6 @@ public class HBCK2 extends Configured implements Tool {
       usage(options, e.getMessage());
       return EXIT_FAILURE;
     }
-
     // Process general options.
     if (commandLine.hasOption(version.getOpt())) {
       System.out.println(readHBCK2BuildProperties(VERSION));
@@ -437,7 +437,7 @@ public class HBCK2 extends Configured implements Tool {
         getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.valueOf(optionValue));
       } else {
         usage(options,
-          "Invalid client port. Please provide proper port for target hbase ensemble.");
+            "Invalid client port. Please provide proper port for target hbase ensemble.");
         return EXIT_FAILURE;
       }
     }
@@ -451,21 +451,41 @@ public class HBCK2 extends Configured implements Tool {
         return EXIT_FAILURE;
       }
     }
-    if(commandLine.hasOption(skip.getOpt())){
+    if (commandLine.hasOption(skip.getOpt())) {
       skipCheck = true;
     }
+    return doCommandLine(commandLine, options);
+  }
 
-    // Now process commands.
+  /**
+   * Create connection.
+   * Needs to be called before we go against remote server.
+   * Be sure to close when done.
+   */
+  ClusterConnection connect() throws IOException {
+    return (ClusterConnection)ConnectionFactory.createConnection(getConf());
+  }
+
+  /**
+   * Process parsed command-line. General options have already been processed by caller.
+   */
+  private int doCommandLine(CommandLine commandLine, Options options) throws IOException {
+    // Now process command.
     String[] commands = commandLine.getArgs();
     String command = commands[0];
     switch (command) {
+      // Case handlers all have same format. Check first that the server supports
+      // the feature FIRST, then move to process the command.
       case SET_TABLE_STATE:
         if (commands.length < 3) {
           usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
           return EXIT_FAILURE;
         }
-        System.out.println(setTableState(TableName.valueOf(commands[1]),
-            TableState.State.valueOf(commands[2])));
+        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+          checkHBCKSupport(connection, command);
+          System.out.println(setTableState(hbck, TableName.valueOf(commands[1]),
+              TableState.State.valueOf(commands[2])));
+        }
         break;
 
       case ASSIGNS:
@@ -473,7 +493,10 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        System.out.println(assigns(purgeFirst(commands)));
+        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+          checkHBCKSupport(connection, command);
+          System.out.println(assigns(hbck, purgeFirst(commands)));
+        }
         break;
 
       case BYPASS:
@@ -481,6 +504,11 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more pids");
           return EXIT_FAILURE;
         }
+        // bypass does the connection setup and the checkHBCKSupport down
+        // inside in the bypass method delaying connection setup until last
+        // moment. It does this because it has another set of command options
+        // to process and wants to do that before setting up connection.
+        // This is why it is not like the other command processings.
         List<Boolean> bs = bypass(purgeFirst(commands));
         if (bs == null) {
           // Something went wrong w/ the parse and command didn't run.
@@ -494,22 +522,43 @@ public class HBCK2 extends Configured implements Tool {
           usage(options, command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        System.out.println(toString(unassigns(purgeFirst(commands))));
+        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+          checkHBCKSupport(connection, command);
+          System.out.println(toString(unassigns(hbck, purgeFirst(commands))));
+        }
         break;
 
       case SET_REGION_STATE:
-        if(commands.length < 3){
+        if (commands.length < 3) {
           usage(options, command + " takes region encoded name and state arguments: e.g. "
-            + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
           return EXIT_FAILURE;
         }
-        return setRegionState(commands[1], RegionState.State.valueOf(commands[2]));
+        RegionState.State state = RegionState.State.valueOf(commands[2]);
+        try (ClusterConnection connection = connect()) {
+          checkHBCKSupport(connection, command);
+          return setRegionState(connection, commands[1], state);
+        }
 
       case FILESYSTEM:
-        try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
-          if (fsfsck.fsck(options, purgeFirst(commands)) != 0) {
-            return EXIT_FAILURE;
+        try (ClusterConnection connection = connect()) {
+          checkHBCKSupport(connection, command);
+          try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
+            if (fsfsck.fsck(options, purgeFirst(commands)) != 0) {
+              return EXIT_FAILURE;
+            }
           }
+        }
+        break;
+
+      case SCHEDULE_RECOVERIES:
+        if (commands.length < 2) {
+          usage(options, command + " takes one or more serverNames");
+          return EXIT_FAILURE;
+        }
+        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+          checkHBCKSupport(connection, command, "2.0.3", "2.1.2", "2.2.0", "3.0.0");
+          System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
         }
         break;
 
@@ -544,7 +593,7 @@ public class HBCK2 extends Configured implements Tool {
 
   public static void main(String [] args) throws Exception {
     Configuration conf = HBaseConfiguration.create();
-    int errCode = ToolRunner.run(new HBCK2(conf), args);
+    int errCode = org.apache.hadoop.util.ToolRunner.run(new HBCK2(conf), args);
     if (errCode != 0) {
       System.exit(errCode);
     }
