@@ -81,6 +81,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String UNASSIGNS = "unassigns";
   private static final String BYPASS = "bypass";
   private static final String FILESYSTEM = "filesystem";
+  private static final String REPLICATION = "replication";
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
@@ -292,7 +293,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     // out.println("   -fixVersionFile   Try to fix missing hbase.version file in hdfs.");
     // out.println("   -fixReferenceFiles  Try to offline lingering reference store files");
     // out.println("   -fixHFileLinks  Try to offline lingering HFileLinks");
-    writer.println(" " + FILESYSTEM + " [OPTIONS] [<TABLENAME...]");
+    writer.println(" " + FILESYSTEM + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    sideline corrupt hfiles, bad links, and references.");
     writer.println("   Report on corrupt hfiles, references, broken links, and integrity.");
@@ -301,6 +302,13 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   more tablenames to narrow checkup. Default checks all tables and");
     writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem only!");
     writer.println("   Modified regions need to be reopened to pick-up changes.");
+    writer.println();
+    writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
+    writer.println("   Options:");
+    writer.println("    -f, --fix    fix any replication issues found.");
+    writer.println("   Looks for undeleted replication queues and deletes them if passed the");
+    writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
+    writer.println("   purge if '--fix'.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states:");
@@ -547,6 +555,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           checkHBCKSupport(connection, command);
           try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
             if (fsfsck.fsck(options, purgeFirst(commands)) != 0) {
+              return EXIT_FAILURE;
+            }
+          }
+        }
+        break;
+
+      case REPLICATION:
+        try (ClusterConnection connection = connect()) {
+          checkHBCKSupport(connection, command);
+          try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
+            if (replicationFsck.fsck(options, purgeFirst(commands)) != 0) {
               return EXIT_FAILURE;
             }
           }

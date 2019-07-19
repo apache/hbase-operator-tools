@@ -556,7 +556,6 @@ public class HBaseFsck extends Configured implements Closeable {
         try {
           IOUtils.closeQuietly(hbckOutFd);
           FSUtils.delete(FSUtils.getCurrentFileSystem(getConf()), hbckLockPath, true);
-          LOG.info("Finishing hbck");
           return;
         } catch (IOException ioe) {
           LOG.info("Failed to delete " + hbckLockPath + ", try="
@@ -612,8 +611,6 @@ public class HBaseFsck extends Configured implements Closeable {
         unlockHbck();
       }
     });
-
-    LOG.info("Launching hbck");
 
     connection = ConnectionFactory.createConnection(getConf());
     admin = connection.getAdmin();
@@ -2080,7 +2077,7 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   private ZKWatcher createZooKeeperWatcher() throws IOException {
-    return new ZKWatcher(getConf(), "hbase Fsck", new Abortable() {
+    return new ZKWatcher(getConf(), "HBCK2", new Abortable() {
       @Override
       public void abort(String why, Throwable e) {
         LOG.error(why, e);
@@ -3770,7 +3767,7 @@ public class HBaseFsck extends Configured implements Closeable {
     return hbi;
   }
 
-  private void checkAndFixReplication() throws ReplicationException {
+  public void checkAndFixReplication() throws ReplicationException {
     ReplicationChecker checker = new ReplicationChecker(getConf(), zkw, errors);
     checker.checkUnDeletedQueues();
 
@@ -5382,7 +5379,7 @@ public class HBaseFsck extends Configured implements Closeable {
     }
     if (regionNames.size() <= 0) {
       errors.reportError(ErrorReporter.ERROR_CODE.INVALID_TABLE,
-        "there is no barriers of this table: " + cleanReplicationBarrierTable);
+        "No replication barrier(s) on table: " + cleanReplicationBarrierTable);
       return;
     }
     ReplicationQueueStorage queueStorage =
