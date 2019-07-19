@@ -107,7 +107,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try (Admin admin = connection.getAdmin()) {
       String serverVersion = admin.
           getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).getHBaseVersion();
-      String [] thresholdVersions = supportedVersions == null?
+      String [] thresholdVersions = supportedVersions == null || supportedVersions.length == 0?
           MINIMUM_HBCK2_VERSION: supportedVersions;
       boolean supported = Version.check(serverVersion, thresholdVersions);
       if (!supported) {
@@ -294,11 +294,13 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     // out.println("   -fixHFileLinks  Try to offline lingering HFileLinks");
     writer.println(" " + FILESYSTEM + " [OPTIONS] [<TABLENAME...]");
     writer.println("   Options:");
-    writer.println("    -f, --fix    sideline corrupt hfiles, bad links and references.");
-    writer.println("   Report corrupt hfiles and broken links. Pass '--fix' to sideline");
-    writer.println("   corrupt files and links. Pass one or more tablenames to narrow the");
-    writer.println("   checkup. Default checks all tables. Modified regions will need to be");
-    writer.println("   reopened to pick-up changes.");
+    writer.println("    -f, --fix    sideline corrupt hfiles, bad links, and references.");
+    writer.println("   Report on corrupt hfiles, references, broken links, and integrity.");
+    writer.println("   Pass '--fix' to sideline corrupt files and links. '--fix' does NOT");
+    writer.println("   fix integrity issues; i.e. 'holes' or 'orphan' regions. Pass one or");
+    writer.println("   more tablenames to narrow checkup. Default checks all tables and");
+    writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem only!");
+    writer.println("   Modified regions need to be reopened to pick-up changes.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states:");
