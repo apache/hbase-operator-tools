@@ -20,15 +20,10 @@ package org.apache.hbase;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.util.FSUtils;
+import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hbase.hbck1.HBaseFsck;
-import org.apache.hbase.hbck1.HFileCorruptionChecker;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
@@ -37,18 +32,13 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
 /**
- * Checks and repairs for hbase filesystem.
+ * Checks and repairs for hbase replication.
  */
-public class FileSystemFsck implements Closeable {
+public class ReplicationFsck implements Closeable {
   private final Configuration configuration;
-  private FileSystem fs;
-  private Path rootDir;
 
-  FileSystemFsck(Configuration conf) throws IOException {
+  ReplicationFsck(Configuration conf) throws IOException {
     this.configuration = conf;
-    this.rootDir = FSUtils.getRootDir(this.configuration);
-    this.fs = rootDir.getFileSystem(this.configuration);
-
   }
 
   @Override
@@ -70,38 +60,20 @@ public class FileSystemFsck implements Closeable {
       return -1;
     }
     boolean fix = commandLine.hasOption(fixOption.getOpt());
-    // Before we start make sure of the version file.
-    if (fix && !HBaseFsck.versionFileExists(this.fs, this.rootDir)) {
-      HBaseFsck.versionFileCreate(this.configuration, this.fs, this.rootDir);
-    }
-    // Iterate over list of tablenames or encoded region names passed.
     try (HBaseFsck hbaseFsck = new HBaseFsck(this.configuration)) {
-      // Check hfiles.
-      HFileCorruptionChecker hfcc = hbaseFsck.createHFileCorruptionChecker(fix);
-      hbaseFsck.setHFileCorruptionChecker(hfcc);
+      hbaseFsck.setFixReplication(fix);
+      hbaseFsck.checkAndFixReplication();
       Collection<String> tables = commandLine.getArgList();
-      Collection<Path> tableDirs = tables.isEmpty()?
-          FSUtils.getTableDirs(this.fs, this.rootDir):
-          tables.stream().map(t -> FSUtils.getTableDir(this.rootDir, TableName.valueOf(t))).
-              collect(Collectors.toList());
-      hfcc.checkTables(tableDirs);
-      hfcc.report(hbaseFsck.getErrors());
-      // Now check links.
-      hbaseFsck.setFixReferenceFiles(fix);
-      hbaseFsck.setFixHFileLinks(fix);
-      hbaseFsck.setCheckHdfs(true);
-      /*
-      The below are too radical for hbck2. They are filesystem changes only.
-      Need to connect them to hbase:meta and master; master should repair
-      holes and overlaps and adopt regions.
-
-      hbaseFsck.setFixHdfsOrphans(fix);
-      hbaseFsck.setFixHdfsHoles(fix);
-      hbaseFsck.setFixHdfsOverlaps(fix);
-      hbaseFsck.setFixTableOrphans(fix);
-      */
-      hbaseFsck.offlineHbck();
-    } catch (ClassNotFoundException | InterruptedException e) {
+      if (tables != null && !tables.isEmpty()) {
+        // Below needs connection to be up; uses admin.
+        hbaseFsck.connect();
+        hbaseFsck.setCleanReplicationBarrier(fix);
+        for (String table: tables) {
+          hbaseFsck.setCleanReplicationBarrierTable(table);
+          hbaseFsck.cleanReplicationBarrier();
+        }
+      }
+    } catch (ClassNotFoundException | ReplicationException e) {
       throw new IOException(e);
     }
     return 0;
