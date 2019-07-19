@@ -17,26 +17,19 @@
  */
 package org.apache.hbase;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collection;
+
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.replication.ReplicationException;
-import org.apache.hadoop.hbase.util.FSUtils;
-import org.apache.hbase.HBCK2;
 import org.apache.hbase.hbck1.HBaseFsck;
-import org.apache.hbase.hbck1.HFileCorruptionChecker;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.stream.Collectors;
 
 /**
  * Checks and repairs for hbase replication.
