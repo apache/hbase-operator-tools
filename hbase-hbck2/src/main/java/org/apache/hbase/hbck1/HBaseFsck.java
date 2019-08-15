@@ -148,6 +148,7 @@ import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
+import org.apache.hbase.HBCKMetaTableAccessor;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 import org.apache.zookeeper.KeeperException;
@@ -3924,13 +3925,14 @@ public class HBaseFsck extends Configured implements Closeable {
               throw new IOException("Two entries in hbase:meta are same " + previous);
             }
           }
-          PairOfSameType<RegionInfo> mergeRegions = MetaTableAccessor.getMergeRegions(result);
-          for (RegionInfo mergeRegion : new RegionInfo[] {
-              mergeRegions.getFirst(), mergeRegions.getSecond() }) {
-            if (mergeRegion != null) {
-              // This region is already been merged
-              HbckInfo hbInfo = getOrCreateInfo(mergeRegion.getEncodedName());
-              hbInfo.setMerged(true);
+          List<RegionInfo> mergeParents = HBCKMetaTableAccessor.getMergeRegions(result.rawCells());
+          if (mergeParents != null) {
+            for (RegionInfo mergeRegion : mergeParents) {
+              if (mergeRegion != null) {
+                // This region is already being merged
+                HbckInfo hbInfo = getOrCreateInfo(mergeRegion.getEncodedName());
+                hbInfo.setMerged(true);
+              }
             }
           }
 

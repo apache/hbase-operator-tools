@@ -43,6 +43,7 @@ import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.master.ServerManager;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.FSUtils;
+import org.apache.hbase.HBCKMetaTableAccessor;
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -200,6 +201,6 @@ public final class HBaseFsckRepair {
    */
   public static void removeParentInMeta(Configuration conf, RegionInfo hri) throws IOException {
     Connection conn = ConnectionFactory.createConnection(conf);
-    MetaTableAccessor.deleteRegion(conn, hri);
+    HBCKMetaTableAccessor.deleteRegionInfo(conn, hri);
   }
 }
