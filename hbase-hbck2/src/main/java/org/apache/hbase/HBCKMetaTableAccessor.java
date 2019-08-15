@@ -17,6 +17,10 @@
  */
 package org.apache.hbase;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HConstants;
@@ -30,16 +34,18 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * hbck's local version of the MetaTableAccessor from the hbase repo
+ * A Utility class to facilitate hbck2's access to Meta table.
  */
 @InterfaceAudience.Private
-public class HBCKMetaTableAccessor {
+public final class HBCKMetaTableAccessor {
+
+  /**
+   * Private constructor to keep this class from being instantiated.
+   */
+  private HBCKMetaTableAccessor() {
+  }
 
   private static final Logger LOG = LoggerFactory.getLogger(
       HBCKMetaTableAccessor.class);
@@ -74,7 +80,7 @@ public class HBCKMetaTableAccessor {
    *
    * @param connection connection we're using
    * @param regionInfo the regionInfo to delete from the meta table
-   * @throws IOException
+   * @throws IOException if it's not able to delete the regionInfo
    */
   public static void deleteRegionInfo(Connection connection, RegionInfo regionInfo)
       throws IOException {
