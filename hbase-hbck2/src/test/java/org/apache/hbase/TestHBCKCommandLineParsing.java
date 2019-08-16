@@ -38,8 +38,25 @@ public class TestHBCKCommandLineParsing {
 
   @Test
   public void testHelp() throws IOException {
-    String output = retrieveOptionOutput("-h");
+    // Passing no argument echoes out the usage info
+    String output = retrieveOptionOutput(null);
     assertTrue(output, output.startsWith("usage: HBCK2"));
+
+    // Passing -h/--help does the same
+    output = retrieveOptionOutput("-h");
+    assertTrue(output, output.startsWith("usage: HBCK2"));
+  }
+
+  @Test
+  public void testErrorMessage() throws IOException{
+    // just chose some of the commands to test for
+    String[] cmds = new String[]{"setTableState", "bypass", "scheduleRecoveries"};
+    String output;
+    for(String cmd: cmds){
+      output = retrieveOptionOutput(cmd);
+      assertTrue(output, output.startsWith("ERROR: "));
+      assertTrue(output, output.contains("FOR USAGE, use the -h or --help option"));
+    }
   }
 
   @Test (expected=NumberFormatException.class)
@@ -74,7 +91,11 @@ public class TestHBCKCommandLineParsing {
     PrintStream oldOut = System.out;
     System.setOut(stream);
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    hbck.run(new String[] { option });
+    if (option != null) {
+      hbck.run(new String[] { option });
+    } else {
+      hbck.run(null);
+    }
     stream.close();
     os.close();
     System.setOut(oldOut);
