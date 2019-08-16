@@ -446,7 +446,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       if (optionValue.matches("[0-9]+")) {
         getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.valueOf(optionValue));
       } else {
-        showErrorMessage("Invalid client port. Please provide proper port for target hbase ensemble.");
+        showErrorMessage(
+            "Invalid client port. Please provide proper port for target hbase ensemble.");
         return EXIT_FAILURE;
       }
     }
