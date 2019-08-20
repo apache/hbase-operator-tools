@@ -33,7 +33,7 @@ public final class Version {
 
   /**
    * @param thresholdVersions List of versions from oldest to newest.
-   * @return true if <code>version</code> is less-than or equal to thresholdVersions.
+   * @return true if <code>version</code> is greater-than or equal to thresholdVersions.
    *   For example, if passed threshold list is <code>{"2.0.2", "2.1.3", "2.2.1"}</code>
    *   and the version is 2.1.2 then the result should be false since 2.1.2
    *   is less than the matching passed-in 2.1.3 but if version is 2.1.5 then we return true.

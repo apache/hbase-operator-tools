@@ -46,7 +46,7 @@ public class ReplicationFsck implements Closeable {
     // Nothing to do.
   }
 
-  int fsck(Options hbck2Options, String[] args) throws IOException {
+  int fsck(String[] args) throws IOException {
     Options options = new Options();
     Option fixOption = Option.builder("f").longOpt("fix").build();
     options.addOption(fixOption);
@@ -56,7 +56,7 @@ public class ReplicationFsck implements Closeable {
     try {
       commandLine = parser.parse(options, args, false);
     } catch(ParseException e) {
-      HBCK2.usage(hbck2Options, e.getMessage());
+      HBCK2.showErrorMessage(e.getMessage());
       return -1;
     }
     boolean fix = commandLine.hasOption(fixOption.getOpt());

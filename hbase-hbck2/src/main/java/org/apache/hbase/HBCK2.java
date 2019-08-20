@@ -168,7 +168,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
-      usage(options, e.getMessage());
+      showErrorMessage(e.getMessage());
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
@@ -185,7 +185,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
-      usage(options, e.getMessage());
+      showErrorMessage(e.getMessage());
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
@@ -211,7 +211,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
-      usage(options, e.getMessage());
+      showErrorMessage(e.getMessage());
       return null;
     }
     long lockWait = DEFAULT_LOCK_WAIT;
@@ -220,7 +220,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     String[] pidStrs = commandLine.getArgs();
     if (pidStrs == null || pidStrs.length <= 0) {
-      usage(options, "No pids supplied.");
+      showErrorMessage("No pids supplied.");
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
@@ -258,7 +258,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static String getCommandUsage() {
-    // NOTE: List commands belonw alphabetically!
+    // NOTE: List commands below alphabetically!
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
     writer.println("Command:");
@@ -365,14 +365,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return sw.toString();
   }
 
-  private static void usage(Options options) {
-    usage(options, null);
-  }
-
-  static void usage(Options options, String error) {
+  static void showErrorMessage(String error) {
     if (error != null) {
       System.out.println("ERROR: " + error);
+      System.out.println("FOR USAGE, use the -h or --help option");
     }
+  }
+
+  static void showUsage(Options options){
     HelpFormatter formatter = new HelpFormatter();
     formatter.printHelp("HBCK2 [OPTIONS] COMMAND <ARGS>",
         "Options:", options, getCommandUsage());
@@ -421,7 +421,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try {
       commandLine = parser.parse(options, args, true);
     } catch (ParseException e) {
-      usage(options, e.getMessage());
+      showErrorMessage(e.getMessage());
       return EXIT_FAILURE;
     }
     // Process general options.
@@ -430,7 +430,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return EXIT_SUCCESS;
     }
     if (commandLine.hasOption(help.getOpt()) || commandLine.getArgList().isEmpty()) {
-      usage(options);
+      showUsage(options);
       return EXIT_SUCCESS;
     }
     if (commandLine.hasOption(debug.getOpt())) {
@@ -446,7 +446,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       if (optionValue.matches("[0-9]+")) {
         getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.valueOf(optionValue));
       } else {
-        usage(options,
+        showErrorMessage(
             "Invalid client port. Please provide proper port for target hbase ensemble.");
         return EXIT_FAILURE;
       }
@@ -456,7 +456,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       if (optionValue.startsWith("/")) {
         getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, optionValue);
       } else {
-        usage(options, "Invalid parent znode. Please provide proper parent znode of target hbase."
+        showErrorMessage("Invalid parent znode. Please provide proper parent znode of target hbase."
             + " Note that valid znodes must start with \"/\".");
         return EXIT_FAILURE;
       }
@@ -488,7 +488,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       // the feature FIRST, then move to process the command.
       case SET_TABLE_STATE:
         if (commands.length < 3) {
-          usage(options, command + " takes tablename and state arguments: e.g. user ENABLED");
+          showErrorMessage(command + " takes tablename and state arguments: e.g. user ENABLED");
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
@@ -500,7 +500,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case ASSIGNS:
         if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
+          showErrorMessage(command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
@@ -511,7 +511,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case BYPASS:
         if (commands.length < 2) {
-          usage(options, command + " takes one or more pids");
+          showErrorMessage(command + " takes one or more pids");
           return EXIT_FAILURE;
         }
         // bypass does the connection setup and the checkHBCKSupport down
@@ -529,7 +529,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case UNASSIGNS:
         if (commands.length < 2) {
-          usage(options, command + " takes one or more encoded region names");
+          showErrorMessage(command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
@@ -540,7 +540,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case SET_REGION_STATE:
         if (commands.length < 3) {
-          usage(options, command + " takes region encoded name and state arguments: e.g. "
+          showErrorMessage(command + " takes region encoded name and state arguments: e.g. "
               + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
           return EXIT_FAILURE;
         }
@@ -554,7 +554,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
           try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
-            if (fsfsck.fsck(options, purgeFirst(commands)) != 0) {
+            if (fsfsck.fsck(purgeFirst(commands)) != 0) {
               return EXIT_FAILURE;
             }
           }
@@ -565,7 +565,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
           try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
-            if (replicationFsck.fsck(options, purgeFirst(commands)) != 0) {
+            if (replicationFsck.fsck(purgeFirst(commands)) != 0) {
               return EXIT_FAILURE;
             }
           }
@@ -574,7 +574,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case SCHEDULE_RECOVERIES:
         if (commands.length < 2) {
-          usage(options, command + " takes one or more serverNames");
+          showErrorMessage(command + " takes one or more serverNames");
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
@@ -584,7 +584,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         break;
 
       default:
-        usage(options, "Unsupported command: " + command);
+        showErrorMessage("Unsupported command: " + command);
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
