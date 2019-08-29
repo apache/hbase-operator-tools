@@ -303,8 +303,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Pass '--fix' to sideline corrupt files and links. '--fix' does NOT");
     writer.println("   fix integrity issues; i.e. 'holes' or 'orphan' regions. Pass one or");
     writer.println("   more tablenames to narrow checkup. Default checks all tables and");
-    writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem only!");
-    writer.println("   Modified regions need to be reopened to pick-up changes.");
+    writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem");
+    writer.println("   only! Modified regions need to be reopened to pick-up changes.");
     writer.println();
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
