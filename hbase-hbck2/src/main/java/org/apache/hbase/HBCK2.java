@@ -308,6 +308,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem only!");
     writer.println("   Modified regions need to be reopened to pick-up changes.");
     writer.println();
+    writer.println(" " + FIX_META);
+    writer.println("   Do a server-side fixing of bad or inconsistent state in hbase:meta");
+    writer.println();
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    fix any replication issues found.");
@@ -366,10 +369,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
     writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
-    writer.println();
-    writer.println(" " + FIX_META);
-    writer.println("   Do a server-side fixing of bad or inconsistent state in hbase:meta");
-    writer.println("   This command doesn't take any arguments.");
     writer.close();
     return sw.toString();
   }
