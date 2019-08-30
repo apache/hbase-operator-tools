@@ -566,7 +566,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case REPLICATION:
         try (ClusterConnection connection = connect()) {
-          checkHBCKSupport(connection, command);
+          checkHBCKSupport(connection, command, "2.1.1", "2.2.0", "3.0.0");
           try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
             if (replicationFsck.fsck(purgeFirst(commands)) != 0) {
               return EXIT_FAILURE;
