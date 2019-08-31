@@ -1192,7 +1192,8 @@ public class HBaseFsck extends Configured implements Closeable {
     Configuration conf = getConf();
     Path hbaseRoot = FSUtils.getRootDir(conf);
     FileSystem fs = hbaseRoot.getFileSystem(conf);
-    Map<String, Path> allFiles = getTableStoreFilePathMap(fs, hbaseRoot, new FSUtils.ReferenceFileFilter(fs), executor);
+    Map<String, Path> allFiles =
+      getTableStoreFilePathMap(fs, hbaseRoot, new FSUtils.ReferenceFileFilter(fs), executor);
     for (Path path: allFiles.values()) {
       Path referredToFile = StoreFileInfo.getReferredToFile(path);
       if (fs.exists(referredToFile)) {
@@ -1250,7 +1251,6 @@ public class HBaseFsck extends Configured implements Closeable {
    * @param executor optional executor service to parallelize this operation
    * @return Map keyed by StoreFile name with a value of the full Path.
    * @throws IOException When scanning the directory fails.
-   * @throws InterruptedException
    */
   // This and the next method are copied over from FSUtils so we can work against more versions
   // of hbase. The signature of this method changed when this went in: HBASE-22721 Refactor
@@ -1268,7 +1268,8 @@ public class HBaseFsck extends Configured implements Closeable {
 
     // only include the directory paths to tables
     for (Path tableDir : FSUtils.getTableDirs(fs, hbaseRootDir)) {
-      getTableStoreFilePathMap(map, fs, hbaseRootDir, FSUtils.getTableName(tableDir), sfFilter, executor);
+      getTableStoreFilePathMap(map, fs, hbaseRootDir, FSUtils.getTableName(tableDir),
+          sfFilter, executor);
     }
     return map;
   }
@@ -1284,7 +1285,7 @@ public class HBaseFsck extends Configured implements Closeable {
    * Key = 3944417774205889744  <br>
    * Value = hdfs://localhost:51169/user/userid/-ROOT-/70236052/info/3944417774205889744
    *
-   * @param resultMap map to add values.  If null, this method will create and populate one to return
+   * @param resultMap map to add values. If null, method will create and populate one to return
    * @param fs  The file system to use.
    * @param hbaseRootDir  The root directory to scan.
    * @param tableName name of the table to scan.
@@ -1292,7 +1293,6 @@ public class HBaseFsck extends Configured implements Closeable {
    * @param executor optional executor service to parallelize this operation
    * @return Map keyed by StoreFile name with a value of the full Path.
    * @throws IOException When scanning the directory fails.
-   * @throws InterruptedException
    */
   // Copied over from FSUtils so we can work against more versions of hbase. The signature
   // of this method changed when this went in: HBASE-22721 Refactor HBaseFsck: move the inner
@@ -1316,7 +1316,8 @@ public class HBaseFsck extends Configured implements Closeable {
     final Vector<Exception> exceptions = new Vector<>();
 
     try {
-      List<FileStatus> regionDirs = FSUtils.listStatusWithStatusFilter(fs, tableDir, new FSUtils.RegionDirFilter(fs));
+      List<FileStatus> regionDirs =
+        FSUtils.listStatusWithStatusFilter(fs, tableDir, new FSUtils.RegionDirFilter(fs));
       if (regionDirs == null) {
         return finalResultMap;
       }
@@ -1335,7 +1336,8 @@ public class HBaseFsck extends Configured implements Closeable {
           public void run() {
             try {
               HashMap<String,Path> regionStoreFileMap = new HashMap<>();
-              List<FileStatus> familyDirs = FSUtils.listStatusWithStatusFilter(fs, dd, familyFilter);
+              List<FileStatus> familyDirs =
+                FSUtils.listStatusWithStatusFilter(fs, dd, familyFilter);
               if (familyDirs == null) {
                 if (!fs.exists(dd)) {
                   LOG.warn("Skipping region because it no longer exists: " + dd);
@@ -1355,7 +1357,7 @@ public class HBaseFsck extends Configured implements Closeable {
                 for (FileStatus sfStatus : familyStatus) {
                   Path sf = sfStatus.getPath();
                   if (sfFilter == null || sfFilter.accept(sf)) {
-                    regionStoreFileMap.put( sf.getName(), sf);
+                    regionStoreFileMap.put(sf.getName(), sf);
                   }
                 }
               }
