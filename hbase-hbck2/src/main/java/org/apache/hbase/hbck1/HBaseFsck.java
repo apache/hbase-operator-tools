@@ -47,6 +47,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -67,6 +68,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hbase.Abortable;
@@ -158,12 +160,14 @@ import org.slf4j.LoggerFactory;
 import org.apache.hbase.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.hbase.thirdparty.com.google.common.base.Joiner;
 import org.apache.hbase.thirdparty.com.google.common.base.Preconditions;
+import org.apache.hbase.thirdparty.com.google.common.base.Throwables;
 import org.apache.hbase.thirdparty.com.google.common.collect.ImmutableList;
 import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.hbase.thirdparty.com.google.common.collect.Multimap;
 import org.apache.hbase.thirdparty.com.google.common.collect.Ordering;
 import org.apache.hbase.thirdparty.com.google.common.collect.Sets;
 import org.apache.hbase.thirdparty.com.google.common.collect.TreeMultimap;
+
 
 /**
  * HBaseFsck (hbck) is(WAS) a tool for checking and repairing region consistency and
@@ -1188,8 +1192,8 @@ public class HBaseFsck extends Configured implements Closeable {
     Configuration conf = getConf();
     Path hbaseRoot = FSUtils.getRootDir(conf);
     FileSystem fs = hbaseRoot.getFileSystem(conf);
-    Map<String, Path> allFiles = FSUtils.getTableStoreFilePathMap(fs, hbaseRoot,
-      new FSUtils.ReferenceFileFilter(fs), executor, null/*Used to emit 'progress' and thats it*/);
+    Map<String, Path> allFiles =
+      getTableStoreFilePathMap(fs, hbaseRoot, new FSUtils.ReferenceFileFilter(fs), executor);
     for (Path path: allFiles.values()) {
       Path referredToFile = StoreFileInfo.getReferredToFile(path);
       if (fs.exists(referredToFile)) {
@@ -1234,6 +1238,177 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   /**
+   * Runs through the HBase rootdir and creates a reverse lookup map for
+   * table StoreFile names to the full Path.
+   * <br>
+   * Example...<br>
+   * Key = 3944417774205889744  <br>
+   * Value = hdfs://localhost:51169/user/userid/-ROOT-/70236052/info/3944417774205889744
+   *
+   * @param fs  The file system to use.
+   * @param hbaseRootDir  The root directory to scan.
+   * @param sfFilter optional path filter to apply to store files
+   * @param executor optional executor service to parallelize this operation
+   * @return Map keyed by StoreFile name with a value of the full Path.
+   * @throws IOException When scanning the directory fails.
+   */
+  // This and the next method are copied over from FSUtils so we can work against more versions
+  // of hbase. The signature of this method changed when this went in: HBASE-22721 Refactor
+  // HBaseFsck: move the inner class out. It went in across a strange set of versions. The method
+  // is also wonky because it is about in FSUtils but it takes an Interface from HBCK to do
+  // reporting (to print a '.' every so often). Its just wrong reaching across packages this way,
+  // especially when no relation.
+  private static Map<String, Path> getTableStoreFilePathMap(final FileSystem fs,
+        final Path hbaseRootDir, PathFilter sfFilter, ExecutorService executor)
+      throws IOException, InterruptedException {
+    ConcurrentHashMap<String, Path> map = new ConcurrentHashMap<>(1024, 0.75f, 32);
+
+    // if this method looks similar to 'getTableFragmentation' that is because
+    // it was borrowed from it.
+
+    // only include the directory paths to tables
+    for (Path tableDir : FSUtils.getTableDirs(fs, hbaseRootDir)) {
+      getTableStoreFilePathMap(map, fs, hbaseRootDir, FSUtils.getTableName(tableDir),
+          sfFilter, executor);
+    }
+    return map;
+  }
+
+  /**
+   * Runs through the HBase rootdir/tablename and creates a reverse lookup map for
+   * table StoreFile names to the full Path.  Note that because this method can be called
+   * on a 'live' HBase system that we will skip files that no longer exist by the time
+   * we traverse them and similarly the user of the result needs to consider that some
+   * entries in this map may not exist by the time this call completes.
+   * <br>
+   * Example...<br>
+   * Key = 3944417774205889744  <br>
+   * Value = hdfs://localhost:51169/user/userid/-ROOT-/70236052/info/3944417774205889744
+   *
+   * @param resultMap map to add values. If null, method will create and populate one to return
+   * @param fs  The file system to use.
+   * @param hbaseRootDir  The root directory to scan.
+   * @param tableName name of the table to scan.
+   * @param sfFilter optional path filter to apply to store files
+   * @param executor optional executor service to parallelize this operation
+   * @return Map keyed by StoreFile name with a value of the full Path.
+   * @throws IOException When scanning the directory fails.
+   */
+  // Copied over from FSUtils so we can work against more versions of hbase. The signature
+  // of this method changed when this went in: HBASE-22721 Refactor HBaseFsck: move the inner
+  // class out. It went in across a strange set of versions. The method is also wonky because
+  // it is about in FSUtils but it takes an Interface from HBCK to do reporting (to print a '.'
+  // every so often). Its just wrong reaching across packages this way, especially when
+  // no relation.
+  private static Map<String, Path> getTableStoreFilePathMap(Map<String, Path> resultMap,
+        final FileSystem fs, final Path hbaseRootDir, TableName tableName,
+        final PathFilter sfFilter, ExecutorService executor)
+      throws IOException, InterruptedException {
+
+    final Map<String, Path> finalResultMap =
+        resultMap == null ? new ConcurrentHashMap<>(128, 0.75f, 32) : resultMap;
+
+    // only include the directory paths to tables
+    Path tableDir = FSUtils.getTableDir(hbaseRootDir, tableName);
+    // Inside a table, there are compaction.dir directories to skip.  Otherwise, all else
+    // should be regions.
+    final FSUtils.FamilyDirFilter familyFilter = new FSUtils.FamilyDirFilter(fs);
+    final Vector<Exception> exceptions = new Vector<>();
+
+    try {
+      List<FileStatus> regionDirs =
+        FSUtils.listStatusWithStatusFilter(fs, tableDir, new FSUtils.RegionDirFilter(fs));
+      if (regionDirs == null) {
+        return finalResultMap;
+      }
+
+      final List<Future<?>> futures = new ArrayList<>(regionDirs.size());
+
+      for (FileStatus regionDir : regionDirs) {
+        final Path dd = regionDir.getPath();
+
+        if (!exceptions.isEmpty()) {
+          break;
+        }
+
+        Runnable getRegionStoreFileMapCall = new Runnable() {
+          @Override
+          public void run() {
+            try {
+              HashMap<String,Path> regionStoreFileMap = new HashMap<>();
+              List<FileStatus> familyDirs =
+                FSUtils.listStatusWithStatusFilter(fs, dd, familyFilter);
+              if (familyDirs == null) {
+                if (!fs.exists(dd)) {
+                  LOG.warn("Skipping region because it no longer exists: " + dd);
+                } else {
+                  LOG.warn("Skipping region because it has no family dirs: " + dd);
+                }
+                return;
+              }
+              for (FileStatus familyDir : familyDirs) {
+                Path family = familyDir.getPath();
+                if (family.getName().equals(HConstants.RECOVERED_EDITS_DIR)) {
+                  continue;
+                }
+                // now in family, iterate over the StoreFiles and
+                // put in map
+                FileStatus[] familyStatus = fs.listStatus(family);
+                for (FileStatus sfStatus : familyStatus) {
+                  Path sf = sfStatus.getPath();
+                  if (sfFilter == null || sfFilter.accept(sf)) {
+                    regionStoreFileMap.put(sf.getName(), sf);
+                  }
+                }
+              }
+              finalResultMap.putAll(regionStoreFileMap);
+            } catch (Exception e) {
+              LOG.error("Could not get region store file map for region: " + dd, e);
+              exceptions.add(e);
+            }
+          }
+        };
+
+        // If executor is available, submit async tasks to exec concurrently, otherwise
+        // just do serial sync execution
+        if (executor != null) {
+          Future<?> future = executor.submit(getRegionStoreFileMapCall);
+          futures.add(future);
+        } else {
+          FutureTask<?> future = new FutureTask<>(getRegionStoreFileMapCall, null);
+          future.run();
+          futures.add(future);
+        }
+      }
+
+      // Ensure all pending tasks are complete (or that we run into an exception)
+      for (Future<?> f : futures) {
+        if (!exceptions.isEmpty()) {
+          break;
+        }
+        try {
+          f.get();
+        } catch (ExecutionException e) {
+          LOG.error("Unexpected exec exception!  Should've been caught already.  (Bug?)", e);
+          // Shouldn't happen, we already logged/caught any exceptions in the Runnable
+        }
+      }
+    } catch (IOException e) {
+      LOG.error("Cannot execute getTableStoreFilePathMap for " + tableName, e);
+      exceptions.add(e);
+    } finally {
+      if (!exceptions.isEmpty()) {
+        // Just throw the first exception as an indication something bad happened
+        // Don't need to propagate all the exceptions, we already logged them all anyway
+        Throwables.propagateIfInstanceOf(exceptions.firstElement(), IOException.class);
+        throw Throwables.propagate(exceptions.firstElement());
+      }
+    }
+
+    return finalResultMap;
+  }
+
+  /**
    * Scan all the store file names to find any lingering HFileLink files,
    * which refer to some none-exiting files. If "fix" option is enabled,
    * any lingering HFileLink file will be sidelined if found.
@@ -1242,9 +1417,8 @@ public class HBaseFsck extends Configured implements Closeable {
     Configuration conf = getConf();
     Path hbaseRoot = FSUtils.getRootDir(conf);
     FileSystem fs = hbaseRoot.getFileSystem(conf);
-    Map<String, Path> allFiles = FSUtils
-        .getTableStoreFilePathMap(fs, hbaseRoot, new FSUtils.HFileLinkFilter(), executor,
-            null/*Used to emit 'progress' w/o context.*/);
+    Map<String, Path> allFiles = getTableStoreFilePathMap(fs, hbaseRoot,
+        new FSUtils.HFileLinkFilter(), executor);
     for (Path path : allFiles.values()) {
       // building HFileLink object to gather locations
       HFileLink actualLink = HFileLink.buildFromHFileLinkPattern(conf, path);
