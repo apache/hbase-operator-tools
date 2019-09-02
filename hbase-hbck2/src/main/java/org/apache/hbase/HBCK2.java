@@ -205,7 +205,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
-      nameSpaceOrTable) {
+      nameSpaceOrTable) throws IOException {
+    //TODO next block logic for parsing optional parameters can be moved to util method for reuse
+    Options options = new Options();
+    Option disable = Option.builder("d").longOpt("force_disable").build();
+    options.addOption(disable);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine;
+    try {
+      commandLine = parser.parse(options, nameSpaceOrTable, false);
+    } catch (ParseException e) {
+      showErrorMessage(e.getMessage());
+      return null;
+    }
+    boolean enforceDisable = commandLine.hasOption(disable.getOpt());
     ExecutorService executorService = Executors.newFixedThreadPool(
       (nameSpaceOrTable == null ||
         nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors()) ?
@@ -233,8 +247,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
                   didDisable = true;
                 } catch (IOException e) {
                   LOG.debug("Failed to disable table {}, "
-                      + "is namespace table also missing regions? Continue anyway...",
+                      + "is namespace table also missing regions?",
                     tableName.getNameWithNamespaceInclAsString(), e);
+                  if (enforceDisable) {
+                    final StringBuilder errorMsgBuilder =
+                        new StringBuilder("Failed re-adding following regions: \n\t");
+                    report.get(tableName).forEach( r ->
+                      errorMsgBuilder.append(r.getName()).append("\t"));
+                    throw new IOException(errorMsgBuilder.toString());
+                  } else {
+                    LOG.debug("Continuing anyway, as no force_disable.");
+                  }
                 }
                 List<String> reAddedRegions = addMissingRegionsInMeta(report.get(tableName));
                 if(didDisable) {
@@ -268,6 +291,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       }
     } catch (IOException | InterruptedException e) {
       LOG.error("ERROR executing thread: ", e);
+      throw new IOException(e);
     } finally {
       executorService.shutdown();
     }
@@ -381,8 +405,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
     writer.println("Command:");
-    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " <NAMESPACE|"
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + "[OPTIONS] <NAMESPACE|"
       + "NAMESPACE:TABLENAME>...");
+    writer.println("   Options:");
+    writer.println("    -d,--force_disable aborts fix for table if disable fails.");
     writer.println("   To be used in scenarios where some regions may be missing in META,");
     writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
     writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
