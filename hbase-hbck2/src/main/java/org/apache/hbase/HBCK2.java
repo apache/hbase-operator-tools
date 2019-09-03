@@ -242,32 +242,34 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
               public List<String> call() throws Exception {
                 LOG.debug("running thread for {}", tableName.getNameWithNamespaceInclAsString());
                 boolean didDisable = false;
-                try {
-                  admin.disableTable(tableName);
-                  didDisable = true;
-                } catch (IOException e) {
-                  LOG.debug("Failed to disable table {}, "
-                      + "is namespace table also missing regions?",
-                    tableName.getNameWithNamespaceInclAsString(), e);
-                  if (enforceDisable) {
-                    final StringBuilder errorMsgBuilder =
-                        new StringBuilder("Failed re-adding following regions: \n\t");
-                    report.get(tableName).forEach( r ->
-                      errorMsgBuilder.append(r.getName()).append("\t"));
-                    throw new IOException(errorMsgBuilder.toString());
-                  } else {
-                    LOG.debug("Continuing anyway, as no force_disable.");
+                if(admin.isTableEnabled(tableName)){
+                  try {
+                    admin.disableTable(tableName);
+                    didDisable = true;
+                  } catch (IOException e) {
+                    LOG.debug("Failed to disable table {}, " + "is namespace table also missing regions?",
+                      tableName.getNameWithNamespaceInclAsString(), e);
+                    if (enforceDisable) {
+                      final StringBuilder errorMsgBuilder = new StringBuilder("Failed re-adding following regions: \n\t");
+                      report.get(tableName).forEach(r -> errorMsgBuilder.append(r.getName()).append("\t"));
+                      throw new IOException(errorMsgBuilder.toString());
+                    } else {
+                      LOG.debug("Continuing anyway, as no force_disable.");
+                    }
                   }
                 }
-                List<String> reAddedRegions = addMissingRegionsInMeta(report.get(tableName));
-                if(didDisable) {
-                  try {
-                    admin.enableTable(tableName);
-                  } catch (IOException e) {
-                    LOG.debug("Failed enabling table {}. It might be that namespace table "
-                        + "region is also missing.\n"
-                        + "After this command finishes, please make sure on this table state.",
-                      tableName.getNameWithNamespaceInclAsString(), e);
+                List<String> reAddedRegions;
+                try {
+                  reAddedRegions = addMissingRegionsInMeta(report.get(tableName));
+                } finally {
+                  if (didDisable) {
+                    try {
+                      admin.enableTable(tableName);
+                    } catch (IOException e) {
+                      LOG.debug("Failed enabling table {}. It might be that namespace table " + "region is also missing.\n"
+                          + "After this command finishes, please make sure on this table state.",
+                        tableName.getNameWithNamespaceInclAsString(), e);
+                    }
                   }
                 }
                 return reAddedRegions;
