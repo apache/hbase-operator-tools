@@ -128,9 +128,8 @@ public class TestMetaFixer {
     List<Cell> cells = new ArrayList();
     Result result = Result.create(cells);
     Mockito.when(mockedRS.next()).thenReturn(result,null);
-    FileStatus status = new FileStatus();
     Path p = new Path(this.testTblDir+ "/182182182121");
-    status.setPath(p);
+    FileStatus status = new FileStatus(0, true, 0, 0,0, p);
     Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
       .thenReturn(new FileStatus[]{status});
     List<Path> missingRegions = fixer.findMissingRegionsInMETA("test-tbl");

@@ -18,16 +18,15 @@
 package org.apache.hbase.hbck2.meta;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
+import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -35,6 +34,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
  * methods provided here consider meta information found on HDFS region dirs as the valid ones.
  */
 public class MetaFixer implements Closeable {
-  private static final String TABLE_DESC_FILE = ".tabledesc";
   private static final Logger LOG = LogManager.getLogger(MetaFixer.class);
   private final FileSystem fs;
   private final Connection conn;
@@ -65,12 +64,10 @@ public class MetaFixer implements Closeable {
     this.fs = fileSystem;
   }
 
-  private FileStatus[] getTableRegionsDirs(String table) throws Exception {
+  private List<Path> getTableRegionsDirs(String table) throws Exception {
     String hbaseRoot = this.config.get("hbase.rootdir");
-    String tableRootDir = hbaseRoot + "/" + HConstants.BASE_NAMESPACE_DIR + "/" +
-      TableName.valueOf(table).getNameWithNamespaceInclAsString()
-        .replaceAll(":", "/");
-    return fs.listStatus(new Path(tableRootDir));
+    Path tableDir = FSUtils.getTableDir(new Path(hbaseRoot), TableName.valueOf(table));
+    return FSUtils.getRegionDirs(fs, tableDir);
   }
 
   public Map<TableName,List<Path>> reportTablesMissingRegions(final List<String> namespacesOrTables)
@@ -83,7 +80,7 @@ public class MetaFixer implements Closeable {
         } else {
           Optional<String> findings = namespacesOrTables.stream().filter(
             name -> (name.indexOf(":") > 0) ?
-              tableName.getNameWithNamespaceInclAsString().equals(name) :
+              tableName.equals(TableName.valueOf(name)) :
               tableName.getNamespaceAsString().equals(name)).findFirst();
           return findings.isPresent();
         }
@@ -101,19 +98,16 @@ public class MetaFixer implements Closeable {
 
   List<Path> findMissingRegionsInMETA(String table) throws Exception {
     final List<Path> missingRegions = new ArrayList<>();
-    final FileStatus[] regionsDirs = getTableRegionsDirs(table);
+    final List<Path> regionsDirs = getTableRegionsDirs(table);
     TableName tableName = TableName.valueOf(table);
     List<RegionInfo> regionInfos = MetaTableAccessor.
       getTableRegions(this.conn, tableName, false);
-    for(final FileStatus regionDir : regionsDirs){
-      if(!regionDir.getPath().getName().equals(TABLE_DESC_FILE) &&
-          !regionDir.getPath().getName().equals(HConstants.HBASE_TEMP_DIRECTORY)) {
-        boolean foundInMeta = regionInfos.stream()
-          .anyMatch(info -> info.getEncodedName().equals(regionDir.getPath().getName()));
-        if (!foundInMeta) {
-          LOG.debug(regionDir + "is not in META.");
-          missingRegions.add(regionDir.getPath());
-        }
+    HashSet<String> regionsInMeta = regionInfos.stream().map(info ->
+      info.getEncodedName()).collect(Collectors.toCollection(HashSet::new));
+    for(final Path regionDir : regionsDirs){
+      if (!regionsInMeta.contains(regionDir.getName())) {
+        LOG.debug(regionDir + "is not in META.");
+        missingRegions.add(regionDir);
       }
     }
     return missingRegions;

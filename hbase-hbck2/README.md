@@ -400,7 +400,9 @@ echo "scan 'hbase:meta', {COLUMN=>'info:regioninfo'}" | hbase shell
 ```
 
 HBCK2 _addMissingRegionsInMeta_ can be used if the above does not show any errors. It reads region
-metadata info available on the FS region dirs, in order to re-create regions in META.
+metadata info available on the FS region dirs, in order to re-create regions in META. Since it can
+run with hbase partially operational, it attempts to disable online tables that are affected by the
+reported problem and is gonna have regions re-added to _meta_.
 It can check for specific tables/namespaces, or all tables
 from all namespaces. An example adding missing regions for tables 'tbl_1' on default namespace,
 'tbl_2' on namespace 'n1' and for all tables from namespace 'n2':
@@ -415,8 +417,8 @@ required to actually have the re-added regions assigned. These are listed below:
 1. _addMissingRegionsInMeta_ outputs an _assigns_ command with all regions that got re-added. This
 command needs to be executed later, so copy and save it for convenience.
 
-2. For HBase versions prior to 2.3.0, after _addMissingRegionsInMeta_ finished successfully and output has been saved, restart all
-running HBase Masters.
+2. For HBase versions prior to 2.3.0, after _addMissingRegionsInMeta_ finished successfully and output has been saved,
+restart all running HBase Masters.
 
 3. Once Master's are restarted and META is already online (check if Web UI is accessible), run
 _assigns_ command from _addMissingRegionsInMeta_ output saved per instructions from #1.
