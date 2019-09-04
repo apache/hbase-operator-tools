@@ -27,6 +27,7 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
+import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -57,7 +58,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   public FsRegionsMetaRecoverer(Configuration configuration) throws IOException {
     this.config = configuration;
-    this.fs = FileSystem.get(configuration);
+    this.fs = CommonFSUtils.getRootDirFileSystem(configuration);
     this.conn = ConnectionFactory.createConnection(configuration);
   }
 
