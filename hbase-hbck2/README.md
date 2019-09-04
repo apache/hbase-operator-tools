@@ -384,7 +384,7 @@ for fixing META table related issues on HBase 1.x versions. The original version
 with HBase 2.x or higher versions, and it has undergone some adjustments to be now run within hbck2.
 
 In most of these cases, regions may be missing in meta at random, but hbase may still be
-operational. In such situations, problem can be addressed with master online, using _addMissingRegionsInMeta_ command.
+operational. In such situations, problem can be addressed with master online, using _addFsRegionsMissingInMeta_ command.
 This command is less disruptive to hbase than the full meta rebuild covered later, and it can be used even for
 recovering _namespace_ table region.
 
@@ -399,7 +399,7 @@ as below. If it does not time out or show any errors, _meta_ is online:
 echo "scan 'hbase:meta', {COLUMN=>'info:regioninfo'}" | hbase shell
 ```
 
-HBCK2 _addMissingRegionsInMeta_ can be used if the above does not show any errors. It reads region
+HBCK2 _addFsRegionsMissingInMeta_ can be used if the above does not show any errors. It reads region
 metadata info available on the FS region dirs, in order to re-create regions in META. Since it can
 run with hbase partially operational, it attempts to disable online tables that are affected by the
 reported problem and is gonna have regions re-added to _meta_.
@@ -408,20 +408,23 @@ from all namespaces. An example adding missing regions for tables 'tbl_1' on def
 'tbl_2' on namespace 'n1' and for all tables from namespace 'n2':
 
 ```
-$ HBCK2 addMissingRegionsInMeta default:tbl_1 n1:tbl_2 n2
+$ HBCK2 addFsRegionsMissingInMeta default:tbl_1 n1:tbl_2 n2
 ```
 
 As it operates independently from Master, once it finishes successfully, additional steps are
 required to actually have the re-added regions assigned. These are listed below:
 
-1. _addMissingRegionsInMeta_ outputs an _assigns_ command with all regions that got re-added. This
+1. _addFsRegionsMissingInMeta_ outputs an _assigns_ command with all regions that got re-added. This
 command needs to be executed later, so copy and save it for convenience.
 
-2. For HBase versions prior to 2.3.0, after _addMissingRegionsInMeta_ finished successfully and output has been saved,
+2. For HBase versions prior to 2.3.0, after _addFsRegionsMissingInMeta_ finished successfully and output has been saved,
 restart all running HBase Masters.
 
 3. Once Master's are restarted and META is already online (check if Web UI is accessible), run
-_assigns_ command from _addMissingRegionsInMeta_ output saved per instructions from #1.
+_assigns_ command from _addFsRegionsMissingInMeta_ output saved per instructions from #1. 
+
+NOTE: If _namespace_ region is among the missing ones, you will need to add _--skip_ flag at the 
+beginning of _assigns_ command returned.
 
 
 Should a cluster suffer a catastrophic loss of the `hbase:meta` region, a rough rebuild is possible following the below recipe.
