@@ -28,6 +28,7 @@ import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellBuilderFactory;
 import org.apache.hadoop.hbase.CellBuilderType;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Put;
@@ -51,12 +52,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class TestMetaFixer {
+public class TestFsRegionsMetaRecoverer {
 
   private Connection mockedConnection;
   private FileSystem mockedFileSystem;
   private Table mockedTable;
-  private MetaFixer fixer;
+  private FsRegionsMetaRecoverer fixer;
   private String testTblDir;
 
   @Before
@@ -67,8 +68,8 @@ public class TestMetaFixer {
     Configuration config = HBaseConfiguration.create();
     Mockito.when(this.mockedConnection.getConfiguration()).thenReturn(config);
     Mockito.when(this.mockedConnection.getTable(TableName.META_TABLE_NAME)).thenReturn(mockedTable);
-    this.testTblDir = config.get("hbase.rootdir") + "/data/default/test-tbl";
-    this.fixer = new MetaFixer(config, mockedConnection, mockedFileSystem);
+    this.testTblDir = config.get(HConstants.HBASE_DIR) + "/data/default/test-tbl";
+    this.fixer = new FsRegionsMetaRecoverer(config, mockedConnection, mockedFileSystem);
   }
 
   private RegionInfo createRegionInfo(String table){

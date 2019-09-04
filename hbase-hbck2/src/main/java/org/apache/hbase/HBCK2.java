@@ -57,7 +57,7 @@ import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Pair;
 
-import org.apache.hbase.hbck2.meta.MetaFixer;
+import org.apache.hbase.hbck2.meta.FsRegionsMetaRecoverer;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -101,7 +101,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
-    "addMissingRegionsInMetaForTables";
+    "addFsRegionsMissingInMeta";
   private static final String ADD_MISSING_REGIONS_IN_META = "addMissingRegionsInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
   private Configuration conf;
@@ -180,9 +180,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   Map<TableName,List<Path>> reportTablesWithMissingRegionsInMeta(String... nameSpaceOrTable)
       throws IOException {
     Map<TableName,List<Path>> report;
-    try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
+    try(final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)){
       List<String> names = nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
-      report = metaFixer.reportTablesMissingRegions(names);
+      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(names);
     } catch (IOException e) {
       LOG.error("Error reporting missing regions: ", e);
       throw e;
@@ -195,9 +195,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
     List<String> reAddedRegionsEncodedNames = new ArrayList<>();
-    try(final MetaFixer metaFixer = new MetaFixer(this.conf)){
+    try(final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)){
       for(Path regionPath : regionsPath){
-        metaFixer.putRegionInfoFromHdfsInMeta(regionPath);
+        fsRegionsMetaRecoverer.putRegionInfoFromHdfsInMeta(regionPath);
         reAddedRegionsEncodedNames.add(regionPath.getName());
       }
     }
@@ -412,7 +412,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Options:");
     writer.println("    -d,--force_disable aborts fix for table if disable fails.");
     writer.println("   To be used in scenarios where some regions may be missing in META,");
-    writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
+    writer.println("   but there's still a valid 'regioninfo' metadata file on HDFS. ");
     writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
     writer.println("   similar issues on 1.x release line. ");
     writer.println("   This command needs META to be online. For each table name passed as");
@@ -434,8 +434,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example adding missing regions for tables 'tbl_1' on default ");
     writer.println("   namespace, 'tbl_2' on namespace 'n1' and for all tables from ");
     writer.println("   namespace 'n2': ");
-    writer.println("     $ HBCK2 addMissingRegionsInMeta default:tbl_1 n1:tbl_2 n2 ");
+    writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
+      " default:tbl_1 n1:tbl_2 n2 ");
     writer.println("   Returns hbck2 'assigns' command with all re-inserted regions.");
+    writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
     writer.println();
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
     writer.println("   Options:");

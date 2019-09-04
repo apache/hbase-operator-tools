@@ -20,6 +20,7 @@ package org.apache.hbase.hbck2.meta;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
@@ -42,30 +43,33 @@ import java.util.stream.Collectors;
 
 /**
  * This class implements the inner works required for check and recover regions that wrongly
- * went missing in META. It assumes HDFS state as the source of truth, in other words,
- * methods provided here consider meta information found on HDFS region dirs as the valid ones.
+ * went missing in META.
+ * Normally HBCK2 fix options rely on Master self-contained information to recover/fix
+ * inconsistencies, but this an exception case where META table is in a broken state.
+ * So, it assumes HDFS state as the source of truth, in other words, methods provided here consider
+ * meta information found on HDFS region dirs as the valid ones.
  */
-public class MetaFixer implements Closeable {
-  private static final Logger LOG = LogManager.getLogger(MetaFixer.class);
+public class FsRegionsMetaRecoverer implements Closeable {
+  private static final Logger LOG = LogManager.getLogger(FsRegionsMetaRecoverer.class);
   private final FileSystem fs;
   private final Connection conn;
   private final Configuration config;
 
-  public MetaFixer(Configuration configuration) throws IOException {
+  public FsRegionsMetaRecoverer(Configuration configuration) throws IOException {
     this.config = configuration;
     this.fs = FileSystem.get(configuration);
     this.conn = ConnectionFactory.createConnection(configuration);
   }
 
   /*Initially defined for test only purposes */
-  MetaFixer(Configuration configuration, Connection connection, FileSystem fileSystem){
+  FsRegionsMetaRecoverer(Configuration configuration, Connection connection, FileSystem fileSystem){
     this.config = configuration;
     this.conn = connection;
     this.fs = fileSystem;
   }
 
   private List<Path> getTableRegionsDirs(String table) throws Exception {
-    String hbaseRoot = this.config.get("hbase.rootdir");
+    String hbaseRoot = this.config.get(HConstants.HBASE_DIR);
     Path tableDir = FSUtils.getTableDir(new Path(hbaseRoot), TableName.valueOf(table));
     return FSUtils.getRegionDirs(fs, tableDir);
   }
