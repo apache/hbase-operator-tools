@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hbase.hbck2.meta;
+package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
 import org.apache.hadoop.conf.Configuration;
@@ -42,6 +42,7 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hbase.FsRegionsMetaRecoverer;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;

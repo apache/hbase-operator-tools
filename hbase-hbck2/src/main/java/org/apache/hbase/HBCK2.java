@@ -57,8 +57,6 @@ import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Pair;
 
-import org.apache.hbase.hbck2.meta.FsRegionsMetaRecoverer;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
