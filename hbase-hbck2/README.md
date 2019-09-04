@@ -19,22 +19,19 @@
 # Apache HBase HBCK2 Tool
 
 HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth),
-the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs against hbase-2.x installs.
+the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs
+against hbase-2.x installs.
 
 ## _hbck1_
 The _hbck_ tool that ships with hbase-1.x (A.K.A _hbck1_) should not be run against an
 hbase-2.x cluster. It may do damage. While _hbck1_ is still bundled inside hbase-2.x
--- to minimize surprise (it has a fat pointer to _HBCK2_ at the head of its help
-output) -- it's write-facility (`-fix`) has been removed. It can report on the state
-of an hbase-2.x cluster but its assessments are likely inaccurate since it does not
-understand the internal workings of an hbase-2.x.
+-- to minimize surprise -- it's write-facility (`-fix`) has been removed. It can report
+on the state of an hbase-2.x cluster but its assessments are likely inaccurate since it
+does not understand the internal workings of an hbase-2.x.
 
-_HBCK2_ does much less than _hbck1_ because many of the class of problems
-_hbck1_ addressed are either no longer issues in hbase-2.x, or we've made
-(or will make) a dedicated tool to do what _hbck1_ used incorporate. _HBCK2_ also
-works in a manner that differs from how _hbck1_ operated, asking the HBase
-Master to do its bidding, rather than replicate functionality outside of the
-Master inside the _hbck1_ tool.
+_HBCK2_ differs from _hbck1_ philosophically. Each run performs a discrete task rather than
+presume the tool can  repair 'all problems'. It is more of the vein of
+[`plumbing` than `porecelain`](https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain).
 
 ## Building _HBCK2_
 
@@ -42,16 +39,31 @@ Run:
 ```
 mvn install
 ```
-The built _HBCK2_ fat jar will be in the `target` sub-directory.
+The built _HBCK2_ jar will be in the `target` sub-directory.
 
 ## Running _HBCK2_
-`org.apache.hbase.HBCK2` is the name of the _HBCK2_ main class. After building
-_HBCK2_ to generate the _HBCK2_ jar file, running the below will dump out the _HBCK2_ usage:
+The _HBCK2_ jar does not include dependencies; it is not built as a 'fat' jar.
+Dependencies must be `provided`. Building, adjusting the target hbase version in the
+top-level pom to match your deploy will make for the smoothest operation (See
+the parent pom.xml `hbase-operator-tools` for the
+[hbase.version to set](https://github.com/apache/hbase-operator-tools/blob/master/pom.xml#L126)).
+Where this can get interesting is at runtime when _HBCK2_ is in advance of your hbase
+deploy such that your hbase does not support all APIs in current _HBCK2_. Where
+_HBCK2_ does not have needed server-side support it should fail gracefully.
 
+The easiest means of 'providing' _HBCK2_ its dependencies is by launching
+_HBCK2_ via the `$HBASE_HOME/bin/hbase` script. The `bin/hbase` script natively
+makes mention of `hbck` -- there is a `hbck` option listed in the help output.
+By default, running `bin/hbase hbck`, the built-in _hbck1_ tooling will be run.
+To run _HBCK2_, you need to point at a built _HBCK2_ jar using the `-j` option
+as in:
 ~~~~
- $ HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2
+ $  /srv/hbase/bin/hbase --config /etc/hbase-conf hbck -j ~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar
 ~~~~
-
+where in the above, `HBASE_HOME` is at `/srv/hbase` and `/etc/hbase-conf` is where the deploy's
+configuration lives. The _HBCK2_ jar is at
+`~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar`.
+The above command with no options or arguments passed will dump out the _HBCK2_ help:
 ```
 usage: HBCK2 [OPTIONS] COMMAND <ARGS>
 Options:
@@ -149,14 +161,41 @@ Command:
    hbase:meta tool. See the HBCK2 README for how to use.
 ```
 
+Note that when you pass `bin/hbase` the `hbck` argument, it will by
+default use the shaded client to get to the targeted hbase cluster.
+This is sufficient for most _HBCK2_ usage. If you run into complaints
+like the below:
+```
+bin/hbase --config hbase-conf  hbck
+2019-08-30 05:04:54,467 WARN  [main] util.NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Exception in thread "main" java.io.IOException: No FileSystem for scheme: hdfs
+        at org.apache.hadoop.fs.FileSystem.getFileSystemClass(FileSystem.java:2799)
+        at org.apache.hadoop.fs.FileSystem.createFileSystem(FileSystem.java:2810)
+        at org.apache.hadoop.fs.FileSystem.access$200(FileSystem.java:100)
+        at org.apache.hadoop.fs.FileSystem$Cache.getInternal(FileSystem.java:2849)
+        at org.apache.hadoop.fs.FileSystem$Cache.get(FileSystem.java:2831)
+        at org.apache.hadoop.fs.FileSystem.get(FileSystem.java:389)
+        at org.apache.hadoop.fs.Path.getFileSystem(Path.java:356)
+        at org.apache.hadoop.hbase.util.CommonFSUtils.getRootDir(CommonFSUtils.java:361)
+        at org.apache.hadoop.hbase.util.HBaseFsck.main(HBaseFsck.java:3605)
+```
+... it is because the HDFS jars are not on the CLASSPATH. The default is NOT
+to bundle HDFS jars on the CLASSPATH when running `hbck` via `bin/hbase`. Define
+`HADOOP_HOME` in the environment so `bin/hbase` can find your local hadoop
+install and load its HDFS jars. If all else fails, skip the narrowed set of client
+jars and HDFS pruning by passing the `--internal-classpath` argument; this will make it so
+`bin/hbase hbck` runs with the full CLASSPATH complement and _HBCK2_ should have
+all dependencies satisfied.
+
+
 ## _HBCK2_ Overview
 _HBCK2_ is currently a simple tool that does one thing at a time only.
 
 In hbase-2.x, the Master is the final arbiter of all state, so a general principal for most of
 _HBCK2_ commands is that it asks the Master to effect all repair. This means a Master must be
-up before you can run an _HBCK2_ command.
+up before you can run (most) _HBCK2_ commands.
 
-_HBCK2_ implementation approach is to make use of an intentionally obscured
+_HBCK2_ implementation approach is to make use of an
 `HbckService` hosted on the Master. The Service publishes a few methods for the _HBCK2_ tool to
 pull on. Therefore, for _HBCK2_ commands relying on Master's `HbckService` facade,
 first thing _HBCK2_ does is poke the cluster to ensure the service is available.
@@ -167,10 +206,6 @@ _HBCK2_ versions should be able to work across multiple hbase-2 releases. It wil
 fail with a complaint if it is unable to run. There is no `HbckService` in versions
 of hbase before 2.0.3 and 2.1.1. _HBCK2_ will not work against these versions.
 
-As _HBCK2_ evolves independently from _HBase_ main project, there will be eventually the need to
-define new fix methods with client side implementations (at least until a related one can be added
-on Master's `HbckService` facade), so that _HBCK2_ can operate on such _HBase_ releases without
-requiring a cluster upgrade. One example of such methods is the _setRegionState_.
 
 ## Finding Problems
 
@@ -244,6 +279,15 @@ Lists of locks and procedures can also be obtained via the hbase shell:
 $ echo "list_locks"| hbase shell &> /tmp/locks.txt
 $ echo "list_procedures"| hbase shell &> /tmp/procedures.txt
 ```
+
+#### /hbck.jsp
+An `HBCK Report` page was added to the Master in versions hbase 2.3.0/2.1.6/2.2.1
+which shows output from two inspections run by the master on an interval; one
+is output by the CatalogJanitor whenever it runs. If overlaps or holes in
+`hbase:meta`, the CatalogJanitor half of the page will list what it has found
+(otherwise it is quiet). Another background process was added to compare
+`hbase:meta` and filesystem content making compare; if anomaly, it will make
+note in its `HBCK Report` section.
 
 #### The [HBase Canary Tool](http://hbase.apache.org/book.html#_canary)
 
