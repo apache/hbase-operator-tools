@@ -245,11 +245,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
                     admin.disableTable(tableName);
                     didDisable = true;
                   } catch (IOException e) {
-                    LOG.debug("Failed to disable table {}, " + "is namespace table also missing regions?",
+                    LOG.debug("Failed to disable table {}, "
+                        + "is namespace table also missing regions?",
                       tableName.getNameWithNamespaceInclAsString(), e);
                     if (enforceDisable) {
-                      final StringBuilder errorMsgBuilder = new StringBuilder("Failed re-adding following regions: \n\t");
-                      report.get(tableName).forEach(r -> errorMsgBuilder.append(r.getName()).append("\t"));
+                      final StringBuilder errorMsgBuilder =
+                        new StringBuilder("Failed re-adding following regions: \n\t");
+                      report.get(tableName).forEach(r ->
+                        errorMsgBuilder.append(r.getName()).append("\t"));
                       throw new IOException(errorMsgBuilder.toString());
                     } else {
                       LOG.debug("Continuing anyway, as no force_disable.");
@@ -264,7 +267,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
                     try {
                       admin.enableTable(tableName);
                     } catch (IOException e) {
-                      LOG.debug("Failed enabling table {}. It might be that namespace table " + "region is also missing.\n"
+                      LOG.debug("Failed enabling table {}. It might be that namespace table "
+                          + "region is also missing.\n"
                           + "After this command finishes, please make sure on this table state.",
                         tableName.getNameWithNamespaceInclAsString(), e);
                     }
@@ -419,7 +423,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   no matches in META, it reads regioninfo metadata file and ");
     writer.println("   re-creates given region in META. Regions are re-created in 'CLOSED' ");
     writer.println("   state at META table only, but not in Masters' cache, and are not ");
-    writer.println("   assigned either. To get these regions online, run hbck2 'assigns'command ");
+    writer.println("   assigned either. To get these regions online, run HBCK2 'assigns'command ");
     writer.println("   printed at the end of this command results for convenience.");
     writer.println();
     writer.println("   NOTE: If using hbase releases older than 2.3.0, a rolling restart of ");
@@ -434,7 +438,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   namespace 'n2': ");
     writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
       " default:tbl_1 n1:tbl_2 n2 ");
-    writer.println("   Returns hbck2 'assigns' command with all re-inserted regions.");
+    writer.println("   Returns HBCK2 'assigns' command with all re-inserted regions.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
     writer.println();
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
