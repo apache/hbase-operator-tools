@@ -22,16 +22,16 @@ HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.dept
 the hbase-1.x fixup tool (A.K.A _hbck1_). Use it in place of _hbck1_ making repairs
 against hbase-2.x installs.
 
+_HBCK2_ differs from _hbck1_ philosophically. Each run performs a discrete task rather than
+presume the tool can  repair 'all problems'. It is more of the vein of
+[`plumbing` than `porecelain`](https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain).
+
 ## _hbck1_
 The _hbck_ tool that ships with hbase-1.x (A.K.A _hbck1_) should not be run against an
 hbase-2.x cluster. It may do damage. While _hbck1_ is still bundled inside hbase-2.x
 -- to minimize surprise -- it's write-facility (`-fix`) has been removed. It can report
 on the state of an hbase-2.x cluster but its assessments are likely inaccurate since it
 does not understand the internal workings of an hbase-2.x.
-
-_HBCK2_ differs from _hbck1_ philosophically. Each run performs a discrete task rather than
-presume the tool can  repair 'all problems'. It is more of the vein of
-[`plumbing` than `porecelain`](https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain).
 
 ## Building _HBCK2_
 
@@ -58,10 +58,10 @@ By default, running `bin/hbase hbck`, the built-in _hbck1_ tooling will be run.
 To run _HBCK2_, you need to point at a built _HBCK2_ jar using the `-j` option
 as in:
 ~~~~
- $  /srv/hbase/bin/hbase --config /etc/hbase-conf hbck -j ~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar
+ $  ${HBASE_HOME}/bin/hbase --config /etc/hbase-conf hbck -j ~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar
 ~~~~
-where in the above, `HBASE_HOME` is at `/srv/hbase` and `/etc/hbase-conf` is where the deploy's
-configuration lives. The _HBCK2_ jar is at
+where in the above, `/etc/hbase-conf` is where the deploy's configuration lives.
+The _HBCK2_ jar is at
 `~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar`.
 The above command with no options or arguments passed will dump out the _HBCK2_ help:
 ```
@@ -182,11 +182,7 @@ Exception in thread "main" java.io.IOException: No FileSystem for scheme: hdfs
 ... it is because the HDFS jars are not on the CLASSPATH. The default is NOT
 to bundle HDFS jars on the CLASSPATH when running `hbck` via `bin/hbase`. Define
 `HADOOP_HOME` in the environment so `bin/hbase` can find your local hadoop
-install and load its HDFS jars. If all else fails, skip the narrowed set of client
-jars and HDFS pruning by passing the `--internal-classpath` argument; this will make it so
-`bin/hbase hbck` runs with the full CLASSPATH complement and _HBCK2_ should have
-all dependencies satisfied.
-
+install and load its HDFS jars.
 
 ## _HBCK2_ Overview
 _HBCK2_ is currently a simple tool that does one thing at a time only.
@@ -280,14 +276,18 @@ $ echo "list_locks"| hbase shell &> /tmp/locks.txt
 $ echo "list_procedures"| hbase shell &> /tmp/procedures.txt
 ```
 
-#### /hbck.jsp
+#### The 'HBCK Report'
 An `HBCK Report` page was added to the Master in versions hbase 2.3.0/2.1.6/2.2.1
+at `/hbck.jsp`
 which shows output from two inspections run by the master on an interval; one
 is output by the CatalogJanitor whenever it runs. If overlaps or holes in
 `hbase:meta`, the CatalogJanitor half of the page will list what it has found
-(otherwise it is quiet). Another background process was added to compare
+(otherwise it is quiet). Another background 'chore' process was added to compare
 `hbase:meta` and filesystem content making compare; if anomaly, it will make
 note in its `HBCK Report` section.
+
+See the 'HBCK Report' page itself for how to force runs of the inspectors.
+
 
 #### The [HBase Canary Tool](http://hbase.apache.org/book.html#_canary)
 
@@ -454,3 +454,8 @@ The rebuild meta will likely be missing edits and may need subsequent repair and
 ### Dropped reference files, missing hbase.version file, and corrupted hfiles
 
 HBCK2 can check for hanging references and corrupt hfiles. You can ask it to sideline bad files which may be needed to get over humps where regions won't online or reads are failing. See the _filesystem_ command in the HBCK2 listing. Pass one or more tablename (or 'none' to check all tables). It will report bad files. Pass the _--fix_ option to effect repairs.
+
+### Adopting 'Orphan' Data
+For how to fix `orphan` regions reported by the 'HBCK Chore',
+see the advanced section on the `completebulkload` tool in the refguide,
+['Adopting' Stray Data](http://hbase.apache.org/book.html#arch.bulk.load.complete.strays).
