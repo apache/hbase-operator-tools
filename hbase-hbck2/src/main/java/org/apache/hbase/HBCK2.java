@@ -88,6 +88,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
+  private static final String FIX_META = "fixMeta";
+
   private Configuration conf;
   static String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -305,6 +307,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   more tablenames to narrow checkup. Default checks all tables and");
     writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem");
     writer.println("   only! Modified regions need to be reopened to pick-up changes.");
+    writer.println();
+    writer.println(" " + FIX_META);
+    writer.println("   Do a server-side fixing of bad or inconsistent state in hbase:meta");
     writer.println();
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
@@ -583,6 +588,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkHBCKSupport(connection, command, "2.0.3", "2.1.2", "2.2.0", "3.0.0");
           System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
+        }
+        break;
+
+      case FIX_META:
+        if (commands.length > 1) {
+          usage(options, command + " doesn't take any arguments");
+          return EXIT_FAILURE;
+        }
+        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+          checkHBCKSupport(connection, command, "2.0.6", "2.1.6", "2.2.1", "2.3.0",
+              "3.0.0");
+          hbck.fixMeta();
+          System.out.println("Server-side processing of fixMeta triggered.");
         }
         break;
 

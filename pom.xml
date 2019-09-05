@@ -123,7 +123,7 @@
     <compileSource>1.8</compileSource>
     <java.min.version>${compileSource}</java.min.version>
     <maven.min.version>3.3.3</maven.min.version>
-    <hbase.version>2.1.2</hbase.version>
+    <hbase.version>2.1.6</hbase.version>
     <maven.compiler.version>3.6.1</maven.compiler.version>
     <surefire.version>2.21.0</surefire.version>
     <surefire.provider>surefire-junit47</surefire.provider>
