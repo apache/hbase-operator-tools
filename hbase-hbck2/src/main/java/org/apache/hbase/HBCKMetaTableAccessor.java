@@ -131,7 +131,8 @@ public final class HBCKMetaTableAccessor {
       throw new IOException("connection is closed");
     }
     try (Table t = connection.getTable(TableName.META_TABLE_NAME)) {
-      List<Delete> deletes = Arrays.asList(d);
+      List<Delete> deletes = new ArrayList<>();
+      deletes.add(d);
       LOG.debug("Add {} delete to meta table", deletes);
       t.delete(deletes);
     }
