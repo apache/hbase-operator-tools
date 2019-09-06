@@ -204,20 +204,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
       nameSpaceOrTable) throws IOException {
-    //TODO next block logic for parsing optional parameters can be moved to util method for reuse
-    Options options = new Options();
-    Option disable = Option.builder("d").longOpt("force_disable").build();
-    options.addOption(disable);
-    // Parse command-line.
-    CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine;
-    try {
-      commandLine = parser.parse(options, nameSpaceOrTable, false);
-    } catch (ParseException e) {
-      showErrorMessage(e.getMessage());
-      return null;
-    }
-    boolean enforceDisable = commandLine.hasOption(disable.getOpt());
     ExecutorService executorService = Executors.newFixedThreadPool(
       (nameSpaceOrTable == null ||
         nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors()) ?
@@ -239,42 +225,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
               @Override
               public List<String> call() throws Exception {
                 LOG.debug("running thread for {}", tableName.getNameWithNamespaceInclAsString());
-                boolean didDisable = false;
-                if(admin.isTableEnabled(tableName)){
-                  try {
-                    admin.disableTable(tableName);
-                    didDisable = true;
-                  } catch (IOException e) {
-                    LOG.debug("Failed to disable table {}, "
-                        + "is namespace table also missing regions?",
-                      tableName.getNameWithNamespaceInclAsString(), e);
-                    if (enforceDisable) {
-                      final StringBuilder errorMsgBuilder =
-                        new StringBuilder("Failed re-adding following regions: \n\t");
-                      report.get(tableName).forEach(r ->
-                        errorMsgBuilder.append(r.getName()).append("\t"));
-                      throw new IOException(errorMsgBuilder.toString());
-                    } else {
-                      LOG.debug("Continuing anyway, as no force_disable.");
-                    }
-                  }
-                }
-                List<String> reAddedRegions;
-                try {
-                  reAddedRegions = addMissingRegionsInMeta(report.get(tableName));
-                } finally {
-                  if (didDisable) {
-                    try {
-                      admin.enableTable(tableName);
-                    } catch (IOException e) {
-                      LOG.debug("Failed enabling table {}. It might be that namespace table "
-                          + "region is also missing.\n"
-                          + "After this command finishes, please make sure on this table state.",
-                        tableName.getNameWithNamespaceInclAsString(), e);
-                    }
-                  }
-                }
-                return reAddedRegions;
+                return addMissingRegionsInMeta(report.get(tableName));
               }
             }));
           } else {
@@ -428,10 +379,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     writer.println("   NOTE: If using hbase releases older than 2.3.0, a rolling restart of ");
     writer.println("   HMasters is needed prior to executing the provided 'assigns' command. ");
-    writer.println();
-    writer.println("   WARNING: To avoid potential region overlapping problems due to ongoing ");
-    writer.println("   splits, this command attempts to disable given tables ");
-    writer.println("   (if it fails, disable is skipped) while re-inserting regions. ");
     writer.println();
     writer.println("   An example adding missing regions for tables 'tbl_1' on default ");
     writer.println("   namespace, 'tbl_2' on namespace 'n1' and for all tables from ");
