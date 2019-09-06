@@ -25,11 +25,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ClusterMetrics;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -48,6 +55,7 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.util.Pair;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -90,6 +98,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
   private static final String FIX_META = "fixMeta";
 
+  private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
+    "addFsRegionsMissingInMeta";
+  private static final String ADD_MISSING_REGIONS_IN_META = "addMissingRegionsInMeta";
+  private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
   private Configuration conf;
   static String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -161,6 +173,87 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       System.out.println("ERROR: Could not find region " + region + " in meta.");
     }
     return EXIT_FAILURE;
+  }
+
+  Map<TableName,List<Path>> reportTablesWithMissingRegionsInMeta(String... nameSpaceOrTable)
+      throws IOException {
+    Map<TableName,List<Path>> report;
+    try(final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)){
+      List<String> names = nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
+      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(names);
+    } catch (IOException e) {
+      LOG.error("Error reporting missing regions: ", e);
+      throw e;
+    }
+    if(LOG.isDebugEnabled()) {
+      LOG.debug(formatMissingRegionsInMetaReport(report));
+    }
+    return report;
+  }
+
+  List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
+    List<String> reAddedRegionsEncodedNames = new ArrayList<>();
+    try(final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)){
+      for(Path regionPath : regionsPath){
+        fsRegionsMetaRecoverer.putRegionInfoFromHdfsInMeta(regionPath);
+        reAddedRegionsEncodedNames.add(regionPath.getName());
+      }
+    }
+    return reAddedRegionsEncodedNames;
+  }
+
+  Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
+      nameSpaceOrTable) throws IOException {
+    ExecutorService executorService = Executors.newFixedThreadPool(
+      (nameSpaceOrTable == null ||
+        nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors()) ?
+          Runtime.getRuntime().availableProcessors() :
+          nameSpaceOrTable.length);
+    List<Future<List<String>>> futures = new ArrayList<>( nameSpaceOrTable == null ? 1 :
+      nameSpaceOrTable.length);
+    final List<String> readdedRegionNames = new ArrayList<>();
+    List<ExecutionException> executionErrors = new ArrayList<>();
+    try {
+      //reducing number of retries in case disable fails due to namespace table region also missing
+      this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
+      try(ClusterConnection conn = connect();
+        final Admin admin = conn.getAdmin()) {
+        Map<TableName,List<Path>> report = reportTablesWithMissingRegionsInMeta(nameSpaceOrTable);
+        for (TableName tableName : report.keySet()) {
+          if(admin.tableExists(tableName)) {
+            futures.add(executorService.submit(new Callable<List<String>>() {
+              @Override
+              public List<String> call() throws Exception {
+                LOG.debug("running thread for {}", tableName.getNameWithNamespaceInclAsString());
+                return addMissingRegionsInMeta(report.get(tableName));
+              }
+            }));
+          } else {
+            LOG.warn("Table {} does not exist! Skipping...",
+              tableName.getNameWithNamespaceInclAsString());
+          }
+        }
+        for(Future<List<String>> f : futures){
+          try {
+            readdedRegionNames.addAll(f.get());
+          } catch (ExecutionException e){
+            //we want to allow potential running threads to finish, so we collect execution
+            //errors and show those later
+            LOG.debug("Caught execution error: ", e);
+            executionErrors.add(e);
+          }
+        }
+      }
+    } catch (IOException | InterruptedException e) {
+      LOG.error("ERROR executing thread: ", e);
+      throw new IOException(e);
+    } finally {
+      executorService.shutdown();
+    }
+    Pair<List<String>, List<ExecutionException>> result = new Pair<>();
+    result.setFirst(readdedRegionNames);
+    result.setSecond(executionErrors);
+    return result;
   }
 
   List<Long> assigns(Hbck hbck, String [] args) throws IOException {
@@ -267,6 +360,34 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
     writer.println("Command:");
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " <NAMESPACE|"
+      + "NAMESPACE:TABLENAME>...");
+    writer.println("   Options:");
+    writer.println("    -d,--force_disable aborts fix for table if disable fails.");
+    writer.println("   To be used in scenarios where some regions may be missing in META,");
+    writer.println("   but there's still a valid 'regioninfo' metadata file on HDFS. ");
+    writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
+    writer.println("   similar issues on 1.x release line. ");
+    writer.println("   This command needs META to be online. For each table name passed as");
+    writer.println("   parameter, it performs a diff between regions available in META, ");
+    writer.println("   against existing regions dirs on HDFS. Then, for region dirs with ");
+    writer.println("   no matches in META, it reads regioninfo metadata file and ");
+    writer.println("   re-creates given region in META. Regions are re-created in 'CLOSED' ");
+    writer.println("   state at META table only, but not in Masters' cache, and are not ");
+    writer.println("   assigned either. To get these regions online, run HBCK2 'assigns'command ");
+    writer.println("   printed at the end of this command results for convenience.");
+    writer.println();
+    writer.println("   NOTE: If using hbase releases older than 2.3.0, a rolling restart of ");
+    writer.println("   HMasters is needed prior to executing the provided 'assigns' command. ");
+    writer.println();
+    writer.println("   An example adding missing regions for tables 'tbl_1' on default ");
+    writer.println("   namespace, 'tbl_2' on namespace 'n1' and for all tables from ");
+    writer.println("   namespace 'n2': ");
+    writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
+      " default:tbl_1 n1:tbl_2 n2 ");
+    writer.println("   Returns HBCK2 'assigns' command with all re-inserted regions.");
+    writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
+    writer.println();
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
@@ -317,6 +438,33 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Looks for undeleted replication queues and deletes them if passed the");
     writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
     writer.println("   purge if '--fix'.");
+    writer.println();
+    writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " <NAMESPACE|"
+      + "NAMESPACE:TABLENAME>...");
+    writer.println("   To be used in scenarios where some regions may be missing in META,");
+    writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
+    writer.println("   This is a checking only method, designed for reporting purposes and");
+    writer.println("   doesn't perform any fixes, providing a view of which regions (if any) ");
+    writer.println("   would get re-added to meta, grouped by respective table/namespace. ");
+    writer.println("   To effectively re-add regions in meta, "
+      + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " should be executed. ");
+    writer.println("   This command needs META to be online. For each namespace/table passed");
+    writer.println("   as parameter, it performs a diff between regions available in META, ");
+    writer.println("   against existing regions dirs on HDFS. Region dirs with no matches");
+    writer.println("   are printed grouped under its related table name. Tables with no");
+    writer.println("   missing regions will show a 'no missing regions' message. If no");
+    writer.println("   namespace or table is specified, it will verify all existing regions.");
+    writer.println("   It accepts a combination of multiple namespace and tables. Table names");
+    writer.println("   should include the namespace portion, even for tables in the default");
+    writer.println("   namespace, otherwise it will assume as a namespace value.");
+    writer.println("   An example triggering missing regions report for tables 'table_1'");
+    writer.println("   and 'table_2', under default namespace:");
+    writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 default:table_2");
+    writer.println("   An example triggering missing regions report for table 'table_1'");
+    writer.println("   under default namespace, and for all tables from namespace 'ns1':");
+    writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 ns1");
+    writer.println("   Returns list of missing regions for each table passed as parameter, or ");
+    writer.println("   for each table on namespaces specified as parameter.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states:");
@@ -369,6 +517,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
     writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
+    writer.println();
     writer.close();
     return sw.toString();
   }
@@ -604,6 +753,26 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         }
         break;
 
+      case ADD_MISSING_REGIONS_IN_META_FOR_TABLES:
+        if(commands.length < 2){
+          showErrorMessage(command + " takes one or more table names.");
+          return EXIT_FAILURE;
+        }
+        Pair<List<String>, List<ExecutionException>> result =
+          addMissingRegionsInMetaForTables(purgeFirst(commands));
+        System.out.println(formatReAddedRegionsMessage(result.getFirst(),result.getSecond()));
+        break;
+
+      case REPORT_MISSING_REGIONS_IN_META:
+        try {
+          Map<TableName,List<Path>> report =
+            reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
+          System.out.println(formatMissingRegionsInMetaReport(report));
+        } catch (Exception e) {
+          return EXIT_FAILURE;
+        }
+        break;
+
       default:
         showErrorMessage("Unsupported command: " + command);
         return EXIT_FAILURE;
@@ -613,6 +782,51 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static String toString(List<?> things) {
     return things.stream().map(Object::toString).collect(Collectors.joining(", "));
+  }
+
+  private String formatMissingRegionsInMetaReport(Map<TableName,List<Path>> report) {
+    final StringBuilder builder = new StringBuilder();
+    builder.append("Missing Regions for each table:\n\t");
+    report.keySet().stream().forEach(table -> {
+      builder.append(table);
+      if (!report.get(table).isEmpty()){
+        builder.append("->\n\t\t");
+        report.get(table).stream().forEach(region -> builder.append(region.getName())
+          .append(" "));
+      } else {
+        builder.append(" -> No missing regions");
+      }
+      builder.append("\n\t");
+    });
+    return builder.toString();
+  }
+
+  private String formatReAddedRegionsMessage(List<String> readdedRegionNames,
+    List<ExecutionException> executionErrors) {
+    final StringBuilder finalText = new StringBuilder();
+    finalText.append("Regions re-added into Meta: ").append(readdedRegionNames.size());
+    if(!readdedRegionNames.isEmpty()){
+      finalText.append("\n")
+        .append("WARNING: \n\t")
+        .append(readdedRegionNames.size()).append(" regions were added ")
+        .append("to META, but these are not yet on Masters cache. \n")
+        .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
+        .append(buildHbck2AssignsCommand(readdedRegionNames));
+    }
+    if(!executionErrors.isEmpty()){
+      finalText.append("\n")
+        .append("ERROR: \n\t")
+        .append("There were following errors on at least one table thread:\n");
+      executionErrors.stream().forEach(e -> finalText.append(e.getMessage()).append("\n"));
+    }
+    return finalText.toString();
+  }
+
+  private String buildHbck2AssignsCommand(List<String> regions) {
+    final StringBuilder builder = new StringBuilder();
+    builder.append("assigns ");
+    regions.forEach(region -> builder.append(region).append(" "));
+    return builder.toString();
   }
 
   /**
