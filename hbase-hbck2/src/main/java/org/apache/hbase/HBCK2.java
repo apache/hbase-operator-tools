@@ -593,7 +593,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case FIX_META:
         if (commands.length > 1) {
-          usage(options, command + " doesn't take any arguments");
+          showErrorMessage(command + " doesn't take any arguments");
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
