@@ -39,12 +39,12 @@
   <build>
     <resources>
       <resource>
-          <directory>src/main/resources</directory>
-          <filtering>true</filtering>
-          <includes>
-              <include>**/hbck2.properties</include>
-              <include>**/log4j2.xml</include>
-          </includes>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>**/hbck2.properties</include>
+          <include>**/log4j2.xml</include>
+        </includes>
       </resource>
     </resources>
     <testResources>
@@ -74,11 +74,11 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <configuration>
-        <archive>
-          <manifest>
-            <mainClass>org.apache.hbase.HBCK2</mainClass>
-          </manifest>
-        </archive>
+          <archive>
+            <manifest>
+              <mainClass>org.apache.hbase.HBCK2</mainClass>
+            </manifest>
+          </archive>
         </configuration>
       </plugin>
       <!--Used packaging a fat jar-->
@@ -148,6 +148,7 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
+      <scope>test</scope>
     </dependency>
     <!--This is Log4j2!-->
     <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
