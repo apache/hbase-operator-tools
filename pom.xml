@@ -136,8 +136,8 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <artifactId>hbase-zookeeper</artifactId>
         <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-zookeeper</artifactId>
         <version>${hbase.version}</version>
       </dependency>
       <dependency>
@@ -156,7 +156,7 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-           <artifactId>maven-javadoc-plugin</artifactId>
+          <artifactId>maven-javadoc-plugin</artifactId>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
