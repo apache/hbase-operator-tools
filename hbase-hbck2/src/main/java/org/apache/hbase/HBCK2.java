@@ -58,10 +58,9 @@ import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Pair;
 
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
@@ -73,6 +72,7 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
+
 /**
  * HBase fixup tool version 2, for hbase-2.0.0+ clusters.
  * Supercedes hbck1.
@@ -83,7 +83,7 @@ import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 // then add a hbase-site.xml onto CLASSPATH for this tool to pick up.
 // + Add --version
 public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
-  private static final Logger LOG = LogManager.getLogger(HBCK2.class);
+  private static final Logger LOG = LoggerFactory.getLogger(HBCK2.class);
   private static final int EXIT_SUCCESS = 0;
   static final int EXIT_FAILURE = 1;
   // Commands
