@@ -38,6 +38,13 @@
       <binaries>
         <outputDirectory>hbase-hbck2/lib</outputDirectory>
         <unpack>false</unpack>
+        <dependencySets>
+          <dependencySet>
+            <excludes>
+              <exclude>org.slf4j:slf4j-api</exclude>
+            </excludes>
+          </dependencySet>
+        </dependencySets>
       </binaries>
     </moduleSet>
   </moduleSets>
