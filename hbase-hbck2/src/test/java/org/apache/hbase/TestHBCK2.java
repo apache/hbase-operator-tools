@@ -203,7 +203,9 @@ public class TestHBCK2 {
 
   @Test
   public void testReportMissingRegionsInMetaAllNsTbls() throws Exception {
-    this.testReportMissingRegionsInMeta(5, 5,null);
+    String[] nullArgs = null;
+    this.testReportMissingRegionsInMeta(5, 5,
+      nullArgs);
   }
 
   @Test
@@ -310,7 +312,8 @@ public class TestHBCK2 {
     long resultingMissingRegions = report.keySet().stream().mapToLong( nsTbl ->
       report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalMissingRegions, resultingMissingRegions);
-    hbck.addMissingRegionsInMetaForTables(null);
+    String[] nullArgs = null;
+    hbck.addMissingRegionsInMetaForTables(nullArgs);
   }
 
   @Test (expected = IllegalArgumentException.class)

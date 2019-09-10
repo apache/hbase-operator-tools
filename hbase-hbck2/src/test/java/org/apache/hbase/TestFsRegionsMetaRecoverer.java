@@ -114,7 +114,7 @@ public class TestFsRegionsMetaRecoverer {
     List<Cell> cells = new ArrayList();
     cells.add(createCellForRegionInfo(info));
     Result result = Result.create(cells);
-    Mockito.when(mockedRS.next()).thenReturn(result,null);
+    Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
     FileStatus status = new FileStatus();
     status.setPath(new Path(this.testTblDir + "/" + info.getEncodedName()));
     Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
@@ -129,7 +129,7 @@ public class TestFsRegionsMetaRecoverer {
     Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
     List<Cell> cells = new ArrayList();
     Result result = Result.create(cells);
-    Mockito.when(mockedRS.next()).thenReturn(result,null);
+    Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
     Path p = new Path(this.testTblDir+ "/182182182121");
     FileStatus status = new FileStatus(0, true, 0, 0,0, p);
     Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
@@ -159,7 +159,7 @@ public class TestFsRegionsMetaRecoverer {
     List<Cell> cells = new ArrayList();
     cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
     Result result = Result.create(cells);
-    Mockito.when(mockedRS.next()).thenReturn(result,null);
+    Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
     FileStatus status = new FileStatus();
     Path p = new Path(this.testTblDir+ "/182182182121");
     status.setPath(p);
