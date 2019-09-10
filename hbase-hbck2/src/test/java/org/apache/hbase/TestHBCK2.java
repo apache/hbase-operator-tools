@@ -42,14 +42,14 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Threads;
-import org.apache.logging.log4j.LogManager;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -63,7 +63,7 @@ import static org.junit.Assert.fail;
  * @see TestHBCKCommandLineParsing
  */
 public class TestHBCK2 {
-  private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(TestHBCK2.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
   private static final TableName REGION_STATES_TABLE_NAME = TableName.

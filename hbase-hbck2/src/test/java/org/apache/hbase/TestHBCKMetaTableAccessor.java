@@ -28,7 +28,6 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.logging.log4j.LogManager;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,7 +42,6 @@ import java.util.List;
  */
 public class TestHBCKMetaTableAccessor {
 
-  private static final org.apache.logging.log4j.Logger LOG = LogManager.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
 
   @Rule

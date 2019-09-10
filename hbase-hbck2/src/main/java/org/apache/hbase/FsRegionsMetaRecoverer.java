@@ -29,8 +29,8 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -51,7 +51,7 @@ import java.util.stream.Collectors;
  * meta information found on HDFS region dirs as the valid ones.
  */
 public class FsRegionsMetaRecoverer implements Closeable {
-  private static final Logger LOG = LogManager.getLogger(FsRegionsMetaRecoverer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(FsRegionsMetaRecoverer.class);
   private final FileSystem fs;
   private final Connection conn;
   private final Configuration config;
@@ -95,7 +95,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
         result.put(tableName,
           findMissingRegionsInMETA(tableName.getNameWithNamespaceInclAsString()));
       } catch (Exception e) {
-        LOG.warn(e);
+        LOG.warn("Can't get missing regions from meta", e);
       }
     });
     return result;
