@@ -55,6 +55,9 @@
   </licenses>
   <modules>
     <module>hbase-hbck2</module>
+    <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
+         -->
+    <module>hbase-assembly</module>
   </modules>
   <scm>
     <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase-operator-tools.git</connection>
@@ -144,6 +147,11 @@
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
         <version>${commons-lang3.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-hbck2</artifactId>
+        <version>${project.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -294,10 +302,6 @@
           </configuration>
         </plugin>
         <plugin>
-          <artifactId>maven-assembly-plugin</artifactId>
-          <version>3.0.0</version>
-        </plugin>
-        <plugin>
           <!-- Approach followed here is roughly the same as mentioned here:
           https://maven.apache.org/plugins/maven-checkstyle-plugin/examples/multi-module-config.html
           -->
@@ -390,6 +394,16 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <!--Defer to the hbase-assembly sub-module. It does all assembly.
+               We have dedicated assembly module because of
+               http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
+               -->
+          <skipAssembly>true</skipAssembly>
+        </configuration>
       </plugin>
     </plugins>
   </build>

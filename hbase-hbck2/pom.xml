@@ -28,6 +28,7 @@
     <relativePath>..</relativePath>
   </parent>
 
+  <groupId>org.apache.hbase</groupId>
   <artifactId>hbase-hbck2</artifactId>
   <name>Apache HBase - HBCK2</name>
   <description>HBCK for HBase 2+</description>
