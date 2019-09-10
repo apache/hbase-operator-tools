@@ -135,6 +135,8 @@
     <maven.checkstyle.version>3.0.0</maven.checkstyle.version>
     <hbase.checkstyle.version>2.2.0</hbase.checkstyle.version>
     <commons-lang3.version>3.9</commons-lang3.version>
+    <enforcer.version>3.0.0-M2</enforcer.version>
+    <extra.enforcer.version>1.0-beta-9</extra.enforcer.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -428,6 +430,14 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-enforcer-plugin</artifactId>
+            <version>${enforcer.version}</version>
+            <dependencies>
+                <dependency>
+                  <groupId>org.codehaus.mojo</groupId>
+                  <artifactId>extra-enforcer-rules</artifactId>
+                  <version>${extra.enforcer.version}</version>
+                </dependency>
+            </dependencies>
             <configuration>
               <rules>
                 <enforceBytecodeVersion>
@@ -438,7 +448,10 @@
   either "mvn -version" or "mvn enforcer:display-info" to verify what version is active.
   Non-release builds can temporarily build with a newer JDK version by setting the
   'compileSource' property (eg. mvn -DcompileSource=1.8 clean package).
-                </message>
+                  </message>
+                  <ignoreClasses>
+                    <ignoreClass>module-info</ignoreClass>
+                  </ignoreClasses>
                 </enforceBytecodeVersion>
               </rules>
             </configuration>
