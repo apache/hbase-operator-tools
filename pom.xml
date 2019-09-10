@@ -57,7 +57,7 @@
     <module>hbase-hbck2</module>
     <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
          -->
-    <module>hbase-assembly</module>
+    <module>hbase-operator-tools-assembly</module>
   </modules>
   <scm>
     <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase-operator-tools.git</connection>

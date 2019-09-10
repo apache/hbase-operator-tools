@@ -26,7 +26,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
-  <artifactId>hbase-assembly</artifactId>
+  <artifactId>hbase-operator-tools-assembly</artifactId>
   <name>Apache HBase Operator Tools - Assembly</name>
   <description>
         Module that does hbase-operator-tools assembly and that is all that it does.
