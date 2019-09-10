@@ -36,7 +36,7 @@
         <include>org.apache.hbase:hbase-hbck2</include>
       </includes>
       <binaries>
-        <outputDirectory>hbase-hbck2/lib</outputDirectory>
+        <outputDirectory>hbase-hbck2/</outputDirectory>
         <unpack>false</unpack>
         <dependencySets>
           <dependencySet>
