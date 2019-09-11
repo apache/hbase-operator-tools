@@ -20,7 +20,7 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
-## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-10)
+## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-11)
 
 
 
