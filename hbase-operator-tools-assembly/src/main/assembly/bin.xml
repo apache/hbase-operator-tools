@@ -57,9 +57,15 @@
       <lineEnding>unix</lineEnding>
     </file>
     <file>
-      <source>${project.parent.basedir}/NOTICE.txt</source>
+      <source>${project.parent.basedir}/RELEASENOTES.md</source>
       <outputDirectory>.</outputDirectory>
-      <destName>NOTICE.txt</destName>
+      <destName>RELEASENOTES.md</destName>
+      <lineEnding>unix</lineEnding>
+    </file>
+    <file>
+      <source>${project.parent.basedir}/CHANGES.md</source>
+      <outputDirectory>.</outputDirectory>
+      <destName>CHANGES.md</destName>
       <lineEnding>unix</lineEnding>
     </file>
   </files>
