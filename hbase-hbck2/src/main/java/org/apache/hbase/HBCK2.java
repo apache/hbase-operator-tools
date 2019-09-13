@@ -371,28 +371,26 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       + "NAMESPACE:TABLENAME>...");
     writer.println("   Options:");
     writer.println("    -d,--force_disable aborts fix for table if disable fails.");
-    writer.println("   To be used in scenarios where some regions may be missing in META,");
-    writer.println("   but there's still a valid 'regioninfo' metadata file on HDFS. ");
-    writer.println("   This is a lighter version of 'OfflineMetaRepair tool commonly used for ");
-    writer.println("   similar issues on 1.x release line. ");
-    writer.println("   This command needs META to be online. For each table name passed as");
-    writer.println("   parameter, it performs a diff between regions available in META, ");
-    writer.println("   against existing regions dirs on HDFS. Then, for region dirs with ");
-    writer.println("   no matches in META, it reads regioninfo metadata file and ");
-    writer.println("   re-creates given region in META. Regions are re-created in 'CLOSED' ");
-    writer.println("   state at META table only, but not in Masters' cache, and are not ");
-    writer.println("   assigned either. To get these regions online, run HBCK2 'assigns'command ");
-    writer.println("   printed at the end of this command results for convenience.");
-    writer.println();
-    writer.println("   NOTE: If using hbase releases older than 2.3.0, a rolling restart of ");
-    writer.println("   HMasters is needed prior to executing the provided 'assigns' command. ");
-    writer.println();
-    writer.println("   An example adding missing regions for tables 'tbl_1' on default ");
-    writer.println("   namespace, 'tbl_2' on namespace 'n1' and for all tables from ");
-    writer.println("   namespace 'n2': ");
+    writer.println("   To be used when some regions may be missing from hbase:meta");
+    writer.println("   but their directories are present in HDFS. This is a 'lighter'");
+    writer.println("   version of 'OfflineMetaRepair' tool commonly used for similar");
+    writer.println("   issues in hbase-1.x. This command needs hbase:meta to be online.");
+    writer.println("   For each table name passed as parameter, it performs a diff");
+    writer.println("   between regions available in hbase:meta and region dirs on HDFS.");
+    writer.println("   Then for dirs with no hbase:meta matches, it reads the 'regioninfo'");
+    writer.println("   metadata file and re-creates given region in hbase:meta. Regions are");
+    writer.println("   re-created in 'CLOSED' state in the hbase:meta table, but not in the");
+    writer.println("   Masters' cache, and they are not assigned either. To get these");
+    writer.println("   regions online, run the HBCK2 'assigns'command printed when this");
+    writer.println("   command-run completes.");
+    writer.println("   NOTE: If using hbase releases older than 2.3.0, a rolling restart of");
+    writer.println("   HMasters is needed prior to executing the provided 'assigns' command.");
+    writer.println("   An example adding missing regions for tables 'tbl_1' in the default");
+    writer.println("   namespace, 'tbl_2' in namespace 'n1' and for all tables from");
+    writer.println("   namespace 'n2':");
     writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
-      " default:tbl_1 n1:tbl_2 n2 ");
-    writer.println("   Returns HBCK2 'assigns' command with all re-inserted regions.");
+      " default:tbl_1 n1:tbl_2 n2");
+    writer.println("   Returns HBCK2  an 'assigns' command with all re-inserted regions.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
     writer.println();
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
@@ -437,7 +435,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   only! Modified regions need to be reopened to pick-up changes.");
     writer.println();
     writer.println(" " + FIX_META);
-    writer.println("   Do a server-side fixing of bad or inconsistent state in hbase:meta");
+    writer.println("   Do a server-side fixing of bad or inconsistent state in hbase:meta.");
+    writer.println("   Repairs 'holes' and 'overlaps' in hbase:meta.");
+    writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
     writer.println();
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
@@ -448,18 +448,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " <NAMESPACE|"
       + "NAMESPACE:TABLENAME>...");
-    writer.println("   To be used in scenarios where some regions may be missing in META,");
-    writer.println("   but there's still a valid 'regioninfo metadata file on HDFS. ");
-    writer.println("   This is a checking only method, designed for reporting purposes and");
-    writer.println("   doesn't perform any fixes, providing a view of which regions (if any) ");
-    writer.println("   would get re-added to meta, grouped by respective table/namespace. ");
-    writer.println("   To effectively re-add regions in meta, "
-      + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " should be executed. ");
-    writer.println("   This command needs META to be online. For each namespace/table passed");
-    writer.println("   as parameter, it performs a diff between regions available in META, ");
-    writer.println("   against existing regions dirs on HDFS. Region dirs with no matches");
-    writer.println("   are printed grouped under its related table name. Tables with no");
-    writer.println("   missing regions will show a 'no missing regions' message. If no");
+    writer.println("   To be used when some regions may be missing from hbase:meta");
+    writer.println("   but their directories are present in HDFS. This is a checking only");
+    writer.println("   method, designed for reporting purposes and doesn't perform any");
+    writer.println("   fixes, providing a view of which regions (if any) would get re-added");
+    writer.println("   to meta, grouped by respective table/namespace. To effectively");
+    writer.println("   re-add regions in meta, run " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
+        ".");
+    writer.println("   This command needs hbase:meta to be online. For each namespace/table");
+    writer.println("   passed as parameter, it performs a diff between regions available in");
+    writer.println("   hbase:meta against existing regions dirs on HDFS. Region dirs with no");
+    writer.println("   matches are printed grouped under its related table name. Tables with");
+    writer.println("   no missing regions will show a 'no missing regions' message. If no");
     writer.println("   namespace or table is specified, it will verify all existing regions.");
     writer.println("   It accepts a combination of multiple namespace and tables. Table names");
     writer.println("   should include the namespace portion, even for tables in the default");
@@ -470,7 +470,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example triggering missing regions report for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
     writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 ns1");
-    writer.println("   Returns list of missing regions for each table passed as parameter, or ");
+    writer.println("   Returns list of missing regions for each table passed as parameter, or");
     writer.println("   for each table on namespaces specified as parameter.");
     writer.println();
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
@@ -494,7 +494,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
     writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
         map(Enum::toString).collect(Collectors.joining(", ")));
-    writer.println("   To read current table state, in the hbase shell run: ");
+    writer.println("   To read current table state, in the hbase shell run:");
     writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
     writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
     writer.println("   Can also run a 'describe \"<TABLENAME>\"' at the shell prompt.");
