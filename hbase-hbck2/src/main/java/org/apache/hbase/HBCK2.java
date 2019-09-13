@@ -220,9 +220,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         final Admin admin = conn.getAdmin()) {
         Map<TableName,List<Path>> report = reportTablesWithMissingRegionsInMeta(nameSpaceOrTable);
         if(report.size() < 1) {
-          LOG.info("\nNo missing regions in meta are found. Worth using reportMissingRegionsInMeta first.\n" +
-                  "You are likely passing non-existent namespace or table. Note that table names should " +
-                  "include the namespace portion even for tables in the default namespace. " +
+          LOG.info("\nNo missing regions in meta are found. Worth using " +
+                  "reportMissingRegionsInMeta first.\nYou are likely passing non-existent " +
+                  "namespace or table. Note that table names should include the namespace " +
+                  "portion even for tables in the default namespace. " +
                   "See also the command usage.\n");
         }
         for (TableName tableName : report.keySet()) {
