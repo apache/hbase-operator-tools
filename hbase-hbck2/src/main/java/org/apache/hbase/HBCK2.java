@@ -219,6 +219,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       try(ClusterConnection conn = connect();
         final Admin admin = conn.getAdmin()) {
         Map<TableName,List<Path>> report = reportTablesWithMissingRegionsInMeta(nameSpaceOrTable);
+        if(report.size() < 1) {
+          LOG.info("\nNo missing regions in meta are found. Worth using reportMissingRegionsInMeta first.\n" +
+                  "You are likely passing non-existent namespace or table. Note that table names should " +
+                  "include the namespace portion even for tables in the default namespace. " +
+                  "See also the command usage.\n");
+        }
         for (TableName tableName : report.keySet()) {
           if(admin.tableExists(tableName)) {
             futures.add(executorService.submit(new Callable<List<String>>() {
@@ -786,6 +792,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private String formatMissingRegionsInMetaReport(Map<TableName,List<Path>> report) {
     final StringBuilder builder = new StringBuilder();
+    if(report.size() < 1) {
+      builder.append("\nNo reports are found. You are likely passing non-existent " +
+              "namespace or table. Note that table names should include the namespace " +
+              "portion even for tables in the default namespace. See also the command usage.\n");
+      return builder.toString();
+    }
     builder.append("Missing Regions for each table:\n\t");
     report.keySet().stream().forEach(table -> {
       builder.append(table);
