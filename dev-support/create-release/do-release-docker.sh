@@ -160,8 +160,9 @@ if [ -n "$JAVA" ]; then
 fi
 
 echo "Building $RELEASE_TAG; output will be at $WORKDIR/output"
+# shellcheck disable=SC2086
 docker run -ti \
   --env-file "$ENVFILE" \
   --volume "$WORKDIR:/opt/hbase-rm" \
-  "$JAVA_VOL" \
+  $JAVA_VOL \
   "hbase-rm:$IMGTAG"
