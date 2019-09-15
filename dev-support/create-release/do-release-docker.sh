@@ -115,7 +115,7 @@ done
 
 GPG_KEY_FILE="$WORKDIR/gpg.key"
 fcreate_secure "$GPG_KEY_FILE"
-"$GPG" --passphrase "$GPG_PASSPHRASE" --export-secret-key --armor "$GPG_KEY" > "$GPG_KEY_FILE"
+$GPG --passphrase "$GPG_PASSPHRASE" --export-secret-key --armor "$GPG_KEY" > "$GPG_KEY_FILE"
 
 run_silent "Building hbase-rm image with tag $IMGTAG..." "docker-build.log" \
   docker build -t "hbase-rm:$IMGTAG" --build-arg UID=$UID "$SELF/hbase-rm"
