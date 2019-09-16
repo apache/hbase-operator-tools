@@ -27,9 +27,80 @@ These release notes cover new developer and user-facing incompatibilities, impor
 
 ---
 
+* [HBASE-23002](https://issues.apache.org/jira/browse/HBASE-23002) | *Major* | **[HBCK2/hbase-operator-tools] Create an assembly that builds an hbase-operator-tools tgz**
+
+First cut at an assembly for hbase-operator-tools project.
+
+
+---
+
 * [HBASE-22997](https://issues.apache.org/jira/browse/HBASE-22997) | *Major* | **Move to SLF4J**
 
 Added SLF4J binding for LOG4J 2.
+
+
+---
+
+* [HBASE-22567](https://issues.apache.org/jira/browse/HBASE-22567) | *Major* | **[HBCK2] Add new methods for dealing with missing regions in META while Master is online**
+
+Adds new, lightweight option for recovering missing regions in meta, "addFsRegionsMissingInMeta" command, as well "readonly" "reportMissingRegionsInMeta" to show the list of regions to be readded in meta. This is a less intrusive alternative to OfflineMetaRepair, can be used when master and meta are still capable of coming online.
+
+Detailed description as provided by the command usage help:
+
+{noformat}
+ addFsRegionsMissingInMeta \<NAMESPACE\|NAMESPACE:TABLENAME\>...
+   Options:
+    -d,--force\_disable aborts fix for table if disable fails.
+   To be used in scenarios where some regions may be missing in META,
+   but there's still a valid 'regioninfo' metadata file on HDFS.
+   This is a lighter version of 'OfflineMetaRepair tool commonly used for
+   similar issues on 1.x release line.
+   This command needs META to be online. For each table name passed as
+   parameter, it performs a diff between regions available in META,
+   against existing regions dirs on HDFS. Then, for region dirs with
+   no matches in META, it reads regioninfo metadata file and
+   re-creates given region in META. Regions are re-created in 'CLOSED'
+   state at META table only, but not in Masters' cache, and are not
+   assigned either. To get these regions online, run HBCK2
+'assigns'command
+   printed at the end of this command results for convenience.
+
+   NOTE: If using hbase releases older than 2.3.0, a rolling restart of
+   HMasters is needed prior to executing the provided 'assigns' command.
+
+   An example adding missing regions for tables 'tbl\_1' on default
+   namespace, 'tbl\_2' on namespace 'n1' and for all tables from
+   namespace 'n2':
+     $ HBCK2 addFsRegionsMissingInMeta default:tbl\_1 n1:tbl\_2 n2
+   Returns HBCK2 'assigns' command with all re-inserted regions.
+   SEE ALSO: reportMissingRegionsInMeta
+...
+ reportMissingRegionsInMeta \<NAMESPACE\|NAMESPACE:TABLENAME\>...
+   To be used in scenarios where some regions may be missing in META,
+   but there's still a valid 'regioninfo metadata file on HDFS.
+   This is a checking only method, designed for reporting purposes and
+   doesn't perform any fixes, providing a view of which regions (if any)
+   would get re-added to meta, grouped by respective table/namespace.
+   To effectively re-add regions in meta, addFsRegionsMissingInMeta should be executed.
+   This command needs META to be online. For each namespace/table passed
+   as parameter, it performs a diff between regions available in META,
+   against existing regions dirs on HDFS. Region dirs with no matches
+   are printed grouped under its related table name. Tables with no
+   missing regions will show a 'no missing regions' message. If no
+   namespace or table is specified, it will verify all existing regions.
+   It accepts a combination of multiple namespace and tables. Table names
+   should include the namespace portion, even for tables in the default
+   namespace, otherwise it will assume as a namespace value.
+   An example triggering missing regions report for tables 'table\_1'
+   and 'table\_2', under default namespace:
+     $ HBCK2 reportMissingRegionsInMeta default:table\_1 default:table\_2
+   An example triggering missing regions report for table 'table\_1'
+   under default namespace, and for all tables from namespace 'ns1':
+     $ HBCK2 reportMissingRegionsInMeta default:table\_1 ns1
+   Returns list of missing regions for each table passed as parameter, or
+   for each table on namespaces specified as parameter.
+...
+{noformat}
 
 
 ---
@@ -79,11 +150,91 @@ Given the encoded name of a Region, this command allows you to change the state 
 
 ---
 
+* [HBASE-21322](https://issues.apache.org/jira/browse/HBASE-21322) | *Critical* | **Add a scheduleServerCrashProcedure() API to HbckService**
+
+Adds scheduleServerCrashProcedure to the HbckService.
+
+
+---
+
 * [HBASE-21378](https://issues.apache.org/jira/browse/HBASE-21378) | *Major* | **[hbck2] add --skip version check to hbck2 tool (checkHBCKSupport blocks assigning hbase:meta or hbase:namespace when master is not initialized)**
 
 Adds a general -s,--skip option to hbck2 so you can run the command it first checking it is version compatible.
 
 Should not be needed going forward but in the spirt of our not knowing all the conditions under which we'll be trying to run hbck2, adding it.
+
+
+---
+
+* [HBASE-21335](https://issues.apache.org/jira/browse/HBASE-21335) | *Critical* | **Change the default wait time of HBCK2 tool**
+
+Changed waitTime parameter to lockWait on bypass. Changed default waitTime from 0 -- i.e. wait for ever -- to 1ms so if lock is held, we'll go past it and if override enforce bypass.
+
+
+---
+
+* [HBASE-21317](https://issues.apache.org/jira/browse/HBASE-21317) | *Major* | **[hbck2] Add version, version handling, and misc override to assigns/unassigns**
+
+Adds --override to assigns and unassigns.
+Adds --recursive to bypass
+Adds dump of version info
+Adds fail if remote cluster doesn't support hbck2
+
+
+---
+
+* [HBASE-21210](https://issues.apache.org/jira/browse/HBASE-21210) | *Major* | **Add bypassProcedure() API to HBCK2**
+
+Added a bypass to hbck2:
+
+{code}
+$ HBASE\_CLASSPATH\_PREFIX=../hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2
+usage: HBCK2 [OPTIONS] COMMAND \<ARGS\>
+
+Options:
+ -d,--debug                                 run with debug output
+ -h,--help                                  output this help message
+ -p,--hbase.zookeeper.property.clientPort   peerport of target hbase
+                                            ensemble
+ -q,--hbase.zookeeper.quorum \<arg\>          ensemble of target hbase
+ -z,--zookeeper.znode.parent                parent znode of target hbase
+
+Commands:
+ setTableState \<TABLENAME\> \<STATE\>
+   Possible table states: ENABLED, DISABLED, DISABLING, ENABLING
+   To read current table state, in the hbase shell run:
+     hbase\> get 'hbase:meta', '\<TABLENAME\>', 'table:state'
+   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.
+   An example making table name 'user' ENABLED:
+     $ HBCK2 setTableState users ENABLED
+   Returns whatever the previous table state was.
+
+ assigns \<ENCODED\_REGIONNAME\>...
+   A 'raw' assign that can be used even during Master initialization.
+   Skirts Coprocessors. Pass one or more encoded RegionNames:
+   e.g. 1588230740 is hard-coded encoding for hbase:meta region and
+   de00010733901a05f5a2a3a382e27dd4 is an example of what a random
+   user-space encoded Region name looks like. For example:
+     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4
+   Returns the pid of the created AssignProcedure or -1 if none.
+
+ bypass [OPTIONS] \<PID\>...
+   Pass one (or more) procedure 'pid's to skip to the procedure finish.
+   Parent of this procedures will also skip to its finish. Entities will
+   be left in an inconsistent state and will require manual fixup.
+   Pass --force to break any outstanding locks.
+   Pass --waitTime=\<seconds\> to wait on entity lock before giving up.
+   Default: force=false and waitTime=0. Returns true if succeeded.
+
+ unassigns \<ENCODED\_REGIONNAME\>...
+   A 'raw' unassign that can be used even during Master initialization.
+   Skirts Coprocessors. Pass one or more encoded RegionNames:
+   Skirts Coprocessors. Pass one or more encoded RegionNames:
+   de00010733901a05f5a2a3a382e27dd4 is an example of what a random
+   user-space encoded Region name looks like. For example:
+     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
+   Returns the pid of the created UnassignProcedure or -1 if none.
+{code}
 
 
 

@@ -20,7 +20,7 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
-## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-12)
+## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-16)
 
 
 
@@ -28,6 +28,7 @@
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-22567](https://issues.apache.org/jira/browse/HBASE-22567) | [HBCK2] Add new methods for dealing with missing regions in META while Master is online |  Major | hbck2 |
 | [HBASE-22183](https://issues.apache.org/jira/browse/HBASE-22183) | [hbck2] Update hbck2 README to explain new "setRegionState" method. |  Minor | documentation, hbck2 |
 | [HBASE-22143](https://issues.apache.org/jira/browse/HBASE-22143) | HBCK2 setRegionState command |  Minor | hbase-operator-tools, hbck2 |
 
@@ -36,6 +37,8 @@
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-22691](https://issues.apache.org/jira/browse/HBASE-22691) | [hbase-operator-tools] Move Checkstyle suppression file to different location |  Trivial | hbck2 |
+| [HBASE-23018](https://issues.apache.org/jira/browse/HBASE-23018) | [HBCK2] Add useful messages when report/fixing missing regions in meta |  Minor | hbase-operator-tools, hbck2, Operability |
 | [HBASE-22999](https://issues.apache.org/jira/browse/HBASE-22999) | Fix non-varargs compile warnings |  Minor | hbase-operator-tools |
 
 
@@ -43,6 +46,10 @@
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-23029](https://issues.apache.org/jira/browse/HBASE-23029) | Handle hbase-operator-tools releasenotes in release making script |  Minor | hbase-operator-tools |
+| [HBASE-23026](https://issues.apache.org/jira/browse/HBASE-23026) | docker run command should not quote JAVA\_VOL |  Major | hbase-operator-tools |
+| [HBASE-23025](https://issues.apache.org/jira/browse/HBASE-23025) | Do not quote GPG command |  Major | hbase-operator-tools |
+| [HBASE-22984](https://issues.apache.org/jira/browse/HBASE-22984) | [HBCK2] HBCKMetaTableAccessor.deleteFromMetaTable throwing java.lang.UnsupportedOperationException at runtime |  Major | hbck2 |
 | [HBASE-22951](https://issues.apache.org/jira/browse/HBASE-22951) | [HBCK2] hbase hbck throws IOE "No FileSystem for scheme: hdfs" |  Major | documentation, hbck2 |
 | [HBASE-22952](https://issues.apache.org/jira/browse/HBASE-22952) | HBCK2 replication command is incompatible with 2.0.x |  Critical | hbase-operator-tools |
 | [HBASE-22949](https://issues.apache.org/jira/browse/HBASE-22949) | [HBCK2] Add lang3 as explicit dependency |  Major | . |
@@ -52,6 +59,8 @@
 | [HBASE-21484](https://issues.apache.org/jira/browse/HBASE-21484) | [HBCK2] hbck2 should default to a released hbase version |  Major | hbck2 |
 | [HBASE-21483](https://issues.apache.org/jira/browse/HBASE-21483) | [HBCK2] version string checking should look for exactly the version we know doesn't work |  Major | hbck2 |
 | [HBASE-21378](https://issues.apache.org/jira/browse/HBASE-21378) | [hbck2] add --skip version check to hbck2 tool (checkHBCKSupport blocks assigning hbase:meta or hbase:namespace when master is not initialized) |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-21335](https://issues.apache.org/jira/browse/HBASE-21335) | Change the default wait time of HBCK2 tool |  Critical | . |
+| [HBASE-21317](https://issues.apache.org/jira/browse/HBASE-21317) | [hbck2] Add version, version handling, and misc override to assigns/unassigns |  Major | hbase-operator-tools, hbck2 |
 
 
 ### TESTS:
@@ -65,8 +74,10 @@
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-23021](https://issues.apache.org/jira/browse/HBASE-23021) | [hbase-operator-tools] README edits in prep for release |  Major | . |
 | [HBASE-22997](https://issues.apache.org/jira/browse/HBASE-22997) | Move to SLF4J |  Major | hbase-operator-tools |
 | [HBASE-22998](https://issues.apache.org/jira/browse/HBASE-22998) | Fix NOTICE and LICENSE |  Blocker | hbase-operator-tools |
+| [HBASE-22859](https://issues.apache.org/jira/browse/HBASE-22859) | [HBCK2] Fix the orphan regions on filesystem |  Major | documentation, hbck2 |
 | [HBASE-22825](https://issues.apache.org/jira/browse/HBASE-22825) | [HBCK2] Add a client-side to hbase-operator-tools that can exploit fixMeta added in server side |  Major | hbck2 |
 | [HBASE-22957](https://issues.apache.org/jira/browse/HBASE-22957) | [HBCK2] reference file check fails if compiled with old version but check against new |  Major | . |
 | [HBASE-22865](https://issues.apache.org/jira/browse/HBASE-22865) | [HBCK2] shows the whole help/usage message after the error message |  Minor | hbck2 |
@@ -76,6 +87,8 @@
 | [HBASE-21393](https://issues.apache.org/jira/browse/HBASE-21393) | Add an API  ScheduleSCP() to HBCK2 |  Major | hbase-operator-tools, hbck2 |
 | [HBASE-22688](https://issues.apache.org/jira/browse/HBASE-22688) | [HBCK2] Add filesystem fixup to hbck2 |  Major | hbck2 |
 | [HBASE-22680](https://issues.apache.org/jira/browse/HBASE-22680) | [HBCK2] OfflineMetaRepair for hbase2/hbck2 |  Major | hbck2 |
+| [HBASE-21322](https://issues.apache.org/jira/browse/HBASE-21322) | Add a scheduleServerCrashProcedure() API to HbckService |  Critical | hbck2 |
+| [HBASE-21210](https://issues.apache.org/jira/browse/HBASE-21210) | Add bypassProcedure() API to HBCK2 |  Major | hbase-operator-tools, hbck2 |
 
 
 ### OTHER:
@@ -83,6 +96,8 @@
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
 | [HBASE-19121](https://issues.apache.org/jira/browse/HBASE-19121) | HBCK for AMv2 (A.K.A HBCK2) |  Major | hbck, hbck2 |
+| [HBASE-23003](https://issues.apache.org/jira/browse/HBASE-23003) | [HBCK2/hbase-operator-tools] Release-making scripts |  Major | . |
+| [HBASE-23002](https://issues.apache.org/jira/browse/HBASE-23002) | [HBCK2/hbase-operator-tools] Create an assembly that builds an hbase-operator-tools tgz |  Major | . |
 | [HBASE-22906](https://issues.apache.org/jira/browse/HBASE-22906) | Clean up checkstyle complaints in hbase-operator-tools |  Trivial | hbase-operator-tools |
 | [HBASE-22675](https://issues.apache.org/jira/browse/HBASE-22675) | Use commons-cli from hbase-thirdparty |  Major | hbase-operator-tools |
 | [HBASE-21433](https://issues.apache.org/jira/browse/HBASE-21433) | [hbase-operator-tools] Add Apache Yetus integration for hbase-operator-tools repository |  Major | build, hbase-operator-tools |
