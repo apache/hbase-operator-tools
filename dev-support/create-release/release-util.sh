@@ -294,11 +294,13 @@ function update_releasenotes {
   wget -qO- "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=/yetus/${YETUS_VERSION}/${yetus}-bin.tar.gz" | \
     tar xvz -C .
   cd ./${yetus}
+  # All repositories share the same HBASE project name
   ./bin/releasedocmaker -p HBASE --fileversions -v ${release_version} -l --sortorder=newer --skip-credits
   # First clear out the changes written by previous RCs.
   sed -i -e "/^## Release ${release_version}/,/^## Release/ {//!d; /^## Release ${release_version}/d;}" \
     ${project}/CHANGES.md || true
-  sed -i -e "/^# ${project} ${release_version} Release Notes/,/^# ${project}/{//!d; /^# ${project} ${release_version} Release Notes/d;}" \
+  # 2 spaces are required between HBASE and ${release_version} strings
+  sed -i -e "/^# HBASE  ${release_version} Release Notes/,/^# HBASE/{//!d; /^# HBASE  ${release_version} Release Notes/d;}" \
     ${project}/RELEASENOTES.md || true
 
   # The above generates RELEASENOTES.X.X.X.md and CHANGELOG.X.X.X.md.
