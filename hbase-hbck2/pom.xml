@@ -116,7 +116,8 @@
             <goals>
               <goal>revision</goal>
             </goals>
-            <!-- *NOTE*: The default phase of revision is initialize, but in case you want to change it, you can do so by adding the phase here -->
+            <!-- *NOTE*: The default phase of revision is initialize, but in case you want to change
+             it, you can do so by adding the phase here -->
             <phase>initialize</phase>
           </execution>
           <execution>
@@ -124,13 +125,15 @@
             <goals>
               <goal>validateRevision</goal>
             </goals>
-            <!-- *NOTE*: The default phase of validateRevision is verify, but in case you want to change it, you can do so by adding the phase here -->
+            <!-- *NOTE*: The default phase of validateRevision is verify, but in case you want to
+            change it, you can do so by adding the phase here -->
             <phase>package</phase>
           </execution>
         </executions>
         <configuration>
           <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
           <commitIdGenerationMode>flat</commitIdGenerationMode>
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
         </configuration>
       </plugin>
       <plugin>
