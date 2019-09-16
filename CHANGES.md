@@ -46,6 +46,7 @@
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-23033](https://issues.apache.org/jira/browse/HBASE-23033) | Do not run git-commit-id-plugin when .git is missing |  Blocker | hbase-operator-tools |
 | [HBASE-23029](https://issues.apache.org/jira/browse/HBASE-23029) | Handle hbase-operator-tools releasenotes in release making script |  Minor | hbase-operator-tools |
 | [HBASE-23026](https://issues.apache.org/jira/browse/HBASE-23026) | docker run command should not quote JAVA\_VOL |  Major | hbase-operator-tools |
 | [HBASE-23025](https://issues.apache.org/jira/browse/HBASE-23025) | Do not quote GPG command |  Major | hbase-operator-tools |
