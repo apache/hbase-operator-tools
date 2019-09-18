@@ -329,7 +329,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-    boolean recursiveFlag = commandLine.hasOption(override.getOpt());
+    boolean recursiveFlag = commandLine.hasOption(recursive.getOpt());
     List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
     try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
       checkHBCKSupport(connection, BYPASS);
