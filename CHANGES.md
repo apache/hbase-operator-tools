@@ -20,7 +20,7 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
-## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-16)
+## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-20)
 
 
 
@@ -46,6 +46,8 @@
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-23057](https://issues.apache.org/jira/browse/HBASE-23057) | Add commons-lang3 dependency to HBCK2 |  Critical | hbase-operator-tools |
+| [HBASE-23039](https://issues.apache.org/jira/browse/HBASE-23039) | HBCK2 bypass -r command does not work |  Major | hbase-operator-tools |
 | [HBASE-23033](https://issues.apache.org/jira/browse/HBASE-23033) | Do not run git-commit-id-plugin when .git is missing |  Blocker | hbase-operator-tools |
 | [HBASE-23029](https://issues.apache.org/jira/browse/HBASE-23029) | Handle hbase-operator-tools releasenotes in release making script |  Minor | hbase-operator-tools |
 | [HBASE-23026](https://issues.apache.org/jira/browse/HBASE-23026) | docker run command should not quote JAVA\_VOL |  Major | hbase-operator-tools |
