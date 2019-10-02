@@ -18,13 +18,17 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import junit.framework.TestCase;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
@@ -42,6 +46,7 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Threads;
+
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -50,13 +55,6 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.util.Map;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -104,10 +102,10 @@ public class TestHBCK2 {
   public void testSetTableStateInMeta() throws IOException {
     try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
       TableState state = this.hbck2.setTableState(hbck, TABLE_NAME, TableState.State.DISABLED);
-      TestCase.assertTrue("Found=" + state.getState(), state.isEnabled());
+      assertTrue("Found=" + state.getState(), state.isEnabled());
       // Restore the state.
       state = this.hbck2.setTableState(hbck, TABLE_NAME, state.getState());
-      TestCase.assertTrue("Found=" + state.getState(), state.isDisabled());
+      assertTrue("Found=" + state.getState(), state.isDisabled());
     }
   }
 
@@ -130,7 +128,7 @@ public class TestHBCK2 {
           RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
               getRegionStates().getRegionState(ri.getEncodedName());
           LOG.info("RS: {}", rs.toString());
-          TestCase.assertTrue(rs.toString(), rs.isClosed());
+          assertTrue(rs.toString(), rs.isClosed());
         }
         pids = this.hbck2.assigns(hbck, regionStrsArray);
         waitOnPids(pids);
@@ -138,7 +136,7 @@ public class TestHBCK2 {
           RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
               getRegionStates().getRegionState(ri.getEncodedName());
           LOG.info("RS: {}", rs.toString());
-          TestCase.assertTrue(rs.toString(), rs.isOpened());
+          assertTrue(rs.toString(), rs.isOpened());
         }
         // What happens if crappy region list passed?
         pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
@@ -286,7 +284,7 @@ public class TestHBCK2 {
     List<RegionInfo> regions = MetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     Connection connection = TEST_UTIL.getConnection();
-    regions.subList(0, missingRegions).forEach( r -> deleteRegionInfo(connection, r));
+    regions.subList(0, missingRegions).forEach(r -> deleteRegionInfo(connection, r));
     int remaining = totalRegions - missingRegions;
     assertEquals("Table should have " + remaining + " regions in META.", remaining,
       MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
@@ -305,11 +303,11 @@ public class TestHBCK2 {
     List<RegionInfo> regions = MetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
     Connection connection = TEST_UTIL.getConnection();
-    regions.subList(0, missingRegionsInTestTbl).forEach( r -> deleteRegionInfo(connection, r));
+    regions.subList(0, missingRegionsInTestTbl).forEach(r -> deleteRegionInfo(connection, r));
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     final Map<TableName,List<Path>> report =
       hbck.reportTablesWithMissingRegionsInMeta(namespaceOrTable);
-    long resultingMissingRegions = report.keySet().stream().mapToLong( nsTbl ->
+    long resultingMissingRegions = report.keySet().stream().mapToLong(nsTbl ->
       report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalMissingRegions, resultingMissingRegions);
     String[] nullArgs = null;

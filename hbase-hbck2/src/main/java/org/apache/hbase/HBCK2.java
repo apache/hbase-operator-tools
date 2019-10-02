@@ -27,12 +27,12 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.stream.Collectors;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -69,7 +69,6 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.HelpFormatter;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
-
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
 
@@ -103,7 +102,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String ADD_MISSING_REGIONS_IN_META = "addMissingRegionsInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
   private Configuration conf;
-  static String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
+  static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
 
   /**
@@ -178,7 +177,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   Map<TableName,List<Path>> reportTablesWithMissingRegionsInMeta(String... nameSpaceOrTable)
       throws IOException {
     Map<TableName,List<Path>> report;
-    try(final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)){
+    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+        new FsRegionsMetaRecoverer(this.conf)) {
       List<String> names = nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
       report = fsRegionsMetaRecoverer.reportTablesMissingRegions(names);
     } catch (IOException e) {
@@ -193,7 +193,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
     List<String> reAddedRegionsEncodedNames = new ArrayList<>();
-    try(final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)){
+    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+        new FsRegionsMetaRecoverer(this.conf)) {
       for(Path regionPath : regionsPath){
         fsRegionsMetaRecoverer.putRegionInfoFromHdfsInMeta(regionPath);
         reAddedRegionsEncodedNames.add(regionPath.getName());
@@ -209,8 +210,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors()) ?
           Runtime.getRuntime().availableProcessors() :
           nameSpaceOrTable.length);
-    List<Future<List<String>>> futures = new ArrayList<>( nameSpaceOrTable == null ? 1 :
-      nameSpaceOrTable.length);
+    List<Future<List<String>>> futures =
+        new ArrayList<>(nameSpaceOrTable == null ? 1 : nameSpaceOrTable.length);
     final List<String> readdedRegionNames = new ArrayList<>();
     List<ExecutionException> executionErrors = new ArrayList<>();
     try {
@@ -321,7 +322,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     long lockWait = DEFAULT_LOCK_WAIT;
     if (commandLine.hasOption(wait.getOpt())) {
-      lockWait = Integer.valueOf(commandLine.getOptionValue(wait.getOpt()));
+      lockWait = Integer.parseInt(commandLine.getOptionValue(wait.getOpt()));
     }
     String[] pidStrs = commandLine.getArgs();
     if (pidStrs == null || pidStrs.length <= 0) {
@@ -367,8 +368,35 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     StringWriter sw = new StringWriter();
     PrintWriter writer = new PrintWriter(sw);
     writer.println("Command:");
+    usageAddFsRegionsMissingInMeta(writer);
+    writer.println();
+    usageAssigns(writer);
+    writer.println();
+    usageBypass(writer);
+    writer.println();
+    usageFilesystem(writer);
+    writer.println();
+    usageFixMeta(writer);
+    writer.println();
+    usageReplication(writer);
+    writer.println();
+    usageReportMissingRegionsInMeta(writer);
+    writer.println();
+    usageSetRegionState(writer);
+    writer.println();
+    usageSetTableState(writer);
+    writer.println();
+    usageScheduleRecoveries(writer);
+    writer.println();
+    usageUnassigns(writer);
+    writer.println();
+    writer.close();
+    return sw.toString();
+  }
+
+  private static void usageAddFsRegionsMissingInMeta(PrintWriter writer) {
     writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " <NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...");
+        + "NAMESPACE:TABLENAME>...");
     writer.println("   Options:");
     writer.println("    -d,--force_disable aborts fix for table if disable fails.");
     writer.println("   To be used when some regions may be missing from hbase:meta");
@@ -389,10 +417,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   namespace, 'tbl_2' in namespace 'n1' and for all tables from");
     writer.println("   namespace 'n2':");
     writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
-      " default:tbl_1 n1:tbl_2 n2");
+        " default:tbl_1 n1:tbl_2 n2");
     writer.println("   Returns HBCK2  an 'assigns' command with all re-inserted regions.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
-    writer.println();
+  }
+
+  private static void usageAssigns(PrintWriter writer) {
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
@@ -403,7 +433,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   what a user-space encoded region name looks like. For example:");
     writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
-    writer.println();
+  }
+
+  private static void usageBypass(PrintWriter writer) {
     writer.println(" " + BYPASS + " [OPTIONS] <PID>...");
     writer.println("   Options:");
     writer.println("    -o,--override   override if procedure is running/stuck");
@@ -416,14 +448,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   procedure has children. Add 'recursive' if all you have is a parent pid");
     writer.println("   to finish parent and children. This is SLOW, and dangerous so use");
     writer.println("   selectively. Does not always work.");
-    writer.println();
-    // out.println("   -checkCorruptHFiles     Check all Hfiles by opening them to make
-    // sure they are valid");
-    // out.println("   -sidelineCorruptHFiles  Quarantine corrupted HFiles.  implies
-    // -checkCorruptHFiles");
-    // out.println("   -fixVersionFile   Try to fix missing hbase.version file in hdfs.");
-    // out.println("   -fixReferenceFiles  Try to offline lingering reference store files");
-    // out.println("   -fixHFileLinks  Try to offline lingering HFileLinks");
+  }
+
+  private static void usageFilesystem(PrintWriter writer) {
     writer.println(" " + FILESYSTEM + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    sideline corrupt hfiles, bad links, and references.");
@@ -433,21 +460,27 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   more tablenames to narrow checkup. Default checks all tables and");
     writer.println("   restores 'hbase.version' if missing. Interacts with the filesystem");
     writer.println("   only! Modified regions need to be reopened to pick-up changes.");
-    writer.println();
+  }
+
+  private static void usageFixMeta(PrintWriter writer) {
     writer.println(" " + FIX_META);
     writer.println("   Do a server-side fixing of bad or inconsistent state in hbase:meta.");
     writer.println("   Repairs 'holes' and 'overlaps' in hbase:meta.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
-    writer.println();
+  }
+
+  private static void usageReplication(PrintWriter writer) {
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    fix any replication issues found.");
     writer.println("   Looks for undeleted replication queues and deletes them if passed the");
     writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
     writer.println("   purge if '--fix'.");
-    writer.println();
+  }
+
+  private static void usageReportMissingRegionsInMeta(PrintWriter writer) {
     writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " <NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...");
+        + "NAMESPACE:TABLENAME>...");
     writer.println("   To be used when some regions may be missing from hbase:meta");
     writer.println("   but their directories are present in HDFS. This is a checking only");
     writer.println("   method, designed for reporting purposes and doesn't perform any");
@@ -472,7 +505,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 ns1");
     writer.println("   Returns list of missing regions for each table passed as parameter, or");
     writer.println("   for each table on namespaces specified as parameter.");
-    writer.println();
+  }
+
+  private static void usageSetRegionState(PrintWriter writer) {
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   Possible region states:");
     writer.println("    OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,");
@@ -490,7 +525,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:");
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
-    writer.println();
+  }
+
+  private static void usageSetTableState(PrintWriter writer) {
     writer.println(" " + SET_TABLE_STATE + " <TABLENAME> <STATE>");
     writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
         map(Enum::toString).collect(Collectors.joining(", ")));
@@ -501,7 +538,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example making table name 'user' ENABLED:");
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
-    writer.println();
+  }
+
+  private static void usageScheduleRecoveries(PrintWriter writer) {
     writer.println(" " + SCHEDULE_RECOVERIES + " <SERVERNAME>...");
     writer.println("   Schedule ServerCrashProcedure(SCP) for list of RegionServers. Format");
     writer.println("   server name as '<HOSTNAME>,<PORT>,<STARTCODE>' (See HBase UI/logs).");
@@ -510,7 +549,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if");
     writer.println("   no procedure created (see master logs for why not).");
     writer.println("   Command support added in hbase versions 2.0.3, 2.1.2, 2.2.0 or newer.");
-    writer.println();
+  }
+
+  private static void usageUnassigns(PrintWriter writer) {
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
@@ -524,9 +565,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
     writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
-    writer.println();
-    writer.close();
-    return sw.toString();
   }
 
   static void showErrorMessage(String error) {
@@ -608,7 +646,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     if (commandLine.hasOption(peerPort.getOpt())) {
       String optionValue = commandLine.getOptionValue(peerPort.getOpt());
       if (optionValue.matches("[0-9]+")) {
-        getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.valueOf(optionValue));
+        getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.parseInt(optionValue));
       } else {
         showErrorMessage(
             "Invalid client port. Please provide proper port for target hbase ensemble.");
@@ -800,11 +838,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return builder.toString();
     }
     builder.append("Missing Regions for each table:\n\t");
-    report.keySet().stream().forEach(table -> {
+    report.keySet().forEach(table -> {
       builder.append(table);
       if (!report.get(table).isEmpty()){
         builder.append("->\n\t\t");
-        report.get(table).stream().forEach(region -> builder.append(region.getName())
+        report.get(table).forEach(region -> builder.append(region.getName())
           .append(" "));
       } else {
         builder.append(" -> No missing regions");
@@ -830,7 +868,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       finalText.append("\n")
         .append("ERROR: \n\t")
         .append("There were following errors on at least one table thread:\n");
-      executionErrors.stream().forEach(e -> finalText.append(e.getMessage()).append("\n"));
+      executionErrors.forEach(e -> finalText.append(e.getMessage()).append("\n"));
     }
     return finalText.toString();
   }
