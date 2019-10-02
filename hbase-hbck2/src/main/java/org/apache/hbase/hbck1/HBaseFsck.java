@@ -232,7 +232,7 @@ public class HBaseFsck extends Configured implements Closeable {
   private static final int DEFAULT_OVERLAPS_TO_SIDELINE = 2;
   private static final int DEFAULT_MAX_MERGE = 5;
   private static final String TO_BE_LOADED = "to_be_loaded";
-  /**
+  /*
    * Here is where hbase-1.x used to default the lock for hbck1.
    * It puts in place a lock when it goes to write/make changes.
    */
@@ -355,7 +355,7 @@ public class HBaseFsck extends Configured implements Closeable {
   /**
    * When initially looking at HDFS, we attempt to find any orphaned data.
    */
-  private List<HbckInfo> orphanHdfsDirs = Collections.synchronizedList(new ArrayList<HbckInfo>());
+  private List<HbckInfo> orphanHdfsDirs = Collections.synchronizedList(new ArrayList<>());
 
   private Map<TableName, Set<String>> orphanTableDirs = new HashMap<>();
   private Map<TableName, TableState> tableStates = new HashMap<>();
@@ -551,7 +551,7 @@ public class HBaseFsck extends Configured implements Closeable {
     } finally {
       executor.shutdownNow();
     }
-    return new Pair<Path, FSDataOutputStream>(callable.getHbckLockPath(), stream);
+    return new Pair<>(callable.getHbckLockPath(), stream);
   }
 
   private void unlockHbck() {
@@ -803,7 +803,7 @@ public class HBaseFsck extends Configured implements Closeable {
     RetryCounter retryCounter = createZNodeRetryCounterFactory.create();
     hbckEphemeralNodePath = ZNodePaths.joinZNode(
       zkw.getZNodePaths().masterMaintZNode,
-      "hbck-" + Long.toString(System.currentTimeMillis()));
+      "hbck-" + System.currentTimeMillis());
     do {
       try {
         hbckZodeCreated = ZKUtil.createEphemeralNodeAndWatch(zkw, hbckEphemeralNodePath, null);
@@ -1043,7 +1043,6 @@ public class HBaseFsck extends Configured implements Closeable {
    * likely violate table integrity but will be dealt with by merging
    * overlapping regions.
    */
-  @SuppressWarnings("deprecation")
   private void adoptHdfsOrphan(HbckInfo hi) throws IOException {
     Path p = hi.getHdfsRegionDir();
     FileSystem fs = p.getFileSystem(getConf());
@@ -2291,8 +2290,7 @@ public class HBaseFsck extends Configured implements Closeable {
       try {
         f.get();
       } catch(ExecutionException e) {
-        LOG.warn("Could not process regionserver " + item.rsinfo.getHostAndPort(),
-            e.getCause());
+        LOG.warn("Could not process regionserver {}", item.rsinfo.getAddress(), e.getCause());
       }
     }
   }
@@ -3440,7 +3438,7 @@ public class HBaseFsck extends Configured implements Closeable {
         HbckInfo parent = null;
         HbckInfo daughterA = null;
         HbckInfo daughterB = null;
-        Collection<HbckInfo> daughters = new ArrayList<HbckInfo>(overlap);
+        Collection<HbckInfo> daughters = new ArrayList<>(overlap);
 
         String thread = Thread.currentThread().getName();
         LOG.info("== [" + thread + "] Attempting fix splits in overlap state.");
@@ -3453,7 +3451,7 @@ public class HBaseFsck extends Configured implements Closeable {
 
         for (HbckInfo hi : overlap) {
           if (range == null) {
-            range = new Pair<byte[], byte[]>(hi.getStartKey(), hi.getEndKey());
+            range = new Pair<>(hi.getStartKey(), hi.getEndKey());
           } else {
             if (RegionSplitCalculator.BYTES_COMPARATOR
               .compare(hi.getStartKey(), range.getFirst()) < 0) {
@@ -3511,11 +3509,8 @@ public class HBaseFsck extends Configured implements Closeable {
         LOG.info("Trying to fix parent in overlap by removing the parent.");
         try {
           closeRegion(parent);
-        } catch (IOException ioe) {
-          LOG.warn("Parent region could not be closed, continuing with regular merge...", ioe);
-          return;
-        } catch (InterruptedException ie) {
-          LOG.warn("Parent region could not be closed, continuing with regular merge...", ie);
+        } catch (IOException | InterruptedException e) {
+          LOG.warn("Parent region could not be closed, continuing with regular merge...", e);
           return;
         }
 
@@ -3576,10 +3571,7 @@ public class HBaseFsck extends Configured implements Closeable {
           try {
             LOG.info("[" + thread + "] Closing region: " + hi);
             closeRegion(hi);
-          } catch (IOException ioe) {
-            LOG.warn("[" + thread + "] Was unable to close region " + hi
-              + ".  Just continuing... ", ioe);
-          } catch (InterruptedException e) {
+          } catch (IOException | InterruptedException e) {
             LOG.warn("[" + thread + "] Was unable to close region " + hi
               + ".  Just continuing... ", e);
           }
@@ -3639,10 +3631,7 @@ public class HBaseFsck extends Configured implements Closeable {
           try {
             LOG.info("Closing region: " + regionToSideline);
             closeRegion(regionToSideline);
-          } catch (IOException ioe) {
-            LOG.warn("Was unable to close region " + regionToSideline
-              + ".  Just continuing... ", ioe);
-          } catch (InterruptedException e) {
+          } catch (IOException | InterruptedException e) {
             LOG.warn("Was unable to close region " + regionToSideline
               + ".  Just continuing... ", e);
           }
@@ -3894,7 +3883,6 @@ public class HBaseFsck extends Configured implements Closeable {
    * SPLITA_QUALIFIER, SPLITB_QUALIFIER have not changed in the last
    * milliseconds specified by timelag, then the table is a candidate to be returned.
    * @return tables that have not been modified recently
-   * @throws IOException if an error is encountered
    */
   TableDescriptor[] getTables(AtomicInteger numSkipped) {
     List<TableName> tableNames = new ArrayList<>();
@@ -4582,8 +4570,7 @@ public class HBaseFsck extends Configured implements Closeable {
 
     @Override
     public synchronized int summarize() {
-      System.out.println(Integer.toString(errorCount) +
-                         " inconsistencies detected.");
+      System.out.println(errorCount + " inconsistencies detected.");
       if (errorCount == 0) {
         System.out.println("Status: OK");
         return 0;
@@ -5427,9 +5414,7 @@ public class HBaseFsck extends Configured implements Closeable {
     // pre-check current user has FS write permission or not
     try {
       preCheckPermission();
-    } catch (AccessDeniedException ace) {
-      Runtime.getRuntime().exit(-1);
-    } catch (IOException ioe) {
+    } catch (IOException ace) {
       Runtime.getRuntime().exit(-1);
     }
 

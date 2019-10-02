@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,13 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSInputStream;
@@ -39,19 +46,14 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
-import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
-import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hbase.FsRegionsMetaRecoverer;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
 public class TestFsRegionsMetaRecoverer {
 
@@ -111,7 +113,7 @@ public class TestFsRegionsMetaRecoverer {
     ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
     Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
     RegionInfo info = createRegionInfo("test-tbl");
-    List<Cell> cells = new ArrayList();
+    List<Cell> cells = new ArrayList<>();
     cells.add(createCellForRegionInfo(info));
     Result result = Result.create(cells);
     Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
@@ -127,7 +129,7 @@ public class TestFsRegionsMetaRecoverer {
   public void testFindMissingRegionsInMETAOneMissing() throws  Exception {
     ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
     Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
-    List<Cell> cells = new ArrayList();
+    List<Cell> cells = new ArrayList<>();
     Result result = Result.create(cells);
     Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
     Path p = new Path(this.testTblDir+ "/182182182121");
@@ -156,7 +158,7 @@ public class TestFsRegionsMetaRecoverer {
   public void testReportTablesMissingRegionsOneMissing() throws  Exception {
     ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
     Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
-    List<Cell> cells = new ArrayList();
+    List<Cell> cells = new ArrayList<>();
     cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
     Result result = Result.create(cells);
     Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
@@ -172,7 +174,7 @@ public class TestFsRegionsMetaRecoverer {
       1,report.size());
   }
 
-  private class TestInputStreamSeekable extends FSInputStream {
+  private static final class TestInputStreamSeekable extends FSInputStream {
 
     private ByteArrayInputStream in;
     private long length;
