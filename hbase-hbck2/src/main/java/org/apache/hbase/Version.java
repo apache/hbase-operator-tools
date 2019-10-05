@@ -17,8 +17,6 @@
  */
 package org.apache.hbase;
 
-import org.apache.commons.lang3.StringUtils;
-
 /**
  * Check versions.
  */
@@ -94,9 +92,9 @@ public final class Version {
 
     String[] comps = new String[strComps.length];
     for (int i = 0; i < strComps.length; ++i) {
-      if (StringUtils.isNumeric(strComps[i])) {
+      if (strComps[i].matches("\\d+")) {
         comps[i] = strComps[i];
-      } else if (StringUtils.isEmpty(strComps[i])) {
+      } else if (strComps[i] == null || strComps[i].isEmpty()) {
         comps[i] = String.valueOf(VERY_LARGE_NUMBER);
       } else {
         if("SNAPSHOT".equals(strComps[i])) {

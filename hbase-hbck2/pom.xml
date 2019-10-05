@@ -175,10 +175,6 @@
       <version>${hbase-thirdparty.version}</version>
       <scope>provided</scope>
     </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-    </dependency>
 
     <!--We want to use the shaded client but for testing, we need to rely on hbase-server.
         HBASE-15666 is about how shaded-client and hbase-server won't work together.
