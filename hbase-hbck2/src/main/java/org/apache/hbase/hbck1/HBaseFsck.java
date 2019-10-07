@@ -61,7 +61,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -5407,7 +5406,7 @@ public class HBaseFsck extends Configured implements Closeable {
 
   public HBaseFsck exec(ExecutorService exec, String[] args)
       throws KeeperException, IOException, InterruptedException, ReplicationException {
-    errors.print("HBaseFsck command line options: " + StringUtils.join(args, " "));
+    errors.print("HBaseFsck command line options: " + String.join(" ", args));
     CommandLineData cld = new CommandLineData();
     doCommandLine(args, cld);
 
