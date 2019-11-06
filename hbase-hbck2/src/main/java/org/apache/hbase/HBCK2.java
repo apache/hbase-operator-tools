@@ -431,7 +431,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
     writer.println("   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example of");
     writer.println("   what a user-space encoded region name looks like. For example:");
-    writer.println("     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
   }
 
@@ -573,7 +573,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   more encoded region names. 1588230740 is the hard-coded name for the");
     writer.println("   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example");
     writer.println("   of what a userspace encoded region name looks like. For example:");
-    writer.println("     $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("     $ HBCK2 unassigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
