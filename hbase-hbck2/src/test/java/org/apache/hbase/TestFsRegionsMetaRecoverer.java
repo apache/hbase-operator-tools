@@ -18,6 +18,9 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
@@ -36,6 +39,7 @@ import org.apache.hadoop.hbase.CellBuilderType;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionInfo;
@@ -67,8 +71,11 @@ public class TestFsRegionsMetaRecoverer {
     this.mockedFileSystem = Mockito.mock(FileSystem.class);
     this.mockedTable = Mockito.mock(Table.class);
     Configuration config = HBaseConfiguration.create();
-    Mockito.when(this.mockedConnection.getConfiguration()).thenReturn(config);
-    Mockito.when(this.mockedConnection.getTable(TableName.META_TABLE_NAME)).thenReturn(mockedTable);
+    when(this.mockedConnection.getConfiguration()).thenReturn(config);
+    when(this.mockedConnection.getTable(TableName.META_TABLE_NAME)).thenReturn(mockedTable);
+    Admin mockedAdmin = Mockito.mock(Admin.class);
+    when(this.mockedConnection.getAdmin()).thenReturn(mockedAdmin);
+    when(mockedAdmin.tableExists(TableName.valueOf("test-tbl"))).thenReturn(true);
     this.testTblDir = config.get(HConstants.HBASE_DIR) + "/data/default/test-tbl";
     this.fixer = new FsRegionsMetaRecoverer(config, mockedConnection, mockedFileSystem);
   }
@@ -108,17 +115,7 @@ public class TestFsRegionsMetaRecoverer {
 
   @Test
   public void testFindMissingRegionsInMETANoMissing() throws  Exception {
-    ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
-    Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
-    RegionInfo info = createRegionInfo("test-tbl");
-    List<Cell> cells = new ArrayList<>();
-    cells.add(createCellForRegionInfo(info));
-    Result result = Result.create(cells);
-    Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
-    FileStatus status = new FileStatus();
-    status.setPath(new Path(this.testTblDir + "/" + info.getEncodedName()));
-    Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
-      .thenReturn(new FileStatus[]{status});
+    createRegionInMetaAndFileSystem();
     assertEquals("Should had returned 0 missing regions",
       0, fixer.findMissingRegionsInMETA("test-tbl").size());
   }
@@ -126,13 +123,13 @@ public class TestFsRegionsMetaRecoverer {
   @Test
   public void testFindMissingRegionsInMETAOneMissing() throws  Exception {
     ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
-    Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
+    when(this.mockedTable.getScanner(any(Scan.class))).thenReturn(mockedRS);
     List<Cell> cells = new ArrayList<>();
     Result result = Result.create(cells);
-    Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
+    when(mockedRS.next()).thenReturn(result,(Result)null);
     Path p = new Path(this.testTblDir+ "/182182182121");
     FileStatus status = new FileStatus(0, true, 0, 0,0, p);
-    Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
+    when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
       .thenReturn(new FileStatus[]{status});
     List<Path> missingRegions = fixer.findMissingRegionsInMETA("test-tbl");
     assertEquals("Should had returned 1 missing region",
@@ -145,30 +142,94 @@ public class TestFsRegionsMetaRecoverer {
     RegionInfo info = this.createRegionInfo("test-tbl");
     Path regionPath = new Path("/hbase/data/default/test-tbl/" + info.getEncodedName());
     FSDataInputStream fis = new FSDataInputStream(new TestInputStreamSeekable(info));
-    Mockito.when(this.mockedFileSystem.open(new Path(regionPath, ".regioninfo")))
+    when(this.mockedFileSystem.open(new Path(regionPath, ".regioninfo")))
       .thenReturn(fis);
     fixer.putRegionInfoFromHdfsInMeta(regionPath);
     Mockito.verify(this.mockedConnection).getTable(TableName.META_TABLE_NAME);
-    Mockito.verify(this.mockedTable).put(Mockito.any(Put.class));
+    Mockito.verify(this.mockedTable).put(any(Put.class));
   }
 
   @Test
   public void testReportTablesMissingRegionsOneMissing() throws  Exception {
+    ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
+    when(this.mockedTable.getScanner(any(Scan.class))).thenReturn(mockedRS);
+    List<Cell> cells = new ArrayList<>();
+    cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
+    Result result = Result.create(cells);
+    when(mockedRS.next()).thenReturn(result,(Result)null);
+    FileStatus status = new FileStatus();
+    Path p = new Path(this.testTblDir+ "/182182182121");
+    status.setPath(p);
+    when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
+      .thenReturn(new FileStatus[]{status});
+    Map<TableName, List<Path>> report = fixer.reportTablesMissingRegions(null);
+    assertEquals("Should had returned 1 missing region",
+      1,report.size());
+  }
+
+  @Test
+  public void testFindExtraRegionsInMETANoExtra() throws  Exception {
+    createRegionInMetaAndFileSystem();
+    assertEquals("Should had returned 0 extra regions",
+      0, fixer.findExtraRegionsInMETA("test-tbl").size());
+  }
+
+  private void createRegionInMetaAndFileSystem() throws Exception{
+    RegionInfo info = createRegionInMeta(Mockito.mock(ResultScanner.class));
+    FileStatus status = new FileStatus(0, true, 1,128,
+      System.currentTimeMillis(), new Path(this.testTblDir + "/" + info.getEncodedName()));
+    when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
+      .thenReturn(new FileStatus[]{status});
+  }
+
+  private RegionInfo createRegionInMeta(ResultScanner mockedRS) throws Exception {
+    when(this.mockedTable.getScanner(any(Scan.class))).thenReturn(mockedRS);
+    RegionInfo info = createRegionInfo("test-tbl");
+    List<Cell> cells = new ArrayList<>();
+    cells.add(createCellForRegionInfo(info));
+    Result result = Result.create(cells);
+    when(mockedRS.next()).thenReturn(result,(Result)null);
+    return info;
+  }
+
+  @Test
+  public void testFindExtraRegionsInMETAOneExtra() throws  Exception {
+   RegionInfo info = createRegionInMeta(Mockito.mock(ResultScanner.class));
+    List<RegionInfo> missingRegions = fixer.findExtraRegionsInMETA("test-tbl");
+    assertEquals("Should had returned 1 extra region",
+      1, missingRegions.size());
+    assertEquals(info.getEncodedName(),missingRegions.get(0).getEncodedName());
+  }
+
+  @Test
+  public void testRemoveRegionInfoFromMeta() throws Exception {
+    ResultScanner mockedRsTables = Mockito.mock(ResultScanner.class);
+    List<Cell> cells = new ArrayList<>();
+    cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
+    Result result = Result.create(cells);
+    ResultScanner mockedRsRegions = Mockito.mock(ResultScanner.class);
+    createRegionInMeta(mockedRsRegions);
+    when(this.mockedTable.getScanner(any(Scan.class))).
+      thenReturn(mockedRsTables).
+        thenReturn(mockedRsRegions);
+    when(mockedRsTables.next()).thenReturn(result,(Result)null);
+    List<String> tableList = new ArrayList<>();
+    tableList.add("default:test-tbl");
+    fixer.removeExtraRegionsFromMetaForTables(tableList);
+    Mockito.verify(this.mockedTable).delete(anyList());
+  }
+
+
+  @Test
+  public void testReportTablesExtraRegionsOneExtra() throws  Exception {
     ResultScanner mockedRS = Mockito.mock(ResultScanner.class);
     Mockito.when(this.mockedTable.getScanner(Mockito.any(Scan.class))).thenReturn(mockedRS);
     List<Cell> cells = new ArrayList<>();
     cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
     Result result = Result.create(cells);
     Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
-    FileStatus status = new FileStatus();
-    Path p = new Path(this.testTblDir+ "/182182182121");
-    status.setPath(p);
-    Mockito.when(mockedFileSystem.listStatus(new Path(this.testTblDir)))
-      .thenReturn(new FileStatus[]{status});
-    Mockito.when(this.mockedConnection.getTable(TableName.META_TABLE_NAME))
-      .thenReturn(this.mockedTable);
-    Map<TableName, List<Path>> report = fixer.reportTablesMissingRegions(null);
-    assertEquals("Should had returned 1 missing region",
+    Map<TableName, List<RegionInfo>> report = fixer.reportTablesExtraRegions(null);
+    assertEquals("Should had returned 1 extra region.",
       1,report.size());
   }
 

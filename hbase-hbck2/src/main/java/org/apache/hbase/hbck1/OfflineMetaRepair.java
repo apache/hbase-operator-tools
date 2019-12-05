@@ -57,7 +57,7 @@ public final class OfflineMetaRepair {
     StringBuilder sb = new StringBuilder();
     sb.append("Usage: OfflineMetaRepair [opts]\n").
        append("Where [opts] are:\n").
-       append(" -details               report of all regions before hbase:meta rebuild.\n").
+       append(" -details               execute of all regions before hbase:meta rebuild.\n").
        append(" -base <hdfs://>        Base HBase Data directory to read from.\n").
        append(" -sidelineDir <hdfs://> path of where to backup existing hbase:meta.\n").
        append("Master should be down (Script runs regardless!)");

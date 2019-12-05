@@ -535,7 +535,7 @@ public class HFileCorruptionChecker {
       out.print("HFile Summary: " + initialState);
     }
 
-    // print mob-related report
+    // print mob-related execute
     out.print("Checked " + mobFilesChecked.get() + " MOB files for corruption");
     out.print(" Corrupt MOB files:               " + corruptedMobFiles.size());
     if (inQuarantineMode) {

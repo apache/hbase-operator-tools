@@ -174,12 +174,45 @@ Command:
    for how to generate new report.
    SEE ALSO: reportMissingRegionsInMeta
 
+ removeExtraRegionsFromMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+   To be used when regions present on hbase:meta, but with no related
+   directories on the file system. Needs hbase:meta
+   to be online. For each table name passed as parameter, performs diff
+   between regions available in hbase:meta and region dirs on the given
+   file system, removing extra regions from meta with no matching directory.
+   An example removing extra regions for tables 'tbl_1' in the default
+   namespace, 'tbl_2' in namespace 'n1' and for all tables from
+   namespace 'n2':
+     $ HBCK2 removeExtraRegionsFromMeta default:tbl_1 n1:tbl_2 n2
+   SEE ALSO: reportExtraRegionsInMeta
+   SEE ALSO: addFsRegionsMissingInMeta
+   SEE ALSO: fixMeta
+
  replication [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    fix any replication issues found.
    Looks for undeleted replication queues and deletes them if passed the
    '--fix' option. Pass a table name to check for replication barrier and
    purge if '--fix'.
+
+ reportExtraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+   To be used when regions present on hbase:meta, but with no related
+   directories on the file system. Needs hbase:meta to be online.
+   For each table name passed as parameter, performs diff
+   between regions available in hbase:meta and region dirs on the given
+   file system. This is a CHECK only method,
+   designed for reporting purposes and doesn't perform any fixes.
+   It provides a view of which regions (if any) would get removed from meta,
+   grouped by respective table/namespace. To effectively
+   remove regions from meta, run removeExtraRegionsFromMeta.
+   An example triggering extra regions report for tables 'table_1'
+   and 'table_2', under default namespace:
+     $ HBCK2 reportExtraRegionsInMeta default:table_1 default:table_2
+   An example triggering missing regions execute for table 'table_1'
+   under default namespace, and for all tables from namespace 'ns1':
+     $ HBCK2 reportExtraRegionsInMeta default:table_1 ns1
+   Returns list of extra regions for each table passed as parameter, or
+   for each table on namespaces specified as parameter.
 
  reportMissingRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
    To be used when regions missing from hbase:meta but directories
@@ -527,6 +560,18 @@ operational. In such situations, problem can be addressed with the Master online
 using the _addFsRegionsMissingInMeta_ command in _HBCK2_. This command is less disruptive to
 hbase than a full hbase:meta rebuild covered later, and it can be used even for
 recovering the _namespace_ table region.
+
+### Extra Regions in hbase:meta region/table restore/rebuild
+
+There can also be situations where table regions have been removed file system, but still
+have related entries on hbase:meta table. This may happen due to problems on splitting, manual
+operation mistakes (like deleting/moving the region dir manually), or even meta info data loss
+issues such as HBASE-21843.
+
+Such problem can be addressed with the Master online, using the _removeExtraRegionsFromMeta_
+command in _HBCK2_. This command is less disruptive to hbase than a full hbase:meta rebuild
+covered later. Also useful when this happens on versions that don't support _fixMeta_ hbck2 option
+(any prior to "2.0.6", "2.1.6", "2.2.1", "2.3.0","3.0.0").
 
 #### Online hbase:meta rebuild recipe
 
