@@ -150,12 +150,15 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   public Pair<List<String>, List<ExecutionException>> removeExtraRegionsFromMetaForTables(
     List<String> nameSpaceOrTable) throws IOException {
-    InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
-    return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions,
-      regions -> {
+    if(nameSpaceOrTable.size()>0) {
+      InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
+      return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions, regions -> {
         MetaTableAccessor.deleteRegionInfos(conn, regions);
-        return regions.stream().map(r->r.getEncodedName()).collect(Collectors.toList());
+        return regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList());
       }, nameSpaceOrTable);
+    } else {
+      return null;
+    }
   }
 
 

@@ -18,6 +18,7 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -431,8 +432,76 @@ public class TestHBCK2 {
     assertTrue(result.contains(expectedResult));
   }
 
-  private String testFormatExtraRegionsInMetaReport()
-    throws IOException {
+  @Test
+  public void testFormatFixExtraRegionsInMetaNoExtra() throws IOException {
+    String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
+    String result = testFormatExtraRegionsInMetaFix(null);
+    assertTrue(result.contains(expectedResult));
+    expectedResult = "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    assertTrue(result.contains(expectedResult));
+    expectedResult = "TestHBCK2 -> No mismatching regions. This table is good!\n\t";
+    assertTrue(result.contains(expectedResult));
+  }
+
+  @Test
+  public void testFormatFixExtraRegionsInMetaNoExtraSpecifyTable() throws IOException {
+    final String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n"
+      + "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    String result = testFormatExtraRegionsInMetaFix("hbase:namespace");
+    assertTrue(result.contains(expectedResult));
+  }
+
+  @Test
+  public void testFormatFixExtraInMetaOneExtra() throws IOException {
+    TableName tableName = createTestTable(5);
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    deleteRegionDir(tableName, regions.get(0).getEncodedName());
+    String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
+    String result = testFormatExtraRegionsInMetaFix(null);
+    //validates initial execute message
+    assertTrue(result.contains(expectedResult));
+    //validates our test table region is reported as extra
+    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
+      + regions.get(0).getEncodedName();
+    assertTrue(result.contains(expectedResult));
+    //validates namespace region is not reported missing
+    expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    assertTrue(result.contains(expectedResult));
+  }
+
+  @Test
+  public void testFormatFixExtraInMetaOneExtraSpecificTable() throws IOException {
+    TableName tableName = createTestTable(5);
+    List<RegionInfo> regions = MetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    deleteRegionDir(tableName, regions.get(0).getEncodedName());
+    String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
+    String result = testFormatExtraRegionsInMetaFix(tableName.getNameWithNamespaceInclAsString());
+    //validates initial execute message
+    assertTrue(result.contains(expectedResult));
+    //validates our test table region is reported as extra
+    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
+      + regions.get(0).getEncodedName();
+    assertTrue(result.contains(expectedResult));
+    //validates namespace region is not reported missing
+    expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    assertFalse("Should not contain: " + expectedResult, result.contains(expectedResult));
+  }
+
+  private String testFormatExtraRegionsInMetaReport() throws IOException {
+    return testFormatExtraRegionsInMeta(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
+  }
+
+  private String testFormatExtraRegionsInMetaFix(String table) throws IOException {
+    if(table!=null) {
+      return testFormatExtraRegionsInMeta(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f", table});
+    } else {
+      return testFormatExtraRegionsInMeta(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f"});
+    }
+  }
+
+  private String testFormatExtraRegionsInMeta(String[] args) throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     final StringBuilder builder = new StringBuilder();
     PrintStream originalOS = System.out;
@@ -442,7 +511,7 @@ public class TestHBCK2 {
       }
     };
     System.setOut(new PrintStream(testOS));
-    hbck.run(new String[]{HBCK2.REPORT_EXTRA_REGIONS_IN_META});
+    hbck.run(args);
     System.setOut(originalOS);
     return builder.toString();
   }
@@ -455,8 +524,8 @@ public class TestHBCK2 {
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     regions.subList(0, extraRegions).forEach(r -> deleteRegionDir(tableName, r.getEncodedName()));
     int remaining = totalRegions - extraRegions;
-    assertEquals(extraRegions, hbck.removeExtraRegionsFromMetaForTables("default:"
-      + tableName.getNameAsString()).getFirst().size());
+    assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{"-f", "default:"
+      + tableName.getNameAsString()}).get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
       MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
   }
@@ -468,8 +537,8 @@ public class TestHBCK2 {
     regions.subList(0, extraRegionsInTestTbl).forEach(r -> deleteRegionDir(TABLE_NAME,
       r.getEncodedName()));
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    final Map<TableName,List<RegionInfo>> report =
-      hbck.reportTablesWithExtraRegionsInMeta(namespaceOrTable);
+    final Map<TableName,List<String>> report =
+      hbck.extraRegionsInMeta(namespaceOrTable);
     long resultingExtraRegions = report.keySet().stream().mapToLong(nsTbl ->
       report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalExtraRegions, resultingExtraRegions);

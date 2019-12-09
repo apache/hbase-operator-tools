@@ -148,6 +148,29 @@ Command:
    to finish parent and children. This is SLOW, and dangerous so use
    selectively. Does not always work.
 
+ extraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+   Options:
+    -f, --fix    fix meta by removing all extra regions found.
+   Reports regions present on hbase:meta, but with no related
+   directories on the file system. Needs hbase:meta to be online.
+   For each table name passed as parameter, performs diff
+   between regions available in hbase:meta and region dirs on the given
+   file system. Extra regions would get deleted from Meta
+   if passed the --fix option.
+   NOTE: Before deciding on use the "--fix" option, it's worth check if
+   reported extra regions are overlapping with existing valid regions.
+   If so, then "extraRegionsInMeta --fix" is indeed the optimal solution.
+   Otherwise, "assigns" command is the simpler solution, as it recreates
+   regions dirs in the filesystem, if not existing.
+   An example triggering extra regions report for tables 'table_1'
+   and 'table_2', under default namespace:
+     $ HBCK2 extraRegionsInMeta default:table_1 default:table_2
+   An example triggering missing regions execute for table 'table_1'
+   under default namespace, and for all tables from namespace 'ns1':
+     $ HBCK2 extraRegionsInMeta default:table_1 ns1
+   Returns list of extra regions for each table passed as parameter, or
+   for each table on namespaces specified as parameter.
+
  filesystem [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    sideline corrupt hfiles, bad links, and references.
@@ -174,45 +197,12 @@ Command:
    for how to generate new report.
    SEE ALSO: reportMissingRegionsInMeta
 
- removeExtraRegionsFromMeta <NAMESPACE|NAMESPACE:TABLENAME>...
-   To be used when regions present on hbase:meta, but with no related
-   directories on the file system. Needs hbase:meta
-   to be online. For each table name passed as parameter, performs diff
-   between regions available in hbase:meta and region dirs on the given
-   file system, removing extra regions from meta with no matching directory.
-   An example removing extra regions for tables 'tbl_1' in the default
-   namespace, 'tbl_2' in namespace 'n1' and for all tables from
-   namespace 'n2':
-     $ HBCK2 removeExtraRegionsFromMeta default:tbl_1 n1:tbl_2 n2
-   SEE ALSO: reportExtraRegionsInMeta
-   SEE ALSO: addFsRegionsMissingInMeta
-   SEE ALSO: fixMeta
-
  replication [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    fix any replication issues found.
    Looks for undeleted replication queues and deletes them if passed the
    '--fix' option. Pass a table name to check for replication barrier and
    purge if '--fix'.
-
- reportExtraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
-   To be used when regions present on hbase:meta, but with no related
-   directories on the file system. Needs hbase:meta to be online.
-   For each table name passed as parameter, performs diff
-   between regions available in hbase:meta and region dirs on the given
-   file system. This is a CHECK only method,
-   designed for reporting purposes and doesn't perform any fixes.
-   It provides a view of which regions (if any) would get removed from meta,
-   grouped by respective table/namespace. To effectively
-   remove regions from meta, run removeExtraRegionsFromMeta.
-   An example triggering extra regions report for tables 'table_1'
-   and 'table_2', under default namespace:
-     $ HBCK2 reportExtraRegionsInMeta default:table_1 default:table_2
-   An example triggering missing regions execute for table 'table_1'
-   under default namespace, and for all tables from namespace 'ns1':
-     $ HBCK2 reportExtraRegionsInMeta default:table_1 ns1
-   Returns list of extra regions for each table passed as parameter, or
-   for each table on namespaces specified as parameter.
 
  reportMissingRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
    To be used when regions missing from hbase:meta but directories

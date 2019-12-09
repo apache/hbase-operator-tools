@@ -98,9 +98,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
-  static final String REMOVE_EXTRA_REGIONS_IN_META_FROM_TABLES =
-    "removeExtraRegionsFromMeta";
-  static final String REPORT_EXTRA_REGIONS_IN_META = "reportExtraRegionsInMeta";
+  static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -191,21 +189,46 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return report;
   }
 
-  Map<TableName, List<RegionInfo>> reportTablesWithExtraRegionsInMeta(String... nameSpaceOrTable)
-    throws IOException {
-    Map<TableName, List<RegionInfo>> report;
+  Map<TableName, List<String>> extraRegionsInMeta(String[] args)
+      throws Exception {
+    Options options = new Options();
+    Option fixOption = Option.builder("f").longOpt("fix").build();
+    options.addOption(fixOption);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine;
+    commandLine = parser.parse(options, args, false);
+    boolean fix = commandLine.hasOption(fixOption.getOpt());
+    Map<TableName, List<String>> result = new HashMap<>();
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
       new FsRegionsMetaRecoverer(this.conf)) {
-      report = fsRegionsMetaRecoverer.reportTablesExtraRegions(
-        formatNameSpaceTableParam(nameSpaceOrTable));
+      List<String> namespacesTables = formatNameSpaceTableParam(commandLine.getArgs());
+      Map<TableName, List<RegionInfo>> reportMap =
+        fsRegionsMetaRecoverer.reportTablesExtraRegions(namespacesTables);
+      final List<String> toFix = new ArrayList<>();
+      reportMap.entrySet().forEach( e -> {
+          result.put(e.getKey(),
+            e.getValue().stream().map(r->r.getEncodedName()).collect(Collectors.toList()));
+          if(fix && e.getValue().size()>0){
+            toFix.add(e.getKey().getNameWithNamespaceInclAsString());
+          }
+      });
+      if(fix) {
+        Pair<List<String>, List<ExecutionException>> removeResult =
+          fsRegionsMetaRecoverer.removeExtraRegionsFromMetaForTables(toFix);
+        if(removeResult!=null) {
+          System.out.println(formatRemovedRegionsMessage(removeResult.getFirst(),
+            removeResult.getSecond()));
+        }
+      }
     } catch (IOException e) {
-      LOG.error("Error reporting extra regions: ", e);
+      LOG.error("Error on checking extra regions: ", e);
       throw e;
     }
     if(LOG.isDebugEnabled()) {
-      LOG.debug(formatExtraRegionsReport(report));
+      LOG.debug(formatExtraRegionsReport(result));
     }
-    return report;
+    return result;
   }
 
   private List<String> formatNameSpaceTableParam(String... nameSpaceOrTable) {
@@ -221,20 +244,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         formatNameSpaceTableParam(nameSpaceOrTable));
     } catch (IOException e) {
       LOG.error("Error adding missing regions: ", e);
-      throw e;
-    }
-    return result;
-  }
-
-  Pair<List<String>, List<ExecutionException>> removeExtraRegionsFromMetaForTables(String...
-    nameSpaceOrTable) throws IOException {
-    Pair<List<String>, List<ExecutionException>> result;
-    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
-      new FsRegionsMetaRecoverer(this.conf)) {
-      result = fsRegionsMetaRecoverer.removeExtraRegionsFromMetaForTables(
-        formatNameSpaceTableParam(nameSpaceOrTable));
-    } catch (IOException e) {
-      LOG.error("Error removing extra regions: ", e);
       throw e;
     }
     return result;
@@ -350,15 +359,13 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageBypass(writer);
     writer.println();
+    usagetExtraRegionsInMeta(writer);
+    writer.println();
     usageFilesystem(writer);
     writer.println();
     usageFixMeta(writer);
     writer.println();
-    usageRemoveExtraRegionsFromMeta(writer);
-    writer.println();
     usageReplication(writer);
-    writer.println();
-    usageReportExtraRegionsInMeta(writer);
     writer.println();
     usageReportMissingRegionsInMeta(writer);
     writer.println();
@@ -461,24 +468,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
   }
 
-  private static void usageRemoveExtraRegionsFromMeta(PrintWriter writer) {
-    writer.println(" " + REMOVE_EXTRA_REGIONS_IN_META_FROM_TABLES + " <NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...");
-    writer.println("   To be used when regions present on hbase:meta, but with no related ");
-    writer.println("   directories on the file system. Needs hbase:meta");
-    writer.println("   to be online. For each table name passed as parameter, performs diff");
-    writer.println("   between regions available in hbase:meta and region dirs on the given");
-    writer.println("   file system, removing extra regions from meta with no matching directory.");
-    writer.println("   An example removing extra regions for tables 'tbl_1' in the default");
-    writer.println("   namespace, 'tbl_2' in namespace 'n1' and for all tables from");
-    writer.println("   namespace 'n2':");
-    writer.println("     $ HBCK2 " + REMOVE_EXTRA_REGIONS_IN_META_FROM_TABLES +
-      " default:tbl_1 n1:tbl_2 n2");
-    writer.println("   SEE ALSO: " + REPORT_EXTRA_REGIONS_IN_META);
-    writer.println("   SEE ALSO: " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES);
-    writer.println("   SEE ALSO: " + FIX_META);
-  }
-
   private static void usageReplication(PrintWriter writer) {
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Options:");
@@ -488,26 +477,29 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   purge if '--fix'.");
   }
 
-  private static void usageReportExtraRegionsInMeta(PrintWriter writer) {
-    writer.println(" " + REPORT_EXTRA_REGIONS_IN_META + " <NAMESPACE|"
+  private static void usagetExtraRegionsInMeta(PrintWriter writer) {
+    writer.println(" " + EXTRA_REGIONS_IN_META + " <NAMESPACE|"
       + "NAMESPACE:TABLENAME>...");
-    writer.println("   To be used when regions present on hbase:meta, but with no related ");
+    writer.println("   Options:");
+    writer.println("    -f, --fix    fix meta by removing all extra regions found.");
+    writer.println("   Reports regions present on hbase:meta, but with no related ");
     writer.println("   directories on the file system. Needs hbase:meta to be online. ");
     writer.println("   For each table name passed as parameter, performs diff");
     writer.println("   between regions available in hbase:meta and region dirs on the given");
-    writer.println("   file system. This is a CHECK only method,");
-    writer.println("   designed for reporting purposes and doesn't perform any fixes.");
-    writer.println("   It provides a view of which regions (if any) would get removed from meta,");
-    writer.println("   grouped by respective table/namespace. To effectively");
-    writer.println("   remove regions from meta, run " + REMOVE_EXTRA_REGIONS_IN_META_FROM_TABLES +
-      ".");
+    writer.println("   file system. Extra regions would get deleted from Meta ");
+    writer.println("   if passed the --fix option. ");
+    writer.println("   NOTE: Before deciding on use the \"--fix\" option, it's worth check if" );
+    writer.println("   reported extra regions are overlapping with existing valid regions.");
+    writer.println("   If so, then \"extraRegionsInMeta --fix\" is indeed the optimal solution. ");
+    writer.println("   Otherwise, \"assigns\" command is the simpler solution, as it recreates ");
+    writer.println("   regions dirs in the filesystem, if not existing.");
     writer.println("   An example triggering extra regions report for tables 'table_1'");
     writer.println("   and 'table_2', under default namespace:");
-    writer.println("     $ HBCK2 " + REPORT_EXTRA_REGIONS_IN_META +
+    writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META +
       " default:table_1 default:table_2");
     writer.println("   An example triggering missing regions execute for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
-    writer.println("     $ HBCK2 " + REPORT_EXTRA_REGIONS_IN_META + " default:table_1 ns1");
+    writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 ns1");
     writer.println("   Returns list of extra regions for each table passed as parameter, or");
     writer.println("   for each table on namespaces specified as parameter.");
   }
@@ -854,21 +846,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         }
         break;
 
-      case REMOVE_EXTRA_REGIONS_IN_META_FROM_TABLES:
-        if(commands.length < 2){
-          showErrorMessage(command + " takes one or more table names.");
-          return EXIT_FAILURE;
-        }
-        Pair<List<String>, List<ExecutionException>> removedRegions =
-          removeExtraRegionsFromMetaForTables(commands);
-        System.out.println(formatRemovedRegionsMessage(removedRegions.getFirst(),
-          removedRegions.getSecond()));
-        break;
-
-      case REPORT_EXTRA_REGIONS_IN_META:
+      case EXTRA_REGIONS_IN_META:
         try {
-          Map<TableName,List<RegionInfo>> report =
-            reportTablesWithExtraRegionsInMeta(purgeFirst(commands));
+          Map<TableName,List<String>> report =
+            extraRegionsInMeta(purgeFirst(commands));
           System.out.println(formatExtraRegionsReport(report));
         } catch (Exception e) {
           return EXIT_FAILURE;
@@ -892,10 +873,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return formatReportMessage(message, new HashMap<>(report), resolver);
   }
 
-  private String formatExtraRegionsReport(Map<TableName,List<RegionInfo>> report) {
-    Function<RegionInfo,String> resolver = r -> r.getEncodedName();
+  private String formatExtraRegionsReport(Map<TableName,List<String>> report) {
     String message = "Regions in Meta but having no equivalent dir, for each table:\n\t";
-    return formatReportMessage(message, new HashMap<>(report), resolver);
+    return formatReportMessage(message, new HashMap<>(report), s -> s);
   }
 
   private String formatReportMessage(String reportMessage, Map<TableName, List<?>> report,
