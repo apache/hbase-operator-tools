@@ -359,7 +359,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageBypass(writer);
     writer.println();
-    usagetExtraRegionsInMeta(writer);
+    usageExtraRegionsInMeta(writer);
     writer.println();
     usageFilesystem(writer);
     writer.println();
@@ -477,7 +477,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   purge if '--fix'.");
   }
 
-  private static void usagetExtraRegionsInMeta(PrintWriter writer) {
+  private static void usageExtraRegionsInMeta(PrintWriter writer) {
     writer.println(" " + EXTRA_REGIONS_IN_META + " <NAMESPACE|"
       + "NAMESPACE:TABLENAME>...");
     writer.println("   Options:");

@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
@@ -51,7 +52,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This class implements the inner works required for checking and recover regions that wrongly
+ * This class implements the inner works required for checking and recovering regions that wrongly
  * went missing in META, or are left present in META but with no equivalent FS dir.
  * Normally HBCK2 fix options rely on Master self-contained information to recover/fix
  * inconsistencies, but this an exception case where META table is in a broken state.
@@ -98,32 +99,16 @@ public class FsRegionsMetaRecoverer implements Closeable {
   List<Path> findMissingRegionsInMETA(String table) throws IOException {
     InternalMetaChecker<Path> missingChecker = new InternalMetaChecker<>();
     return missingChecker.checkRegionsInMETA(table, (regions, dirs) -> {
-      final List<Path> missingRegions = new ArrayList<>();
-      HashSet<String> regionsInMeta = regions.stream().map(info ->
-        info.getEncodedName()).collect(Collectors.toCollection(HashSet::new));
-      dirs.forEach(dir -> {
-        if(!regionsInMeta.contains(dir.getName())){
-          LOG.debug("{} is not in META.", dir);
-          missingRegions.add(dir);
-        }
-      });
-      return missingRegions;
+      ListUtils<Path, RegionInfo> utils = new ListUtils<>();
+      return utils.complement(dirs, regions, r -> r.getEncodedName(), d -> d.getName());
     });
   }
 
   List<RegionInfo> findExtraRegionsInMETA(String table) throws IOException {
     InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
     return extraChecker.checkRegionsInMETA(table, (regions,dirs) -> {
-      final List<RegionInfo> extraRegions = new ArrayList<>();
-      HashSet<String> regionsInHDFS = dirs.stream().map(dir -> dir.getName())
-        .collect(Collectors.toCollection(HashSet::new));
-      regions.forEach(region -> {
-        if(!regionsInHDFS.contains(region.getEncodedName())) {
-          LOG.debug("Region {} found in META, but not in HDFS.", region.getEncodedName());
-          extraRegions.add(region);
-        }
-      });
-      return extraRegions;
+      ListUtils<RegionInfo, Path> utils = new ListUtils<>();
+      return utils.complement(regions, dirs, d -> d.getName(), r -> r.getEncodedName());
     });
   }
 
@@ -253,7 +238,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
             }
           }
         }
-      } catch (IOException | InterruptedException e) {
+      } catch (InterruptedException e) {
         LOG.error("ERROR executing thread: ", e);
         throw new IOException(e);
       } finally {
@@ -276,8 +261,20 @@ public class FsRegionsMetaRecoverer implements Closeable {
     T execute(NamespaceOrTable name) throws IOException;
   }
 
-  public static void main(String[] args){
-    System.out.println("hi");
+  public class ListUtils<T1, T2> {
+    public List<T1> complement(List<T1> list1, List<T2> list2,
+        Function<T2, String> convertFromBase,
+        Function<T1, String> convertFromComparing) throws IOException {
+      final List<T1> extraRegions = new ArrayList<>();
+      HashSet<String> baseSet = list2.stream().map(info ->
+        convertFromBase.apply(info)).collect(Collectors.toCollection(HashSet::new));
+      list1.forEach(region -> {
+        if(!baseSet.contains(convertFromComparing.apply(region))) {
+          extraRegions.add(region);
+        }
+      });
+      return extraRegions;
+    }
   }
 
 }
