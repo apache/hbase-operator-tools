@@ -60,5 +60,10 @@
       <artifactId>hbase-hbck2</artifactId>
       <version>${project.version}</version>
     </dependency>
+  <dependency>
+    <groupId>org.apache.hbase.operator.tools</groupId>
+    <artifactId>hbase-tools</artifactId>
+    <version>${project.version}</version>
+  </dependency>
   </dependencies>
 </project>
