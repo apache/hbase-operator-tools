@@ -58,6 +58,7 @@
     <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
          -->
     <module>hbase-operator-tools-assembly</module>
+      <module>hbase-tools</module>
   </modules>
   <scm>
     <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase-operator-tools.git</connection>
@@ -147,6 +148,11 @@
       <dependency>
         <groupId>org.apache.hbase.operator.tools</groupId>
         <artifactId>hbase-hbck2</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hbase.operator.tools</groupId>
+        <artifactId>hbase-tools</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>
