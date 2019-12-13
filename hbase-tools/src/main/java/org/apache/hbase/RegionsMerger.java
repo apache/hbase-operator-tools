@@ -41,12 +41,17 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
 
+/**
+ * HBase maintenance tool for merging regions of a specific table, until a target number of regions
+ * for the table is reached, or no more merges can complete due to limit in resulting merged
+ * region size.
+ */
 public class RegionsMerger extends Configured implements org.apache.hadoop.util.Tool {
 
   private static final Logger LOG = LoggerFactory.getLogger(RegionsMerger.class.getName());
-  private static final String RESULTING_REGION_UPPER_MARK = "hbase.tools.merge.upper.mark";
-  private static final String SLEEP = "hbase.tools.merge.sleep";
-  private static final String MAX_ROUNDS_IDDLE = "hbase.tools.max.iterations.blocked";
+  public static final String RESULTING_REGION_UPPER_MARK = "hbase.tools.merge.upper.mark";
+  public static final String SLEEP = "hbase.tools.merge.sleep";
+  public static final String MAX_ROUNDS_IDDLE = "hbase.tools.max.iterations.blocked";
 
   private Configuration conf;
   private FileSystem fs;
@@ -56,7 +61,8 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
 
   public RegionsMerger(Configuration conf) throws IOException {
     this.conf = conf;
-    fs = FileSystem.get(this.conf);
+    Path basePath = new Path(conf.get(HConstants.HBASE_DIR));
+    fs = basePath.getFileSystem(conf);
     resultSizeThreshold = this.conf.getDouble(RESULTING_REGION_UPPER_MARK, 0.9) *
       this.conf.getLong(HConstants.HREGION_MAX_FILESIZE, HConstants.DEFAULT_MAX_FILE_SIZE);
     sleepBetweenCycles = this.conf.getInt(SLEEP, 2000);
@@ -133,6 +139,9 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
                 regionsMerging.put(previous, f);
                 regionsMerging.put(current, f);
                 previous = null;
+                if((regions.size()-1) <= targetRegions){
+                  break;
+                }
               } else {
                 previous = current;
               }
@@ -180,12 +189,17 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
   }
 
   @Override
-  public int run(String[] args) throws Exception {
+  public int run(String[] args) {
     if(args.length!=2){
-      LOG.error("Wrong number of arguments. Arguments are: <TABLE_NAME> <NUMBER_OF_REGIONS>");
+      LOG.error("Wrong number of arguments. Arguments are: <TABLE_NAME> <TARGET_NUMBER_OF_REGIONS>");
       return -1;
     }
-    this.mergeRegions(args[0], Integer.parseInt(args[1]));
+    try {
+      this.mergeRegions(args[0], Integer.parseInt(args[1]));
+    } catch(Exception e){
+      LOG.error(e.getMessage());
+      return -1;
+    }
     return 0;
   }
 
