@@ -131,7 +131,7 @@
     <surefire.version>2.21.0</surefire.version>
     <surefire.provider>surefire-junit47</surefire.provider>
     <test.output.tofile>true</test.output.tofile>
-    <checkstyle.version>8.11</checkstyle.version>
+    <checkstyle.version>8.18</checkstyle.version>
     <maven.checkstyle.version>3.0.0</maven.checkstyle.version>
     <hbase.checkstyle.version>2.2.0</hbase.checkstyle.version>
     <enforcer.version>3.0.0-M2</enforcer.version>
