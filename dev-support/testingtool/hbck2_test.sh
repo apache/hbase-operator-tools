@@ -211,6 +211,7 @@ mkdir "${working_dir}/hbase-conf"
 if [ -f "${component_install}/conf/log4j.properties" ]; then
   cp "${component_install}/conf/log4j.properties" "${working_dir}/hbase-conf/log4j.properties"
 else
+  # shellcheck disable=SC2154
   cat >"${working_dir}/hbase-conf/log4j.properties" <<EOF
 # Define some default values that can be overridden by system properties
 hbase.root.logger=INFO,console
