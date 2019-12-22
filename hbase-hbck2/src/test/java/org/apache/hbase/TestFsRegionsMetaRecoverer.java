@@ -20,7 +20,6 @@ package org.apache.hbase;
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,6 @@ import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
 public class TestFsRegionsMetaRecoverer {
-
   private Connection mockedConnection;
   private FileSystem mockedFileSystem;
   private Table mockedTable;
@@ -175,7 +173,6 @@ public class TestFsRegionsMetaRecoverer {
   }
 
   private static final class TestInputStreamSeekable extends FSInputStream {
-
     private ByteArrayInputStream in;
     private long length;
 
@@ -186,26 +183,24 @@ public class TestFsRegionsMetaRecoverer {
     }
 
     @Override
-    public void seek(long l) throws IOException {
+    public void seek(long l) {
       this.in.skip(l);
     }
 
     @Override
-    public long getPos() throws IOException {
+    public long getPos() {
       return this.length - in.available();
     }
 
     @Override
-    public boolean seekToNewSource(long l) throws IOException {
+    public boolean seekToNewSource(long l) {
       this.in.skip(l);
       return true;
     }
 
     @Override
-    public int read() throws IOException {
+    public int read() {
       return in.read();
     }
   }
-
 }
-

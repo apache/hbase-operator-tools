@@ -33,8 +33,6 @@ import org.junit.Test;
 
 import org.apache.hbase.thirdparty.com.google.protobuf.ServiceException;
 
-
-
 public class TestSchedulingRecoveries {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private HBCK2 hbck2;

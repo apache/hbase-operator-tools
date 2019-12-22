@@ -43,7 +43,6 @@ import org.junit.rules.TestName;
  * Test class for the MetaTableAccessor wrapper.
  */
 public class TestHBCKMetaTableAccessor {
-
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
 
   @Rule
