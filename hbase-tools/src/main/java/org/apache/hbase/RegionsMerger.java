@@ -53,11 +53,11 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
   public static final String SLEEP = "hbase.tools.merge.sleep";
   public static final String MAX_ROUNDS_IDDLE = "hbase.tools.max.iterations.blocked";
 
-  private Configuration conf;
-  private FileSystem fs;
-  private double resultSizeThreshold;
-  private int sleepBetweenCycles;
-  private long maxRoundsStuck;
+  private final Configuration conf;
+  private final FileSystem fs;
+  private final double resultSizeThreshold;
+  private final int sleepBetweenCycles;
+  private final long maxRoundsStuck;
 
   public RegionsMerger(Configuration conf) throws IOException {
     this.conf = conf;
