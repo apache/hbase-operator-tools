@@ -260,7 +260,7 @@ public class TestHBCK2 {
     final StringBuilder builder = new StringBuilder();
     PrintStream originalOS = System.out;
     OutputStream testOS = new OutputStream() {
-      @Override public void write(int b) throws IOException {
+      @Override public void write(int b) {
         builder.append((char)b);
       }
     };
@@ -349,5 +349,4 @@ public class TestHBCK2 {
       fail(e.getMessage());
     }
   }
-
 }

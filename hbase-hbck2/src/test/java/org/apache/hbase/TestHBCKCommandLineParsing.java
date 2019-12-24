@@ -102,4 +102,3 @@ public class TestHBCKCommandLineParsing {
     return os.toString();
   }
 }
-
