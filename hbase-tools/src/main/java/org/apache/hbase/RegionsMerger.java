@@ -17,6 +17,14 @@
  */
 package org.apache.hbase;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.LongAdder;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileStatus;
@@ -32,14 +40,6 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * HBase maintenance tool for merging regions of a specific table, until a target number of regions
@@ -191,7 +191,8 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
   @Override
   public int run(String[] args) {
     if(args.length!=2){
-      LOG.error("Wrong number of arguments. Arguments are: <TABLE_NAME> <TARGET_NUMBER_OF_REGIONS>");
+      LOG.error("Wrong number of arguments. "
+        + "Arguments are: <TABLE_NAME> <TARGET_NUMBER_OF_REGIONS>");
       return -1;
     }
     try {

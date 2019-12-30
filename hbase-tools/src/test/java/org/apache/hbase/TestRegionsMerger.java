@@ -18,6 +18,10 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.util.List;
+
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -31,8 +35,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.List;
 
 public class TestRegionsMerger {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
@@ -57,6 +59,7 @@ public class TestRegionsMerger {
   @Before
   public void setup() throws Exception {
     table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 15);
+    TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME);
   }
 
   @After
