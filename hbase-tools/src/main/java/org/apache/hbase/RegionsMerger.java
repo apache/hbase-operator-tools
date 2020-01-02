@@ -17,7 +17,12 @@
  */
 package org.apache.hbase;
 
+import static org.apache.hadoop.hbase.HConstants.CATALOG_FAMILY;
+import static org.apache.hadoop.hbase.HConstants.REGIONINFO_QUALIFIER;
+import static org.apache.hadoop.hbase.HConstants.STATE_QUALIFIER;
+
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +35,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -37,6 +43,15 @@ import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.filter.RowFilter;
+import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
+import org.apache.hadoop.hbase.filter.SubstringComparator;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,13 +104,34 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     return size;
   }
 
+  private List<RegionInfo> getOpenRegions(Connection connection, TableName table) throws Exception {
+    List<RegionInfo> regions = new ArrayList<>();
+    Table metaTbl = connection.getTable(TableName.valueOf("hbase:meta"));
+    String tblName = table.getNamespaceAsString().equals("default") ? table.getNameAsString() :
+      table.getNamespaceAsString() + "." + table.getNameAsString();
+    RowFilter rowFilter = new RowFilter(CompareOperator.EQUAL,
+      new SubstringComparator(tblName+","));
+    SingleColumnValueFilter colFilter = new SingleColumnValueFilter(REGIONINFO_QUALIFIER,
+      STATE_QUALIFIER, CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
+    Scan scan = new Scan();
+    FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
+    filter.addFilter(rowFilter);
+    filter.addFilter(colFilter);
+    scan.setFilter(filter);
+    ResultScanner rs = metaTbl.getScanner(scan);
+    Result r = null;
+    while((r = rs.next())!=null) {
+      RegionInfo region =
+        RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
+      regions.add(region);
+    }
+    rs.close();
+    return regions;
+  }
+
   private boolean canMerge(Path path, RegionInfo region1, RegionInfo region2,
       Set<RegionInfo> alreadyMerging) throws IOException {
     if(alreadyMerging.contains(region1) || alreadyMerging.contains(region2)){
-      return false;
-    }
-    if(region1.isOffline()){
-      LOG.info("Can't merge an offline region.");
       return false;
     }
     if (RegionInfo.areAdjacent(region1, region2)) {
@@ -125,7 +161,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       Admin admin = conn.getAdmin();
       LongAdder counter = new LongAdder();
       LongAdder lastTimeProgessed = new LongAdder();
-      List<RegionInfo> regions = admin.getRegions(table);
+      List<RegionInfo> regions = getOpenRegions(conn, table);
       Map<RegionInfo, Future> regionsMerging = new HashMap<>();
       long roundsNoProgress = 0;
       while (regions.size() > targetRegions && roundsNoProgress < this.maxRoundsStuck) {
@@ -182,7 +218,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
             completedPair.setSecond(null);
           }
         });
-        regions = admin.getRegions(table);
+        regions = getOpenRegions(conn, table);
         roundsNoProgress = counter.longValue() - lastTimeProgessed.longValue();
         if(roundsNoProgress == this.maxRoundsStuck){
           LOG.warn("Reached {} iterations without progressing with new merges. Aborting...",
