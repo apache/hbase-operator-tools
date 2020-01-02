@@ -94,6 +94,10 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     if(alreadyMerging.contains(region1) || alreadyMerging.contains(region2)){
       return false;
     }
+    if(region1.isOffline()){
+      LOG.info("Can't merge an offline region.");
+      return false;
+    }
     if (RegionInfo.areAdjacent(region1, region2)) {
       long size1 = sumSizeInFS(new Path(path, region1.getEncodedName()));
       long size2 = sumSizeInFS(new Path(path, region2.getEncodedName()));
