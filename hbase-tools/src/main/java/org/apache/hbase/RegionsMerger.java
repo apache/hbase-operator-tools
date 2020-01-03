@@ -119,10 +119,12 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     filter.addFilter(colFilter);
     scan.setFilter(filter);
     ResultScanner rs = metaTbl.getScanner(scan);
-    Result r = null;
+    Result r;
     while((r = rs.next())!=null) {
       RegionInfo region =
         RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
+      LOG.info("adding region: {} , at state: {}", region,
+        Bytes.toString(r.getValue(REGIONINFO_QUALIFIER, STATE_QUALIFIER)));
       regions.add(region);
     }
     rs.close();
