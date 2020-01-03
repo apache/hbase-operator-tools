@@ -111,7 +111,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       table.getNamespaceAsString() + "." + table.getNameAsString();
     RowFilter rowFilter = new RowFilter(CompareOperator.EQUAL,
       new SubstringComparator(tblName+","));
-    SingleColumnValueFilter colFilter = new SingleColumnValueFilter(REGIONINFO_QUALIFIER,
+    SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY,
       STATE_QUALIFIER, CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
     Scan scan = new Scan();
     FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
@@ -124,9 +124,9 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       RegionInfo region =
         RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
       LOG.warn("adding region: {} , at state: {}", region,
-        Bytes.toString(r.getValue(REGIONINFO_QUALIFIER, STATE_QUALIFIER)));
+        Bytes.toString(r.getValue(CATALOG_FAMILY, STATE_QUALIFIER)));
       System.out.println("adding region: "+ region.toString() + " , at state: " +
-        Bytes.toString(r.getValue(REGIONINFO_QUALIFIER, STATE_QUALIFIER)));
+        Bytes.toString(r.getValue(CATALOG_FAMILY, STATE_QUALIFIER)));
       regions.add(region);
     }
     rs.close();
