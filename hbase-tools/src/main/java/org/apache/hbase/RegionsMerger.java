@@ -123,10 +123,6 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     while((r = rs.next())!=null) {
       RegionInfo region =
         RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
-      LOG.warn("adding region: {} , at state: {}", region,
-        Bytes.toString(r.getValue(CATALOG_FAMILY, STATE_QUALIFIER)));
-      System.out.println("adding region: "+ region.toString() + " , at state: " +
-        Bytes.toString(r.getValue(CATALOG_FAMILY, STATE_QUALIFIER)));
       regions.add(region);
     }
     rs.close();
@@ -165,13 +161,16 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       Admin admin = conn.getAdmin();
       LongAdder counter = new LongAdder();
       LongAdder lastTimeProgessed = new LongAdder();
-      List<RegionInfo> regions = getOpenRegions(conn, table);
+      //need to get all regions for the table, regardless of region state
+      List<RegionInfo> regions = admin.getRegions(table);
       Map<RegionInfo, Future> regionsMerging = new HashMap<>();
       long roundsNoProgress = 0;
       while (regions.size() > targetRegions && roundsNoProgress < this.maxRoundsStuck) {
         LOG.info("Iteration: {}", counter);
         RegionInfo previous = null;
         LOG.info("Attempting to merge {} regions...", regions.size());
+        //to request merge, regions must be OPEN, though
+        regions = getOpenRegions(conn, table);
         for (RegionInfo current : regions) {
           if (!current.isSplit()) {
             if (previous == null) {
@@ -222,7 +221,9 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
             completedPair.setSecond(null);
           }
         });
-        regions = getOpenRegions(conn, table);
+        //again, get all regions, regardless of the state,
+        // in order to avoid breaking the loop prematurely
+        regions = admin.getRegions(table);
         roundsNoProgress = counter.longValue() - lastTimeProgessed.longValue();
         if(roundsNoProgress == this.maxRoundsStuck){
           LOG.warn("Reached {} iterations without progressing with new merges. Aborting...",
