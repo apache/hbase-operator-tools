@@ -47,7 +47,6 @@ public class TestRegionsMerger {
   public static void beforeClass() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
       Long.toString(1024*1024*3));
-    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 100);
     TEST_UTIL.startMiniCluster(3);
   }
 
@@ -69,6 +68,7 @@ public class TestRegionsMerger {
 
   @Test
   public void testMergeRegionsCanMergeToTarget() throws Exception {
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 10);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), 3);
     List<RegionInfo> result = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
@@ -77,6 +77,7 @@ public class TestRegionsMerger {
 
   @Test
   public void testMergeRegionsCanMergeSomeButNotToTarget() throws Exception {
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 3);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     generateTableData();
     merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), 3);
@@ -87,6 +88,7 @@ public class TestRegionsMerger {
   @Test
   public void testMergeRegionsCannotMergeAny() throws Exception {
     TEST_UTIL.getConfiguration().setDouble(RegionsMerger.RESULTING_REGION_UPPER_MARK, 0.5);
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 2);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     generateTableData();
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
