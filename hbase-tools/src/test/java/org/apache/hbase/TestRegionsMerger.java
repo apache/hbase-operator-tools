@@ -47,7 +47,7 @@ public class TestRegionsMerger {
   public static void beforeClass() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
       Long.toString(1024*1024*3));
-    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 3);
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 100);
     TEST_UTIL.startMiniCluster(3);
   }
 
