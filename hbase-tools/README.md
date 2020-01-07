@@ -69,7 +69,7 @@ configured by `hbase.tools.merge.sleep` property, in milliseconds, and it
 defaults to `2000`(2 seconds).
 
 While iterating through the list of regions, once a pair of adjacent regions is
-detected, _RegionsMerger_ checks the current file system size of each region,
+detected, _RegionsMerger_ checks the current file system size of each region (excluding MOB data),
 before deciding to submit the merge request for the given regions. If the sum of
 both regions size exceeds a threshold, merge will not be attempted.
 This threshold is a configurable percentage of `hbase.hregion.max.filesize`
