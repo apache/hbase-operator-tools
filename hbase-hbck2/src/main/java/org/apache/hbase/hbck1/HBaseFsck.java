@@ -125,7 +125,6 @@ import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hadoop.hbase.replication.ReplicationPeerDescription;
 import org.apache.hadoop.hbase.replication.ReplicationQueueStorage;
 import org.apache.hadoop.hbase.replication.ReplicationStorageFactory;
-import org.apache.hadoop.hbase.replication.ReplicationUtils;
 import org.apache.hadoop.hbase.security.AccessDeniedException;
 import org.apache.hadoop.hbase.security.UserProvider;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -5547,9 +5546,9 @@ public class HBaseFsck extends Configured implements Closeable {
     List<ReplicationPeerDescription> peerDescriptions = admin.listReplicationPeers();
     if (peerDescriptions != null && peerDescriptions.size() > 0) {
       List<String> peers = peerDescriptions.stream()
-          .filter(peerConfig -> ReplicationUtils.contains(peerConfig.getPeerConfig(),
-            cleanReplicationBarrierTable))
-          .map(peerConfig -> peerConfig.getPeerId()).collect(Collectors.toList());
+          .filter(peerConfig -> peerConfig.getPeerConfig()
+                  .needToReplicate(cleanReplicationBarrierTable))
+          .map(ReplicationPeerDescription::getPeerId).collect(Collectors.toList());
       try {
         List<String> batch = new ArrayList<>();
         for (String peer : peers) {
