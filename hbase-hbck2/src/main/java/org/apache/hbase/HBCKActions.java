@@ -32,10 +32,12 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.yetus.audience.InterfaceAudience;
 
 /**
  * This class is strictly for usage with hbck2 testing tool located at dev-support/testingtool
  */
+@InterfaceAudience.Private
 public class HBCKActions {
   private Configuration conf;
 
@@ -64,8 +66,6 @@ public class HBCKActions {
     }
   }
 
-
-
   private static void printUsageAndExit() {
     System.out.println("hbckActions <options>");
     System.out.println("OPTIONS:");
@@ -85,7 +85,7 @@ public class HBCKActions {
   private void deleteRegionFromMeta(String tname) throws IOException, InterruptedException {
     TableName tn = TableName.valueOf(tname);
     try (Connection connection = ConnectionFactory.createConnection(conf)) {
-      Table MetaTable = connection.getTable(TableName.valueOf("hbase:meta"));
+      Table metaTable = connection.getTable(TableName.valueOf("hbase:meta"));
       List<RegionInfo> ris = MetaTableAccessor.getTableRegions(connection, tn);
       System.out.println(String.format("Current Regions of the table " + tn.getNameAsString()
           + " in Meta before deletion of the region are: " + ris));
@@ -95,13 +95,13 @@ public class HBCKActions {
 
       Delete delete = new Delete(key);
       delete.addFamily(Bytes.toBytes("info"));
-      MetaTable.delete(delete);
+      metaTable.delete(delete);
 
       Thread.sleep(500);
 
       ris = MetaTableAccessor.getTableRegions(connection, tn);
-      System.out.println(String.format("Current Regions of the table " + tn.getNameAsString()
-          + " in Meta after deletion of the region are: " + ris));
+      System.out.println("Current Regions of the table " + tn.getNameAsString()
+          + " in Meta after deletion of the region are: " + ris);
     }
   }
 }

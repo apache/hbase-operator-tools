@@ -35,11 +35,11 @@ hbase_hbck2_jar=$(ls hbase-hbck2/*target/hbase-hbck2-*)
 
 # Replace the passed parameters in here [starting from --working-dir] with appropriate values
 ./dev-support/testingtool/hbck2_test.sh --hbck2 "${SELF}/../../${hbase_hbck2_jar}" \
---single-process --working-dir /Users/sakthi/test/hbck2-testing-tool/output/hbck2 \
---hbase-client-install /Users/sakthi/test/hbck2-testing-tool/hbase-2.1.7 \
-/Users/sakthi/test/hbck2-testing-tool/hbase-2.1.7 \
-/Users/sakthi/test/hbck2-testing-tool/hadoop-3.1.2/bin/hadoop \
-/Users/sakthi/test/hbck2-testing-tool/hadoop-3.1.2/share/hadoop/yarn/test/hadoop-yarn-server-tests-3.1.2-tests.jar \
-/Users/sakthi/test/hbck2-testing-tool/hadoop-3.1.2/share/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-3.1.2-tests.jar \
-/Users/sakthi/test/hbck2-testing-tool/hadoop-3.1.2/bin/mapred
+--single-process --working-dir /path/to/working_dir \
+--hbase-client-install /path/to/hbase-x.x.x \
+/path/to/hbase-x.x.x \
+/path/to/hadoop-x.x.x/bin/hadoop \
+/path/to/hadoop-x.x.x/share/hadoop/yarn/test/hadoop-yarn-server-tests-x.x.x-tests.jar \
+/path/to/hadoop-x.x.x/share/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-x.x.x-tests.jar \
+/path/to/hadoop-x.x.x/bin/mapred
 )
