@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -47,7 +46,6 @@ import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 
-import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,14 +124,14 @@ public class FsRegionsMetaRecoverer implements Closeable {
     return reAddedRegionsEncodedNames;
   }
 
-  public Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(
+  public List<Future<List<String>>> addMissingRegionsInMetaForTables(
       List<String> nameSpaceOrTable) throws IOException {
     InternalMetaChecker<Path> missingChecker = new InternalMetaChecker<>();
     return missingChecker.processRegionsMetaCleanup(this::reportTablesMissingRegions,
       this::addMissingRegionsInMeta, nameSpaceOrTable);
   }
 
-  public Pair<List<String>, List<ExecutionException>> removeExtraRegionsFromMetaForTables(
+  public List<Future<List<String>>> removeExtraRegionsFromMetaForTables(
     List<String> nameSpaceOrTable) throws IOException {
     if(nameSpaceOrTable.size()>0) {
       InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
@@ -190,7 +188,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
       return result;
     }
 
-    Pair<List<String>, List<ExecutionException>> processRegionsMetaCleanup(
+    List<Future<List<String>>> processRegionsMetaCleanup(
         ExecFunction<Map<TableName, List<T>>, List<String>> reportFunction,
         ExecFunction<List<String>, List<T>> execFunction,
         List<String> nameSpaceOrTable) throws IOException {
@@ -201,8 +199,6 @@ public class FsRegionsMetaRecoverer implements Closeable {
           nameSpaceOrTable.size());
       List<Future<List<String>>> futures =
         new ArrayList<>(nameSpaceOrTable == null ? 1 : nameSpaceOrTable.size());
-      final List<String> processedRegionNames = new ArrayList<>();
-      List<ExecutionException> executionErrors = new ArrayList<>();
       try {
         try(final Admin admin = conn.getAdmin()) {
           Map<TableName,List<T>> report = reportFunction.execute(nameSpaceOrTable);
@@ -227,27 +223,18 @@ public class FsRegionsMetaRecoverer implements Closeable {
                 tableName.getNameWithNamespaceInclAsString());
             }
           }
-          for(Future<List<String>> f : futures){
-            try {
-              processedRegionNames.addAll(f.get());
-            } catch (ExecutionException e){
-              //we want to allow potential running threads to finish, so we collect execution
-              //errors and show those later
-              LOG.debug("Caught execution error: ", e);
-              executionErrors.add(e);
+          boolean allDone;
+          do {
+            allDone = true;
+            for (Future<List<String>> f : futures) {
+              allDone &= f.isDone();
             }
-          }
+          } while(!allDone);
         }
-      } catch (InterruptedException e) {
-        LOG.error("ERROR executing thread: ", e);
-        throw new IOException(e);
       } finally {
         executorService.shutdown();
       }
-      Pair<List<String>, List<ExecutionException>> result = new Pair<>();
-      result.setFirst(processedRegionNames);
-      result.setSecond(executionErrors);
-      return result;
+      return futures;
     }
   }
 

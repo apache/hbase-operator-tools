@@ -28,6 +28,8 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.fs.Path;
@@ -297,8 +299,18 @@ public class TestHBCK2 {
     int remaining = totalRegions - missingRegions;
     assertEquals("Table should have " + remaining + " regions in META.", remaining,
       MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
-    assertEquals(missingRegions,hbck.addMissingRegionsInMetaForTables("default:"
-      + tableName.getNameAsString()).getFirst().size());
+    List<Future<List<String>>> result = hbck.addMissingRegionsInMetaForTables("default:" +
+      tableName.getNameAsString());
+
+    Integer total = result.stream().map( f -> {
+      try {
+        return f.get().size();
+      } catch (InterruptedException | ExecutionException e) {
+        e.printStackTrace();
+      }
+      return 0;
+    }).reduce(0, Integer::sum);
+    assertEquals(missingRegions, total.intValue());
     assertEquals("Table regions should had been re-added in META.", totalRegions,
       MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
     //compare the added regions to make sure those are the same

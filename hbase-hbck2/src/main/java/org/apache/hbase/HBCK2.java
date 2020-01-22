@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -54,7 +55,6 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.util.Pair;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -214,11 +214,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           }
       });
       if(fix) {
-        Pair<List<String>, List<ExecutionException>> removeResult =
+        List<Future<List<String>>> removeResult =
           fsRegionsMetaRecoverer.removeExtraRegionsFromMetaForTables(toFix);
         if(removeResult!=null) {
-          System.out.println(formatRemovedRegionsMessage(removeResult.getFirst(),
-            removeResult.getSecond()));
+          int totalRegions = 0;
+          List<Exception> errors = new ArrayList<>();
+          for(Future<List<String>> f : removeResult){
+            try {
+              totalRegions += f.get().size();
+            } catch (ExecutionException|InterruptedException e){
+              errors.add(e);
+            }
+          }
+          System.out.println(formatRemovedRegionsMessage(totalRegions, errors));
         }
       }
     } catch (IOException e) {
@@ -235,18 +243,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
   }
 
-  Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
+  List<Future<List<String>>> addMissingRegionsInMetaForTables(String...
       nameSpaceOrTable) throws IOException {
-    Pair<List<String>, List<ExecutionException>> result = new Pair<>();
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
       new FsRegionsMetaRecoverer(this.conf)) {
-      result = fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(
+      return fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(
         formatNameSpaceTableParam(nameSpaceOrTable));
     } catch (IOException e) {
       LOG.error("Error adding missing regions: ", e);
       throw e;
     }
-    return result;
   }
 
   List<Long> assigns(Hbck hbck, String [] args) throws IOException {
@@ -830,10 +836,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more table names.");
           return EXIT_FAILURE;
         }
-        Pair<List<String>, List<ExecutionException>> addedRegions =
+        List<Future<List<String>>> addedRegions =
           addMissingRegionsInMetaForTables(purgeFirst(commands));
-        System.out.println(formatReAddedRegionsMessage(addedRegions.getFirst(),
-          addedRegions.getSecond()));
+        List<String> regionNames = new ArrayList<>();
+        List<Exception> errors = new ArrayList<>();
+        for(Future<List<String>> f : addedRegions){
+          try {
+            regionNames.addAll(f.get());
+          } catch (InterruptedException | ExecutionException e) {
+            errors.add(e);
+          }
+        }
+        System.out.println(formatReAddedRegionsMessage(regionNames,
+          errors));
         break;
 
       case REPORT_MISSING_REGIONS_IN_META:
@@ -903,7 +918,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private String formatReAddedRegionsMessage(List<String> readdedRegionNames,
-    List<ExecutionException> executionErrors) {
+    List<Exception> executionErrors) {
     final StringBuilder finalText = new StringBuilder();
     finalText.append("Regions re-added into Meta: ").append(readdedRegionNames.size());
     if(!readdedRegionNames.isEmpty()){
@@ -923,11 +938,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return finalText.toString();
   }
 
-  private String formatRemovedRegionsMessage(List<String> removedRegionNames,
-    List<ExecutionException> executionErrors) {
+  private String formatRemovedRegionsMessage(int totalRemoved,
+    List<Exception> executionErrors) {
     final StringBuilder finalText = new StringBuilder();
     finalText.append("Regions that had no dir on the FileSystem and got removed from Meta: ").
-      append(removedRegionNames.size());
+      append(totalRemoved);
     if(!executionErrors.isEmpty()){
       finalText.append("\n")
         .append("ERROR: \n\t")
