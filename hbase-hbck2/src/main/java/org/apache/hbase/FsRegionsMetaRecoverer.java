@@ -98,7 +98,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
     InternalMetaChecker<Path> missingChecker = new InternalMetaChecker<>();
     return missingChecker.checkRegionsInMETA(table, (regions, dirs) -> {
       ListUtils<Path, RegionInfo> utils = new ListUtils<>();
-      return utils.complement(dirs, regions, r -> r.getEncodedName(), d -> d.getName());
+      return utils.complement(dirs, regions, d -> d.getName(), r -> r.getEncodedName());
     });
   }
 
@@ -106,7 +106,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
     InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
     return extraChecker.checkRegionsInMETA(table, (regions,dirs) -> {
       ListUtils<RegionInfo, Path> utils = new ListUtils<>();
-      return utils.complement(regions, dirs, d -> d.getName(), r -> r.getEncodedName());
+      return utils.complement(regions, dirs, r -> r.getEncodedName(), d -> d.getName());
     });
   }
 
@@ -182,7 +182,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
           result.put(tableName,
             checkingFunction.execute(tableName.getNameWithNamespaceInclAsString()));
         } catch (Exception e) {
-          LOG.warn("Can't get related regions execute from meta", e);
+          LOG.warn("Can't get related regions report from meta", e);
         }
       });
       return result;
@@ -250,13 +250,12 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   public class ListUtils<T1, T2> {
     public List<T1> complement(List<T1> list1, List<T2> list2,
-        Function<T2, String> convertFromBase,
-        Function<T1, String> convertFromComparing) throws IOException {
+        Function<T1, String> convertT1, Function<T2, String> convertT2) {
       final List<T1> extraRegions = new ArrayList<>();
       HashSet<String> baseSet = list2.stream().map(info ->
-        convertFromBase.apply(info)).collect(Collectors.toCollection(HashSet::new));
+        convertT2.apply(info)).collect(Collectors.toCollection(HashSet::new));
       list1.forEach(region -> {
-        if(!baseSet.contains(convertFromComparing.apply(region))) {
+        if(!baseSet.contains(convertT1.apply(region))) {
           extraRegions.add(region);
         }
       });

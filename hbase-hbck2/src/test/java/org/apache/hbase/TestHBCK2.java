@@ -239,10 +239,12 @@ public class TestHBCK2 {
 
   @Test
   public void testFormatReportMissingRegionsInMetaNoMissing() throws IOException {
-    final String expectedResult = "Missing Regions for each table:\n"
-      + "\thbase:namespace -> No mismatching regions. This table is good!\n\t"
-      + "TestHBCK2 -> No mismatching regions. This table is good!\n\t\n";
+    String expectedResult = "Missing Regions for each table:\n";
     String result = testFormatMissingRegionsInMetaReport();
+    assertTrue(result.contains(expectedResult));
+    expectedResult = "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    assertTrue(result.contains(expectedResult));
+    expectedResult = "TestHBCK2 -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -418,10 +420,12 @@ public class TestHBCK2 {
 
   @Test
   public void testFormatReportExtraRegionsInMetaNoExtra() throws IOException {
-    final String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n"
-      + "\thbase:namespace -> No mismatching regions. This table is good!\n\t"
-      + "TestHBCK2 -> No mismatching regions. This table is good!\n\t\n";
+    String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaReport();
+    assertTrue(result.contains(expectedResult));
+    expectedResult = "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    assertTrue(result.contains(expectedResult));
+    expectedResult = "TestHBCK2 -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -433,7 +437,7 @@ public class TestHBCK2 {
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaReport();
-    //validates initial execute message
+    //validates initial report message
     assertTrue(result.contains(expectedResult));
     //validates our test table region is reported as extra
     expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"

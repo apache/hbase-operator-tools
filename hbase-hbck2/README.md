@@ -165,7 +165,7 @@ Command:
    An example triggering extra regions report for tables 'table_1'
    and 'table_2', under default namespace:
      $ HBCK2 extraRegionsInMeta default:table_1 default:table_2
-   An example triggering missing regions execute for table 'table_1'
+   An example triggering extra regions report for table 'table_1'
    under default namespace, and for all tables from namespace 'ns1':
      $ HBCK2 extraRegionsInMeta default:table_1 ns1
    Returns list of extra regions for each table passed as parameter, or

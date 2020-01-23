@@ -503,7 +503,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   and 'table_2', under default namespace:");
     writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META +
       " default:table_1 default:table_2");
-    writer.println("   An example triggering missing regions execute for table 'table_1'");
+    writer.println("   An example triggering missing regions report for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
     writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 ns1");
     writer.println("   Returns list of extra regions for each table passed as parameter, or");
@@ -885,12 +885,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private String formatMissingRegionsInMetaReport(Map<TableName,List<Path>> report) {
     Function<Path,String> resolver = r -> r.getName();
     String message = "Missing Regions for each table:\n\t";
-    return formatReportMessage(message, new HashMap<>(report), resolver);
+    return formatReportMessage(message, (HashMap)report, resolver);
   }
 
   private String formatExtraRegionsReport(Map<TableName,List<String>> report) {
     String message = "Regions in Meta but having no equivalent dir, for each table:\n\t";
-    return formatReportMessage(message, new HashMap<>(report), s -> s);
+    return formatReportMessage(message, (HashMap)report, s -> s);
   }
 
   private String formatReportMessage(String reportMessage, Map<TableName, List<?>> report,

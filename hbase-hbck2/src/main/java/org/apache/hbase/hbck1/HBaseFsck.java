@@ -287,7 +287,7 @@ public class HBaseFsck extends Configured implements Closeable {
   /***********
    * Options
    ***********/
-  private static boolean details = false; // do we display the full execute
+  private static boolean details = false; // do we display the full report
   private long timelag = DEFAULT_TIME_LAG; // tables whose modtime is older
   private static boolean forceExclusive = false; // only this hbck can modify HBase
   private boolean fixAssignments = false; // fix assignment errors?
@@ -863,7 +863,7 @@ public class HBaseFsck extends Configured implements Closeable {
     // Do offline check and repair first
     offlineHbck();
     // If Master runs maintenance tasks (such as balancer, catalog janitor, etc) during online
-    // hbck, it is likely that hbck would be misled and execute transient errors.  Therefore, it
+    // hbck, it is likely that hbck would be misled and report transient errors.  Therefore, it
     // is better to set Master into maintenance mode during online hbck.
     //
     if (!setMasterInMaintenanceMode()) {
@@ -1617,7 +1617,7 @@ public class HBaseFsck extends Configured implements Closeable {
         } catch (IOException ioe) {
           if (!orphanTableDirs.containsKey(tableName)) {
             LOG.warn("Unable to read .tableinfo from " + hbaseRoot, ioe);
-            //should only execute once for each table
+            //should only report once for each table
             errors.reportError(ErrorReporter.ERROR_CODE.NO_TABLEINFO_FILE,
                 "Unable to read .tableinfo from " + hbaseRoot + "/" + tableName);
             Set<String> columns = new HashSet<>();
@@ -3662,7 +3662,7 @@ public class HBaseFsck extends Configured implements Closeable {
      */
     public boolean checkRegionChain(TableIntegrityErrorHandler handler) throws IOException {
       // When table is disabled no need to check for the region chain. Some of the regions
-      // accidently if deployed, this below code might execute some issues like missing start
+      // accidently if deployed, this below code might report some issues like missing start
       // or end regions or region hole in chain and may try to fix which is unwanted.
       if (isTableDisabled(this.tableName)) {
         return true;
@@ -3942,7 +3942,7 @@ public class HBaseFsck extends Configured implements Closeable {
     * Check values in regionInfo for hbase:meta
     * Check if zero or more than one regions with hbase:meta are found.
     * If there are inconsistencies (i.e. zero or more than one regions
-    * pretend to be holding the hbase:meta) try to fix that and execute an error.
+    * pretend to be holding the hbase:meta) try to fix that and report an error.
     * @throws IOException from HBaseFsckRepair functions
     */
   boolean checkMetaRegion() throws IOException, KeeperException, InterruptedException {
@@ -4845,7 +4845,7 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   /**
-   * Display the full execute from fsck. This displays all live and dead region
+   * Display the full report from fsck. This displays all live and dead region
    * servers, and all known regions.
    */
   public static void setDisplayFullReport() {
@@ -4904,7 +4904,7 @@ public class HBaseFsck extends Configured implements Closeable {
   /**
    * Check if we should rerun fsck again. This checks if we've tried to
    * fix something and we should rerun fsck tool again.
-   * Display the full execute from fsck. This displays all live and dead
+   * Display the full report from fsck. This displays all live and dead
    * region servers, and all known regions.
    */
   public void setShouldRerun() {
@@ -5138,7 +5138,7 @@ public class HBaseFsck extends Configured implements Closeable {
     out.println("Usage: fsck [opts] {only tables}");
     out.println(" where [opts] are:");
     out.println("   -help Display help options (this)");
-    out.println("   -details Display full execute of all regions.");
+    out.println("   -details Display full report of all regions.");
     out.println("   -timelag <timeInSeconds>  Process only regions that " +
                        " have not experienced any metadata updates in the last " +
                        " <timeInSeconds> seconds.");
@@ -5460,7 +5460,7 @@ public class HBaseFsck extends Configured implements Closeable {
           LOG.warn("Interrupted while sleeping");
           return this;
         }
-        // Just execute
+        // Just report
         setFixAssignments(false);
         setFixMeta(false);
         setFixHdfsHoles(false);
