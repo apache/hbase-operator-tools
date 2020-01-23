@@ -206,12 +206,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       Map<TableName, List<RegionInfo>> reportMap =
         fsRegionsMetaRecoverer.reportTablesExtraRegions(namespacesTables);
       final List<String> toFix = new ArrayList<>();
-      reportMap.entrySet().forEach( e -> {
-          result.put(e.getKey(),
-            e.getValue().stream().map(r->r.getEncodedName()).collect(Collectors.toList()));
-          if(fix && e.getValue().size()>0){
-            toFix.add(e.getKey().getNameWithNamespaceInclAsString());
-          }
+      reportMap.entrySet().forEach(e -> {
+        result.put(e.getKey(),
+          e.getValue().stream().map(r->r.getEncodedName()).collect(Collectors.toList()));
+        if(fix && e.getValue().size()>0){
+          toFix.add(e.getKey().getNameWithNamespaceInclAsString());
+        }
       });
       if(fix) {
         List<Future<List<String>>> removeResult =
@@ -494,7 +494,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   between regions available in hbase:meta and region dirs on the given");
     writer.println("   file system. Extra regions would get deleted from Meta ");
     writer.println("   if passed the --fix option. ");
-    writer.println("   NOTE: Before deciding on use the \"--fix\" option, it's worth check if" );
+    writer.println("   NOTE: Before deciding on use the \"--fix\" option, it's worth check if");
     writer.println("   reported extra regions are overlapping with existing valid regions.");
     writer.println("   If so, then \"extraRegionsInMeta --fix\" is indeed the optimal solution. ");
     writer.println("   Otherwise, \"assigns\" command is the simpler solution, as it recreates ");

@@ -304,7 +304,7 @@ public class TestHBCK2 {
     List<Future<List<String>>> result = hbck.addMissingRegionsInMetaForTables("default:" +
       tableName.getNameAsString());
 
-    Integer total = result.stream().map( f -> {
+    Integer total = result.stream().map(f -> {
       try {
         return f.get().size();
       } catch (InterruptedException | ExecutionException e) {
@@ -540,8 +540,9 @@ public class TestHBCK2 {
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     regions.subList(0, extraRegions).forEach(r -> deleteRegionDir(tableName, r.getEncodedName()));
     int remaining = totalRegions - extraRegions;
-    assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{"-f", "default:"
-      + tableName.getNameAsString()}).get(tableName).size());
+    assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{ "-f",
+        "default:" + tableName.getNameAsString()
+      }).get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
       MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
   }

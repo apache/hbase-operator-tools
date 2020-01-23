@@ -194,7 +194,7 @@ public class TestFsRegionsMetaRecoverer {
 
   @Test
   public void testFindExtraRegionsInMETAOneExtra() throws  Exception {
-   RegionInfo info = createRegionInMeta(Mockito.mock(ResultScanner.class));
+    RegionInfo info = createRegionInMeta(Mockito.mock(ResultScanner.class));
     List<RegionInfo> missingRegions = fixer.findExtraRegionsInMETA("test-tbl");
     assertEquals("Should had returned 1 extra region",
       1, missingRegions.size());
