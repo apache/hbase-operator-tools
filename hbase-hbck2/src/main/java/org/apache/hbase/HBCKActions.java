@@ -17,8 +17,6 @@
  */
 package org.apache.hbase;
 
-import static java.lang.System.exit;
-
 import java.io.IOException;
 import java.util.List;
 
@@ -49,33 +47,33 @@ public class HBCKActions {
     Configuration conf = HBaseConfiguration.create();
     HBCKActions tool = new HBCKActions(conf);
 
-    if (args.length < 1) {
+    if (args.length < 1 || args[0].equals("help")) {
       printUsageAndExit();
     }
     if (args[0].equals("deleteRegionFromMeta")) {
       if (args.length != 2) {
-        System.out.println("ERROR: Number of parameters not correct");
+        System.err.println("ERROR: Number of parameters not correct");
         printUsageAndExit();
       }
       String tableName = args[1];
       tool.deleteRegionFromMeta(tableName);
     }
     else {
-      System.out.println("ERROR: Unknown option passed.");
+      System.err.println("ERROR: Unknown option passed.");
       printUsageAndExit();
     }
   }
 
   private static void printUsageAndExit() {
-    System.out.println("hbckActions <options>");
-    System.out.println("OPTIONS:");
-    System.out.println("help");
-    System.out.println("      Prints this help message.\n");
-    System.out.println("deleteRegionFromMeta <tableName>");
-    System.out.println("      Deletes the middle region from the regions of the\n"
+    System.err.println("hbckActions <options>");
+    System.err.println("OPTIONS:");
+    System.err.println("help");
+    System.err.println("      Prints this help message.\n");
+    System.err.println("deleteRegionFromMeta <tableName>");
+    System.err.println("      Deletes the middle region from the regions of the\n"
                      + "      given table from Meta table. Removes whole of the\n"
                      + "      info column family");
-    exit(1);
+    System.exit(1);
   }
 
   /**

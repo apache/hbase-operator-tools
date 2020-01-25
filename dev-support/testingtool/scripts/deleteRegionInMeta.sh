@@ -49,7 +49,6 @@ declare component_install=$3
 declare hbck2_jar_path=$4
 declare hadoop_jars=$5
 declare hbase_version=$6
-# The table name to operate with
 declare table_name=$7;
 
 
@@ -115,5 +114,5 @@ if [ ! "${assign_rowcount}" -eq 1000 ]; then
   echo "ERROR: Instead of finding 1000 rows, we found ${assign_rowcount}."
   exit 2
 else
-  echo "SUCCESS: deleteRegionInMeta succedeed"
+  echo "SUCCESS: deleteRegionInMeta recovery process succeeded"
 fi

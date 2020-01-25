@@ -34,12 +34,13 @@ mvn clean package assembly:single -DskipTests
 hbase_hbck2_jar=$(ls hbase-hbck2/*target/hbase-hbck2-*)
 
 # Replace the passed parameters in here [starting from --working-dir] with appropriate values
-./dev-support/testingtool/hbck2_test.sh --hbck2 "${SELF}/../../${hbase_hbck2_jar}" \
+./dev-support/testingtool/hbck2_test.sh \
 --single-process --working-dir /path/to/working_dir \
 --hbase-client-install /path/to/hbase-x.x.x \
 /path/to/hbase-x.x.x \
 /path/to/hadoop-x.x.x/bin/hadoop \
 /path/to/hadoop-x.x.x/share/hadoop/yarn/test/hadoop-yarn-server-tests-x.x.x-tests.jar \
 /path/to/hadoop-x.x.x/share/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-x.x.x-tests.jar \
-/path/to/hadoop-x.x.x/bin/mapred
+/path/to/hadoop-x.x.x/bin/mapred \
+"${SELF}/../../${hbase_hbck2_jar}"
 )

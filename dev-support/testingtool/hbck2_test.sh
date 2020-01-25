@@ -24,7 +24,7 @@
 
 set -e
 function usage {
-  echo "Usage: ${0} [options] /path/to/component/bin-install /path/to/hadoop/executable /path/to/hadoop/hadoop-yarn-server-tests-tests.jar /path/to/hadoop/hadoop-mapreduce-client-jobclient-tests.jar /path/to/mapred/executable"
+  echo "Usage: ${0} [options] /path/to/component/bin-install /path/to/hadoop/executable /path/to/hadoop/hadoop-yarn-server-tests-tests.jar /path/to/hadoop/hadoop-mapreduce-client-jobclient-tests.jar /path/to/mapred/executable /path/to/hbase-hbck2.jar"
   echo ""
   echo "    --zookeeper-data /path/to/use                                     Where the embedded zookeeper instance should write its data."
   echo "                                                                      defaults to 'zk-data' in the working-dir."
@@ -35,12 +35,11 @@ function usage {
   echo "    --hbase-client-install /path/to/unpacked/client/tarball           if given we'll look here for hbase client jars instead of the bin-install"
   echo "    --force-data-clean                                                Delete all data in HDFS and ZK prior to starting up hbase"
   echo "    --single-process                                                  Run as single process instead of pseudo-distributed"
-  echo "    --hbck2 /path/to/use                                              Path for the hbck2 jar"
   echo ""
   exit 1
 }
 # if no args specified, show usage
-if [ $# -lt 5 ]; then
+if [ $# -lt 6 ]; then
   usage
 fi
 
@@ -53,6 +52,7 @@ declare clean
 declare distributed="true"
 declare hadoop_jars
 declare hbase_client
+declare hbck2_jar_path
 while [ $# -gt 0 ]
 do
   case "$1" in
@@ -62,7 +62,6 @@ do
     --single-process) shift; distributed="false";;
     --hadoop-client-classpath) shift; hadoop_jars="$1"; shift;;
     --hbase-client-install) shift; hbase_client="$1"; shift;;
-    --hbck2) shift; hbck2_jar_path="$1"; shift;;
     --) shift; break;;
     -*) usage ;;
     *)  break;;  # terminate while loop
@@ -70,7 +69,7 @@ do
 done
 
 # should still have where component checkout is.
-if [ $# -lt 5 ]; then
+if [ $# -lt 6 ]; then
   usage
 fi
 component_install="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
@@ -78,6 +77,7 @@ hadoop_exec="$(cd "$(dirname "$2")"; pwd)/$(basename "$2")"
 yarn_server_tests_test_jar="$(cd "$(dirname "$3")"; pwd)/$(basename "$3")"
 mapred_jobclient_test_jar="$(cd "$(dirname "$4")"; pwd)/$(basename "$4")"
 mapred_exec="$(cd "$(dirname "$5")"; pwd)/$(basename "$5")"
+hbck2_jar_path="$(cd "$(dirname "$6")"; pwd)/$(basename "$6")"
 
 if [ ! -x "${hadoop_exec}" ]; then
   echo "hadoop cli does not appear to be executable." >&2
@@ -104,6 +104,11 @@ if [ ! -f "${mapred_jobclient_test_jar}" ]; then
   exit 1
 fi
 
+if [ ! -f "${hbck2_jar_path}" ]; then
+  echo "Specified hbck2 jar is not a file." >&2
+  exit 1
+fi
+
 if [ -z "${working_dir}" ]; then
   if ! working_dir="$(mktemp -d -t hbck2-test)" ; then
     echo "Failed to create temporary working directory. Please specify via --working-dir" >&2
@@ -116,6 +121,8 @@ else
     echo "passed working directory '${working_dir}' must already exist." >&2
     exit 1
   fi
+  # clean the working directory
+  rm -rf "${working_dir}"/*
 fi
 
 if [ -z "${zk_data_dir}" ]; then
