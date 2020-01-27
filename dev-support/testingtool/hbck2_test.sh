@@ -122,7 +122,7 @@ else
     exit 1
   fi
   # clean the working directory
-  rm -rf "${working_dir}"/*
+  rm -rf "${working_dir:?}"/*
 fi
 
 if [ -z "${zk_data_dir}" ]; then

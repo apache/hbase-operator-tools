@@ -102,6 +102,10 @@ do
 done
 
 region_id=$(echo "$assigns_output" | cut -d ' ' -f 2)
+
+# Please note that even a normal hbase assign using the shell would also work fine here
+# This doesn't check for the case where hbase would not be able to assign a region but
+# hbck2 would be able to.
 echo "========= Running hbck2's assigns command."
 HBASE_CLASSPATH_PREFIX="${hadoop_jars}" HBASE_CONF_DIR="${working_dir}/hbase-conf/" redirect_and_run \
     "${working_dir}/hbck2_assignsRegion" "${component_install}/bin/hbase" hbck -j "${hbck2_jar_path}" assigns "$region_id"
