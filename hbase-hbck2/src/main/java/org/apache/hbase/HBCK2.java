@@ -24,14 +24,13 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
@@ -48,6 +47,7 @@ import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Hbck;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
@@ -55,7 +55,6 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.util.Pair;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -70,7 +69,6 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
-
 
 /**
  * HBase fixup tool version 2, for hbase-2.0.0+ clusters.
@@ -99,8 +97,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
-  private static final String ADD_MISSING_REGIONS_IN_META = "addMissingRegionsInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
+  static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -179,8 +177,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     Map<TableName,List<Path>> report;
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
         new FsRegionsMetaRecoverer(this.conf)) {
-      List<String> names = nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
-      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(names);
+      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(
+        formatNameSpaceTableParam(nameSpaceOrTable));
     } catch (IOException e) {
       LOG.error("Error reporting missing regions: ", e);
       throw e;
@@ -191,77 +189,70 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return report;
   }
 
-  List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
-    List<String> reAddedRegionsEncodedNames = new ArrayList<>();
+  Map<TableName, List<String>> extraRegionsInMeta(String[] args)
+      throws Exception {
+    Options options = new Options();
+    Option fixOption = Option.builder("f").longOpt("fix").build();
+    options.addOption(fixOption);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine;
+    commandLine = parser.parse(options, args, false);
+    boolean fix = commandLine.hasOption(fixOption.getOpt());
+    Map<TableName, List<String>> result = new HashMap<>();
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
-        new FsRegionsMetaRecoverer(this.conf)) {
-      for(Path regionPath : regionsPath){
-        fsRegionsMetaRecoverer.putRegionInfoFromHdfsInMeta(regionPath);
-        reAddedRegionsEncodedNames.add(regionPath.getName());
+      new FsRegionsMetaRecoverer(this.conf)) {
+      List<String> namespacesTables = formatNameSpaceTableParam(commandLine.getArgs());
+      Map<TableName, List<RegionInfo>> reportMap =
+        fsRegionsMetaRecoverer.reportTablesExtraRegions(namespacesTables);
+      final List<String> toFix = new ArrayList<>();
+      reportMap.entrySet().forEach(e -> {
+        result.put(e.getKey(),
+          e.getValue().stream().map(r->r.getEncodedName()).collect(Collectors.toList()));
+        if(fix && e.getValue().size()>0){
+          toFix.add(e.getKey().getNameWithNamespaceInclAsString());
+        }
+      });
+      if(fix) {
+        List<Future<List<String>>> removeResult =
+          fsRegionsMetaRecoverer.removeExtraRegionsFromMetaForTables(toFix);
+        if(removeResult!=null) {
+          int totalRegions = 0;
+          List<Exception> errors = new ArrayList<>();
+          for(Future<List<String>> f : removeResult){
+            try {
+              totalRegions += f.get().size();
+            } catch (ExecutionException|InterruptedException e){
+              errors.add(e);
+            }
+          }
+          System.out.println(formatRemovedRegionsMessage(totalRegions, errors));
+        }
       }
+    } catch (IOException e) {
+      LOG.error("Error on checking extra regions: ", e);
+      throw e;
     }
-    return reAddedRegionsEncodedNames;
+    if(LOG.isDebugEnabled()) {
+      LOG.debug(formatExtraRegionsReport(result));
+    }
+    return result;
   }
 
-  Pair<List<String>, List<ExecutionException>> addMissingRegionsInMetaForTables(String...
+  private List<String> formatNameSpaceTableParam(String... nameSpaceOrTable) {
+    return nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
+  }
+
+  List<Future<List<String>>> addMissingRegionsInMetaForTables(String...
       nameSpaceOrTable) throws IOException {
-    ExecutorService executorService = Executors.newFixedThreadPool(
-      (nameSpaceOrTable == null ||
-        nameSpaceOrTable.length > Runtime.getRuntime().availableProcessors()) ?
-          Runtime.getRuntime().availableProcessors() :
-          nameSpaceOrTable.length);
-    List<Future<List<String>>> futures =
-        new ArrayList<>(nameSpaceOrTable == null ? 1 : nameSpaceOrTable.length);
-    final List<String> readdedRegionNames = new ArrayList<>();
-    List<ExecutionException> executionErrors = new ArrayList<>();
-    try {
-      //reducing number of retries in case disable fails due to namespace table region also missing
-      this.conf.setInt(HConstants.HBASE_CLIENT_RETRIES_NUMBER, 1);
-      try(ClusterConnection conn = connect();
-        final Admin admin = conn.getAdmin()) {
-        Map<TableName,List<Path>> report = reportTablesWithMissingRegionsInMeta(nameSpaceOrTable);
-        if(report.size() < 1) {
-          LOG.info("\nNo missing regions in meta are found. Worth using " +
-                  "reportMissingRegionsInMeta first.\nYou are likely passing non-existent " +
-                  "namespace or table. Note that table names should include the namespace " +
-                  "portion even for tables in the default namespace. " +
-                  "See also the command usage.\n");
-        }
-        for (TableName tableName : report.keySet()) {
-          if(admin.tableExists(tableName)) {
-            futures.add(executorService.submit(new Callable<List<String>>() {
-              @Override
-              public List<String> call() throws Exception {
-                LOG.debug("running thread for {}", tableName.getNameWithNamespaceInclAsString());
-                return addMissingRegionsInMeta(report.get(tableName));
-              }
-            }));
-          } else {
-            LOG.warn("Table {} does not exist! Skipping...",
-              tableName.getNameWithNamespaceInclAsString());
-          }
-        }
-        for(Future<List<String>> f : futures){
-          try {
-            readdedRegionNames.addAll(f.get());
-          } catch (ExecutionException e){
-            //we want to allow potential running threads to finish, so we collect execution
-            //errors and show those later
-            LOG.debug("Caught execution error: ", e);
-            executionErrors.add(e);
-          }
-        }
-      }
-    } catch (IOException | InterruptedException e) {
-      LOG.error("ERROR executing thread: ", e);
-      throw new IOException(e);
-    } finally {
-      executorService.shutdown();
+    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+      new FsRegionsMetaRecoverer(this.conf)) {
+      return fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(
+        formatNameSpaceTableParam(nameSpaceOrTable));
+    } catch (IOException e) {
+      LOG.error("Error adding missing regions: ", e);
+      throw e;
     }
-    Pair<List<String>, List<ExecutionException>> result = new Pair<>();
-    result.setFirst(readdedRegionNames);
-    result.setSecond(executionErrors);
-    return result;
   }
 
   List<Long> assigns(Hbck hbck, String [] args) throws IOException {
@@ -374,6 +365,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageBypass(writer);
     writer.println();
+    usageExtraRegionsInMeta(writer);
+    writer.println();
     usageFilesystem(writer);
     writer.println();
     usageFixMeta(writer);
@@ -477,7 +470,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   noop. Otherwise, if 'HBCK Report' UI reports problems, a run of");
     writer.println("   " + FIX_META +
         " will clear up hbase:meta issues. See 'HBase HBCK' UI");
-    writer.println("   for how to generate new report.");
+    writer.println("   for how to generate new execute.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
   }
 
@@ -488,6 +481,33 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Looks for undeleted replication queues and deletes them if passed the");
     writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
     writer.println("   purge if '--fix'.");
+  }
+
+  private static void usageExtraRegionsInMeta(PrintWriter writer) {
+    writer.println(" " + EXTRA_REGIONS_IN_META + " <NAMESPACE|"
+      + "NAMESPACE:TABLENAME>...");
+    writer.println("   Options:");
+    writer.println("    -f, --fix    fix meta by removing all extra regions found.");
+    writer.println("   Reports regions present on hbase:meta, but with no related ");
+    writer.println("   directories on the file system. Needs hbase:meta to be online. ");
+    writer.println("   For each table name passed as parameter, performs diff");
+    writer.println("   between regions available in hbase:meta and region dirs on the given");
+    writer.println("   file system. Extra regions would get deleted from Meta ");
+    writer.println("   if passed the --fix option. ");
+    writer.println("   NOTE: Before deciding on use the \"--fix\" option, it's worth check if");
+    writer.println("   reported extra regions are overlapping with existing valid regions.");
+    writer.println("   If so, then \"extraRegionsInMeta --fix\" is indeed the optimal solution. ");
+    writer.println("   Otherwise, \"assigns\" command is the simpler solution, as it recreates ");
+    writer.println("   regions dirs in the filesystem, if not existing.");
+    writer.println("   An example triggering extra regions report for tables 'table_1'");
+    writer.println("   and 'table_2', under default namespace:");
+    writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META +
+      " default:table_1 default:table_2");
+    writer.println("   An example triggering missing regions report for table 'table_1'");
+    writer.println("   under default namespace, and for all tables from namespace 'ns1':");
+    writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 ns1");
+    writer.println("   Returns list of extra regions for each table passed as parameter, or");
+    writer.println("   for each table on namespaces specified as parameter.");
   }
 
   private static void usageReportMissingRegionsInMeta(PrintWriter writer) {
@@ -510,10 +530,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   It accepts a combination of multiple namespace and tables. Table names");
     writer.println("   should include the namespace portion, even for tables in the default");
     writer.println("   namespace, otherwise it will assume as a namespace value.");
-    writer.println("   An example triggering missing regions report for tables 'table_1'");
+    writer.println("   An example triggering missing regions execute for tables 'table_1'");
     writer.println("   and 'table_2', under default namespace:");
     writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 default:table_2");
-    writer.println("   An example triggering missing regions report for table 'table_1'");
+    writer.println("   An example triggering missing regions execute for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
     writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 ns1");
     writer.println("   Returns list of missing regions for each table passed as parameter, or");
@@ -816,9 +836,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more table names.");
           return EXIT_FAILURE;
         }
-        Pair<List<String>, List<ExecutionException>> result =
+        List<Future<List<String>>> addedRegions =
           addMissingRegionsInMetaForTables(purgeFirst(commands));
-        System.out.println(formatReAddedRegionsMessage(result.getFirst(),result.getSecond()));
+        List<String> regionNames = new ArrayList<>();
+        List<Exception> errors = new ArrayList<>();
+        for(Future<List<String>> f : addedRegions){
+          try {
+            regionNames.addAll(f.get());
+          } catch (InterruptedException | ExecutionException e) {
+            errors.add(e);
+          }
+        }
+        System.out.println(formatReAddedRegionsMessage(regionNames,
+          errors));
         break;
 
       case REPORT_MISSING_REGIONS_IN_META:
@@ -826,6 +856,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           Map<TableName,List<Path>> report =
             reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
           System.out.println(formatMissingRegionsInMetaReport(report));
+        } catch (Exception e) {
+          return EXIT_FAILURE;
+        }
+        break;
+
+      case EXTRA_REGIONS_IN_META:
+        try {
+          Map<TableName,List<String>> report =
+            extraRegionsInMeta(purgeFirst(commands));
+          System.out.println(formatExtraRegionsReport(report));
         } catch (Exception e) {
           return EXIT_FAILURE;
         }
@@ -843,22 +883,34 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private String formatMissingRegionsInMetaReport(Map<TableName,List<Path>> report) {
+    Function<Path,String> resolver = r -> r.getName();
+    String message = "Missing Regions for each table:\n\t";
+    return formatReportMessage(message, (HashMap)report, resolver);
+  }
+
+  private String formatExtraRegionsReport(Map<TableName,List<String>> report) {
+    String message = "Regions in Meta but having no equivalent dir, for each table:\n\t";
+    return formatReportMessage(message, (HashMap)report, s -> s);
+  }
+
+  private String formatReportMessage(String reportMessage, Map<TableName, List<?>> report,
+      Function resolver){
     final StringBuilder builder = new StringBuilder();
     if(report.size() < 1) {
-      builder.append("\nNo reports are found. You are likely passing non-existent " +
-              "namespace or table. Note that table names should include the namespace " +
-              "portion even for tables in the default namespace. See also the command usage.\n");
+      builder.append("\nNo reports were found. You are likely passing non-existent " +
+        "namespace or table. Note that table names should include the namespace " +
+        "portion even for tables in the default namespace. See also the command usage.\n");
       return builder.toString();
     }
-    builder.append("Missing Regions for each table:\n\t");
+    builder.append(reportMessage);
     report.keySet().forEach(table -> {
       builder.append(table);
       if (!report.get(table).isEmpty()){
         builder.append("->\n\t\t");
-        report.get(table).forEach(region -> builder.append(region.getName())
+        report.get(table).forEach(region -> builder.append(resolver.apply(region))
           .append(" "));
       } else {
-        builder.append(" -> No missing regions");
+        builder.append(" -> No mismatching regions. This table is good!");
       }
       builder.append("\n\t");
     });
@@ -866,7 +918,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private String formatReAddedRegionsMessage(List<String> readdedRegionNames,
-    List<ExecutionException> executionErrors) {
+    List<Exception> executionErrors) {
     final StringBuilder finalText = new StringBuilder();
     finalText.append("Regions re-added into Meta: ").append(readdedRegionNames.size());
     if(!readdedRegionNames.isEmpty()){
@@ -877,6 +929,20 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
         .append(buildHbck2AssignsCommand(readdedRegionNames));
     }
+    if(!executionErrors.isEmpty()){
+      finalText.append("\n")
+        .append("ERROR: \n\t")
+        .append("There were following errors on at least one table thread:\n");
+      executionErrors.forEach(e -> finalText.append(e.getMessage()).append("\n"));
+    }
+    return finalText.toString();
+  }
+
+  private String formatRemovedRegionsMessage(int totalRemoved,
+    List<Exception> executionErrors) {
+    final StringBuilder finalText = new StringBuilder();
+    finalText.append("Regions that had no dir on the FileSystem and got removed from Meta: ").
+      append(totalRemoved);
     if(!executionErrors.isEmpty()){
       finalText.append("\n")
         .append("ERROR: \n\t")

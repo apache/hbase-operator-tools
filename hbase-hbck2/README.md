@@ -148,6 +148,29 @@ Command:
    to finish parent and children. This is SLOW, and dangerous so use
    selectively. Does not always work.
 
+ extraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+   Options:
+    -f, --fix    fix meta by removing all extra regions found.
+   Reports regions present on hbase:meta, but with no related
+   directories on the file system. Needs hbase:meta to be online.
+   For each table name passed as parameter, performs diff
+   between regions available in hbase:meta and region dirs on the given
+   file system. Extra regions would get deleted from Meta
+   if passed the --fix option.
+   NOTE: Before deciding on use the "--fix" option, it's worth check if
+   reported extra regions are overlapping with existing valid regions.
+   If so, then "extraRegionsInMeta --fix" is indeed the optimal solution.
+   Otherwise, "assigns" command is the simpler solution, as it recreates
+   regions dirs in the filesystem, if not existing.
+   An example triggering extra regions report for tables 'table_1'
+   and 'table_2', under default namespace:
+     $ HBCK2 extraRegionsInMeta default:table_1 default:table_2
+   An example triggering extra regions report for table 'table_1'
+   under default namespace, and for all tables from namespace 'ns1':
+     $ HBCK2 extraRegionsInMeta default:table_1 ns1
+   Returns list of extra regions for each table passed as parameter, or
+   for each table on namespaces specified as parameter.
+
  filesystem [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    sideline corrupt hfiles, bad links, and references.
@@ -527,6 +550,18 @@ operational. In such situations, problem can be addressed with the Master online
 using the _addFsRegionsMissingInMeta_ command in _HBCK2_. This command is less disruptive to
 hbase than a full hbase:meta rebuild covered later, and it can be used even for
 recovering the _namespace_ table region.
+
+### Extra Regions in hbase:meta region/table restore/rebuild
+
+There can also be situations where table regions have been removed file system, but still
+have related entries on hbase:meta table. This may happen due to problems on splitting, manual
+operation mistakes (like deleting/moving the region dir manually), or even meta info data loss
+issues such as HBASE-21843.
+
+Such problem can be addressed with the Master online, using the _removeExtraRegionsFromMeta_
+command in _HBCK2_. This command is less disruptive to hbase than a full hbase:meta rebuild
+covered later. Also useful when this happens on versions that don't support _fixMeta_ hbck2 option
+(any prior to "2.0.6", "2.1.6", "2.2.1", "2.3.0","3.0.0").
 
 #### Online hbase:meta rebuild recipe
 
