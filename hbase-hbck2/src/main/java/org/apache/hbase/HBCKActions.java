@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
@@ -84,12 +83,12 @@ public class HBCKActions {
     TableName tn = TableName.valueOf(tname);
     try (Connection connection = ConnectionFactory.createConnection(conf)) {
       Table metaTable = connection.getTable(TableName.valueOf("hbase:meta"));
-      List<RegionInfo> ris = MetaTableAccessor.getTableRegions(connection, tn);
+      List<RegionInfo> ris = HBCKMetaTableAccessor.getTableRegions(connection, tn);
       System.out.println(String.format("Current Regions of the table " + tn.getNameAsString()
           + " in Meta before deletion of the region are: " + ris));
       RegionInfo ri = ris.get(ris.size() / 2);
       System.out.println("Deleting Region " + ri.getRegionNameAsString());
-      byte[] key = MetaTableAccessor.getMetaKeyForRegion(ri);
+      byte[] key = HBCKMetaTableAccessor.getMetaKeyForRegion(ri);
 
       Delete delete = new Delete(key);
       delete.addFamily(Bytes.toBytes("info"));
@@ -97,7 +96,7 @@ public class HBCKActions {
 
       Thread.sleep(500);
 
-      ris = MetaTableAccessor.getTableRegions(connection, tn);
+      ris = HBCKMetaTableAccessor.getTableRegions(connection, tn);
       System.out.println("Current Regions of the table " + tn.getNameAsString()
           + " in Meta after deletion of the region are: " + ris);
     }

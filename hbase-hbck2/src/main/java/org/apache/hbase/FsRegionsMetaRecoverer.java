@@ -36,7 +36,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -112,7 +111,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   void putRegionInfoFromHdfsInMeta(Path region) throws IOException {
     RegionInfo info = HRegionFileSystem.loadRegionInfoFileContent(fs, region);
-    MetaTableAccessor.addRegionToMeta(conn, info);
+    HBCKMetaTableAccessor.addRegionToMeta(conn, info);
   }
 
   List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
@@ -135,10 +134,16 @@ public class FsRegionsMetaRecoverer implements Closeable {
     List<String> nameSpaceOrTable) throws IOException {
     if(nameSpaceOrTable.size()>0) {
       InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
-      return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions, regions -> {
-        MetaTableAccessor.deleteRegionInfos(conn, regions);
-        return regions.stream().map(r -> r.getEncodedName()).collect(Collectors.toList());
-      }, nameSpaceOrTable);
+      return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions, regions ->
+        regions.stream().map(r -> {
+          try {
+            HBCKMetaTableAccessor.deleteRegionInfo(conn, r);
+            return r.getEncodedName();
+          } catch(IOException e){
+            LOG.error("Failed to delete region: {}", r.getEncodedName());
+            return r.getEncodedName() + " (failed)";
+          }
+        }).collect(Collectors.toList()), nameSpaceOrTable);
     } else {
       return null;
     }
@@ -156,16 +161,16 @@ public class FsRegionsMetaRecoverer implements Closeable {
         CheckingFunction<List<RegionInfo>, List<Path>, T> checkingFunction) throws IOException {
       final List<Path> regionsDirs = getTableRegionsDirs(table);
       TableName tableName = TableName.valueOf(table);
-      List<RegionInfo> regions = MetaTableAccessor.
-        getTableRegions(FsRegionsMetaRecoverer.this.conn, tableName, false);
+      List<RegionInfo> regions = HBCKMetaTableAccessor.
+        getTableRegions(FsRegionsMetaRecoverer.this.conn, tableName);
       return checkingFunction.check(regions, regionsDirs);
     }
 
     Map<TableName,List<T>> reportTablesRegions(final List<String> namespacesOrTables,
       ExecFunction<List<T>, String> checkingFunction) throws IOException {
       final Map<TableName,List<T>> result = new HashMap<>();
-      List<TableName> tableNames = MetaTableAccessor.
-        getTableStates(FsRegionsMetaRecoverer.this.conn).keySet().stream()
+      List<TableName> tableNames = HBCKMetaTableAccessor.
+        getTables(FsRegionsMetaRecoverer.this.conn).stream()
           .filter(tableName -> {
             if(namespacesOrTables==null || namespacesOrTables.isEmpty()){
               return true;

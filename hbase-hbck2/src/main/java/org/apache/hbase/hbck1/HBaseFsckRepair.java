@@ -27,7 +27,6 @@ import java.util.Random;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ClusterMetrics.Option;
-import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
@@ -164,7 +163,7 @@ public final class HBaseFsckRepair {
       RegionInfo hri, Collection<ServerName> servers, int numReplicas) throws IOException {
     Connection conn = ConnectionFactory.createConnection(conf);
     Table meta = conn.getTable(TableName.META_TABLE_NAME);
-    Put put = MetaTableAccessor.makePutFromRegionInfo(hri, System.currentTimeMillis());
+    Put put = HBCKMetaTableAccessor.makePutFromRegionInfo(hri, System.currentTimeMillis());
     if (numReplicas > 1) {
       Random r = new Random();
       ServerName[] serversArr = servers.toArray(new ServerName[servers.size()]);
@@ -174,7 +173,7 @@ public final class HBaseFsckRepair {
         // see the additional replicas when it is asked to assign. The
         // final value of these columns will be different and will be updated
         // by the actual regionservers that start hosting the respective replicas
-        MetaTableAccessor.addLocation(put, sn, sn.getStartcode(), i);
+        HBCKMetaTableAccessor.addLocation(put, sn, sn.getStartcode(), i);
       }
     }
     meta.put(put);
