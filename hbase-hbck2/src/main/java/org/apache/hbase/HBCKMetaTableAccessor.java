@@ -206,9 +206,8 @@ public final class HBCKMetaTableAccessor {
           RegionInfo info = RegionInfo
             .parseFromOrNull(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
           return info;
-        } else {
-          return null;
         }
+        return null;
       });
   }
 

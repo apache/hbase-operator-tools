@@ -134,21 +134,20 @@ public class FsRegionsMetaRecoverer implements Closeable {
     List<String> nameSpaceOrTable) throws IOException {
     if(nameSpaceOrTable.size()>0) {
       InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
-      return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions, regions ->
-        regions.stream().map(r -> {
-          try {
-            HBCKMetaTableAccessor.deleteRegionInfo(conn, r);
-            return r.getEncodedName();
-          } catch(IOException e){
-            LOG.error("Failed to delete region: {}", r.getEncodedName());
-            return r.getEncodedName() + " (failed)";
-          }
-        }).collect(Collectors.toList()), nameSpaceOrTable);
-    } else {
-      return null;
+      return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions,
+        this::deleteAllRegions, nameSpaceOrTable);
     }
+    return null;
   }
 
+  private List<String> deleteAllRegions(List<RegionInfo> regions) throws IOException {
+    List<String> resulting = new ArrayList<>();
+    for(RegionInfo r : regions){
+      HBCKMetaTableAccessor.deleteRegionInfo(conn, r);
+      resulting.add(r.getEncodedName());
+    }
+    return resulting;
+  }
 
   @Override
   public void close() throws IOException {
