@@ -23,6 +23,8 @@ import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
 import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
 import static org.apache.hadoop.hbase.MetaTableAccessor.getMetaHTable;
 
+import edu.umd.cs.findbugs.annotations.Nullable;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,7 +38,6 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import edu.umd.cs.findbugs.annotations.Nullable;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellBuilder;
 import org.apache.hadoop.hbase.CellBuilderFactory;
@@ -65,11 +66,11 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.PairOfSameType;
-import org.apache.hbase.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.yetus.audience.InterfaceAudience;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.hbase.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 /**
  * hbck's local version of the MetaTableAccessor from the hbase repo
@@ -187,48 +188,48 @@ public final class HBCKMetaTableAccessor {
    * @param conn a valid, open connection.
    * @param table the table to list regions in meta.
    * @return a list of <code>RegionInfo</code> for all table regions present in meta.
-   * @throws IOException
+   * @throws IOException on any issues related with scanning meta table
    */
   public static List<RegionInfo> getTableRegions(final Connection conn, final TableName table)
-    throws IOException {
+      throws IOException {
     final MetaScanner<RegionInfo> scanner = new MetaScanner<>();
     final String startRow = Bytes.toString(table.getName()) + ",,";
     final String stopRow = Bytes.toString(table.getName()) + " ,,";
     return scanner.scanMeta(conn,
-        scan -> {
-          scan.withStartRow(Bytes.toBytes(startRow));
-          scan.withStopRow(Bytes.toBytes(stopRow));
-        },
-        r -> {
-          Cell cell = r.getColumnLatestCell(CATALOG_FAMILY, REGIONINFO_QUALIFIER);
-          if(cell != null) {
-            RegionInfo info = RegionInfo
-              .parseFromOrNull(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
-            return info;
-          } else {
-            return null;
-          }
-        });
+      scan -> {
+        scan.withStartRow(Bytes.toBytes(startRow));
+        scan.withStopRow(Bytes.toBytes(stopRow));
+      },
+      r -> {
+        Cell cell = r.getColumnLatestCell(CATALOG_FAMILY, REGIONINFO_QUALIFIER);
+        if(cell != null) {
+          RegionInfo info = RegionInfo
+            .parseFromOrNull(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
+          return info;
+        } else {
+          return null;
+        }
+      });
   }
 
   /**
    * Returns a list of all tables having related entries on meta.
    * @param conn a valid, open connection.
    * @return a list of <code>TableName</code> for each table having at least one entry in meta.
-   * @throws IOException
+   * @throws IOException on any issues related with scanning meta table
    */
   public static List<TableName> getTables(final Connection conn) throws IOException {
     MetaScanner<TableName> scanner = new MetaScanner<>();
     return scanner.scanMeta(conn,
-        scan -> scan.addColumn(TABLE_FAMILY, TABLE_STATE_QUALIFIER),
-        r -> {
-          final byte[] rowBytes = r.getRow();
-          String table = Bytes.toString(rowBytes);
-          if(table.lastIndexOf(HConstants.DELIMITER)>0) {
-            table = table.substring(0, table.lastIndexOf(HConstants.DELIMITER));
-          }
-          return TableName.valueOf(table);
-        });
+      scan -> scan.addColumn(TABLE_FAMILY, TABLE_STATE_QUALIFIER),
+      r -> {
+        final byte[] rowBytes = r.getRow();
+        String table = Bytes.toString(rowBytes);
+        if(table.lastIndexOf(HConstants.DELIMITER)>0) {
+          table = table.substring(0, table.lastIndexOf(HConstants.DELIMITER));
+        }
+        return TableName.valueOf(table);
+      });
   }
 
   /**
@@ -236,7 +237,7 @@ public final class HBCKMetaTableAccessor {
    * cell value in 'hbase:meta'.
    * @param conn a valid, open connection.
    * @param region the region to be inserted in meta.
-   * @throws IOException
+   * @throws IOException on any issues related with scanning meta table
    */
   public static void addRegionToMeta(Connection conn, RegionInfo region) throws IOException {
     conn.getTable(TableName.META_TABLE_NAME).put(makePutFromRegionInfo(region,
@@ -247,7 +248,7 @@ public final class HBCKMetaTableAccessor {
    * List all valid regions currently in META, excluding parent whoese been completely split.
    * @param conn a valid, open connection.
    * @return a list of all regions in META, excluding split parents.
-   * @throws IOException
+   * @throws IOException on any issues related with scanning meta table
    */
   public static List<RegionInfo> getAllRegions(Connection conn) throws IOException {
     MetaScanner<RegionInfo> scanner = new MetaScanner<>();
@@ -267,23 +268,23 @@ public final class HBCKMetaTableAccessor {
    * <code>TableName</code> as key and <code>TableState</code> as the value.
    * @param conn a valid, open connection.
    * @return a Map of <code>TableName</code> as key and <code>TableState</code> as the value.
-   * @throws IOException
+   * @throws IOException on any issues related with scanning meta table
    */
   public static Map<TableName, TableState> getAllTablesStates(Connection conn) throws IOException {
     final MetaScanner<Pair<TableName, TableState>> scanner = new MetaScanner<>();
     final Map<TableName, TableState> resultMap = new HashMap<>();
     scanner.scanMeta(conn,
       scan -> scan.addColumn(TABLE_FAMILY, TABLE_STATE_QUALIFIER),
-        r -> {
-          try {
-            TableState state = getTableState(r);
-            TableName name = TableName.valueOf(r.getRow());
-            resultMap.put(name, state);
-          } catch (IOException e) {
-            LOG.error(e.getMessage());
-          }
-          return null;
-        });
+      r -> {
+        try {
+          TableState state = getTableState(r);
+          TableName name = TableName.valueOf(r.getRow());
+          resultMap.put(name, state);
+        } catch (IOException e) {
+          LOG.error(e.getMessage());
+        }
+        return null;
+      });
     return resultMap;
   }
 
@@ -493,7 +494,9 @@ public final class HBCKMetaTableAccessor {
   @Nullable
   public static RegionInfo getRegionInfo(final Result r, byte [] qualifier) {
     Cell cell = r.getColumnLatestCell(CATALOG_FAMILY, qualifier);
-    if (cell == null) return null;
+    if (cell == null) {
+      return null;
+    }
     return RegionInfo.parseFromOrNull(cell.getValueArray(),
       cell.getValueOffset(), cell.getValueLength());
   }
@@ -525,7 +528,9 @@ public final class HBCKMetaTableAccessor {
    */
   private static long getSeqNumDuringOpen(final Result r, final int replicaId) {
     Cell cell = r.getColumnLatestCell(CATALOG_FAMILY, getSeqNumColumn(replicaId));
-    if (cell == null || cell.getValueLength() == 0) return HConstants.NO_SEQNUM;
+    if (cell == null || cell.getValueLength() == 0) {
+      return HConstants.NO_SEQNUM;
+    }
     return Bytes.toLong(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
   }
 
@@ -540,12 +545,16 @@ public final class HBCKMetaTableAccessor {
   public static ServerName getServerName(final Result r, final int replicaId) {
     byte[] serverColumn = getServerColumn(replicaId);
     Cell cell = r.getColumnLatestCell(CATALOG_FAMILY, serverColumn);
-    if (cell == null || cell.getValueLength() == 0) return null;
+    if (cell == null || cell.getValueLength() == 0) {
+      return null;
+    }
     String hostAndPort = Bytes.toString(
       cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
     byte[] startcodeColumn = getStartCodeColumn(replicaId);
     cell = r.getColumnLatestCell(CATALOG_FAMILY, startcodeColumn);
-    if (cell == null || cell.getValueLength() == 0) return null;
+    if (cell == null || cell.getValueLength() == 0) {
+      return null;
+    }
     try {
       return ServerName.valueOf(hostAndPort,
         Bytes.toLong(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
@@ -559,13 +568,17 @@ public final class HBCKMetaTableAccessor {
    * Returns an HRegionLocationList extracted from the result.
    * (Copied from MetaTableAccessor)
    * @return an HRegionLocationList containing all locations for the region range or null if
-   *  we can't deserialize the result.
+   *   we can't deserialize the result.
    */
   @Nullable
   public static RegionLocations getRegionLocations(final Result r) {
-    if (r == null) return null;
+    if (r == null) {
+      return null;
+    }
     RegionInfo regionInfo = getRegionInfo(r, REGIONINFO_QUALIFIER);
-    if (regionInfo == null) return null;
+    if (regionInfo == null) {
+      return null;
+    }
 
     List<HRegionLocation> locations = new ArrayList<>(1);
     NavigableMap<byte[], NavigableMap<byte[],byte[]>> familyMap = r.getNoVersionMap();
@@ -573,7 +586,9 @@ public final class HBCKMetaTableAccessor {
     locations.add(getRegionLocation(r, regionInfo, 0));
 
     NavigableMap<byte[], byte[]> infoMap = familyMap.get(CATALOG_FAMILY);
-    if (infoMap == null) return new RegionLocations(locations);
+    if (infoMap == null) {
+      return new RegionLocations(locations);
+    }
 
     // iterate until all serverName columns are seen
     int replicaId = 0;
@@ -581,7 +596,9 @@ public final class HBCKMetaTableAccessor {
     SortedMap<byte[], byte[]> serverMap;
     serverMap = infoMap.tailMap(serverColumn, false);
 
-    if (serverMap.isEmpty()) return new RegionLocations(locations);
+    if (serverMap.isEmpty()) {
+      return new RegionLocations(locations);
+    }
 
     for (Map.Entry<byte[], byte[]> entry : serverMap.entrySet()) {
       replicaId = parseReplicaIdFromServerColumn(entry.getKey());
