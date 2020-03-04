@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ClusterConnection;
@@ -230,7 +229,7 @@ public class TestHBCK2 {
 
   @Test
   public void testReportMissingRegionsInMetaSpecificTblAndNsTblAlsoMissing() throws Exception {
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), TableName.valueOf("hbase:namespace"));
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), regions.get(0));
     this.testReportMissingRegionsInMeta(5, 6,
@@ -251,7 +250,7 @@ public class TestHBCK2 {
   @Test
   public void testFormatReportMissingInMetaOneMissing() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), regions.get(0));
     String expectedResult = "Missing Regions for each table:\n";
@@ -294,13 +293,13 @@ public class TestHBCK2 {
     throws Exception {
     TableName tableName = createTestTable(totalRegions);
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     Connection connection = TEST_UTIL.getConnection();
     regions.subList(0, missingRegions).forEach(r -> deleteRegionInfo(connection, r));
     int remaining = totalRegions - missingRegions;
     assertEquals("Table should have " + remaining + " regions in META.", remaining,
-      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+      HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
     List<Future<List<String>>> result = hbck.addMissingRegionsInMetaForTables("default:" +
       tableName.getNameAsString());
 
@@ -314,16 +313,16 @@ public class TestHBCK2 {
     }).reduce(0, Integer::sum);
     assertEquals(missingRegions, total.intValue());
     assertEquals("Table regions should had been re-added in META.", totalRegions,
-      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+      HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
     //compare the added regions to make sure those are the same
-    List<RegionInfo> newRegions = MetaTableAccessor
+    List<RegionInfo> newRegions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     assertEquals("All re-added regions should be the same", regions, newRegions);
   }
 
   private void testReportMissingRegionsInMeta(int missingRegionsInTestTbl,
       int expectedTotalMissingRegions, String... namespaceOrTable) throws Exception {
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
     Connection connection = TEST_UTIL.getConnection();
     regions.subList(0, missingRegionsInTestTbl).forEach(r -> deleteRegionInfo(connection, r));
@@ -410,7 +409,7 @@ public class TestHBCK2 {
   @Test
   public void testReportExtraRegionsInMetaSpecificTblAndNsTblAlsoExtra() throws Exception {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     this.testReportExtraRegionsInMeta(5, 6,
@@ -432,7 +431,7 @@ public class TestHBCK2 {
   @Test
   public void testFormatReportExtraInMetaOneExtra() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
@@ -470,7 +469,7 @@ public class TestHBCK2 {
   @Test
   public void testFormatFixExtraInMetaOneExtra() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
@@ -489,7 +488,7 @@ public class TestHBCK2 {
   @Test
   public void testFormatFixExtraInMetaOneExtraSpecificTable() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
@@ -536,7 +535,7 @@ public class TestHBCK2 {
     throws Exception {
     TableName tableName = createTestTable(totalRegions);
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), tableName);
     regions.subList(0, extraRegions).forEach(r -> deleteRegionDir(tableName, r.getEncodedName()));
     int remaining = totalRegions - extraRegions;
@@ -545,12 +544,12 @@ public class TestHBCK2 {
         "default:" + tableName.getNameAsString()
       }).get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
-      MetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+      HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
   }
 
   private void testReportExtraRegionsInMeta(int extraRegionsInTestTbl,
     int expectedTotalExtraRegions, String... namespaceOrTable) throws Exception {
-    List<RegionInfo> regions = MetaTableAccessor
+    List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
     regions.subList(0, extraRegionsInTestTbl).forEach(r -> deleteRegionDir(TABLE_NAME,
       r.getEncodedName()));
