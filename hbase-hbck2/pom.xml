@@ -143,6 +143,23 @@
           <failOnViolation>true</failOnViolation>
         </configuration>
       </plugin>
+      <!-- Forbidden APIs plugin used here to ban usage of hbase I.A. private classes-->
+      <plugin>
+        <groupId>de.thetaphi</groupId>
+        <artifactId>forbiddenapis</artifactId>
+        <version>2.6</version>
+        <configuration>
+          <signatures>org.apache.hadoop.hbase.MetaTableAccessor</signatures>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+              <goal>testCheck</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <dependencies>

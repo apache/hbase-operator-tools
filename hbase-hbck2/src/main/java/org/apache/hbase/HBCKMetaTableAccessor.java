@@ -21,7 +21,6 @@ import static org.apache.hadoop.hbase.HConstants.CATALOG_FAMILY;
 import static org.apache.hadoop.hbase.HConstants.REGIONINFO_QUALIFIER;
 import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
 import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
-import static org.apache.hadoop.hbase.MetaTableAccessor.getMetaHTable;
 
 import edu.umd.cs.findbugs.annotations.Nullable;
 
@@ -418,7 +417,7 @@ public final class HBCKMetaTableAccessor {
     if (tableName.equals(TableName.META_TABLE_NAME)) {
       return new TableState(tableName, TableState.State.ENABLED);
     }
-    Table metaHTable = getMetaHTable(conn);
+    Table metaHTable = conn.getTable(TableName.META_TABLE_NAME);
     Get get = new Get(tableName.getName()).addColumn(TABLE_FAMILY, TABLE_STATE_QUALIFIER);
     Result result = metaHTable.get(get);
     return getTableState(result);
