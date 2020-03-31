@@ -55,8 +55,8 @@ _org.apache.hadoop.hbase.client.Admin.mergeRegionsAsync_ client API method.
 This means multiple merge requests had been sent once the whole list has been
 iterated.
 
-Assuming all these requests complete, resulting total number of
-regions will be ceil((original total number regions)/2). This resulting total
+Assuming that all merges issued by the RegionsMerger are successful, the resulting number of 
+regions will be no more than half the original number of regions. This resulting total
 might not be equal to the target value passed as parameter, in which case
 _RegionsMerger_ will perform another round of merge requests, this time over
 the current existing regions (it fetches another list of regions from
@@ -80,7 +80,7 @@ region size reaches `hbase.hregion.max.filesize` value. The percentage of
 `hbase.tools.merge.upper.mark` property and it defaults to `0.9`.
 
 Given this `hbase.hregion.max.filesize` restriction for merge results, it may be
-impossible to achieve the desired total number of regions, in certain scenarios.
+impossible to achieve the desired total number of regions.
 _RegionsMerger_ keeps tracking the progress of regions merges, on each round.
 If no progress is observed after a configurable amount of rounds,
 _RegionsMerger_ aborts automatically. The limit of rounds without progress is an

@@ -100,7 +100,7 @@ public class TestRegionsMerger {
   @Test
   public void testMergeRegionsInvalidParams() throws Exception {
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
-    assertEquals(-1, merger.run(new String[]{}));
+    assertEquals(1, merger.run(new String[]{}));
   }
 
   private void generateTableData() throws Exception {

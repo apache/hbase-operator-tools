@@ -20,9 +20,11 @@ package org.apache.hbase;
 import static org.apache.hadoop.hbase.HConstants.CATALOG_FAMILY;
 import static org.apache.hadoop.hbase.HConstants.REGIONINFO_QUALIFIER;
 import static org.apache.hadoop.hbase.HConstants.STATE_QUALIFIER;
+import static org.apache.hadoop.hbase.TableName.META_TABLE_NAME;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -106,9 +108,8 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
 
   private List<RegionInfo> getOpenRegions(Connection connection, TableName table) throws Exception {
     List<RegionInfo> regions = new ArrayList<>();
-    Table metaTbl = connection.getTable(TableName.valueOf("hbase:meta"));
-    String tblName = table.getNamespaceAsString().equals("default") ? table.getNameAsString() :
-      table.getNamespaceAsString() + "." + table.getNameAsString();
+    Table metaTbl = connection.getTable(META_TABLE_NAME);
+    String tblName = table.getNameAsString();
     RowFilter rowFilter = new RowFilter(CompareOperator.EQUAL,
       new SubstringComparator(tblName+","));
     SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY,
@@ -120,9 +121,8 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     scan.setFilter(filter);
     ResultScanner rs = metaTbl.getScanner(scan);
     Result r;
-    while((r = rs.next())!=null) {
-      RegionInfo region =
-        RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
+    while ((r = rs.next()) != null) {
+      RegionInfo region = RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
       regions.add(region);
     }
     rs.close();
@@ -130,8 +130,12 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
   }
 
   private boolean canMerge(Path path, RegionInfo region1, RegionInfo region2,
-      Set<RegionInfo> alreadyMerging) throws IOException {
-    if(alreadyMerging.contains(region1) || alreadyMerging.contains(region2)){
+      Collection<Pair<RegionInfo, RegionInfo>> alreadyMerging) throws IOException {
+    if(alreadyMerging.stream().anyMatch(regionPair ->
+        region1.equals(regionPair.getFirst()) ||
+        region2.equals(regionPair.getFirst()) ||
+        region1.equals(regionPair.getSecond()) ||
+        region2.equals(regionPair.getSecond()))){
       return false;
     }
     if (RegionInfo.areAdjacent(region1, region2)) {
@@ -163,72 +167,61 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       LongAdder lastTimeProgessed = new LongAdder();
       //need to get all regions for the table, regardless of region state
       List<RegionInfo> regions = admin.getRegions(table);
-      Map<RegionInfo, Future> regionsMerging = new HashMap<>();
+      Map<Future, Pair<RegionInfo, RegionInfo>> regionsMerging = new HashMap<>();
       long roundsNoProgress = 0;
-      while (regions.size() > targetRegions && roundsNoProgress < this.maxRoundsStuck) {
+      while (regions.size() > targetRegions) {
         LOG.info("Iteration: {}", counter);
         RegionInfo previous = null;
-        LOG.info("Attempting to merge {} regions...", regions.size());
+        int regionSize = regions.size();
+        LOG.info("Attempting to merge {} regions to reach the target {} ...", regionSize, targetRegions);
         //to request merge, regions must be OPEN, though
         regions = getOpenRegions(conn, table);
         for (RegionInfo current : regions) {
           if (!current.isSplit()) {
-            if (previous == null) {
-              previous = current;
-            } else {
-              if(canMerge(tableDir, previous, current, regionsMerging.keySet())) {
-                Future f = admin.mergeRegionsAsync(current.getEncodedNameAsBytes(),
+            if (previous != null && canMerge(tableDir, previous, current, regionsMerging.values())) {
+              Future f = admin.mergeRegionsAsync(current.getEncodedNameAsBytes(),
                   previous.getEncodedNameAsBytes(), true);
-                regionsMerging.put(previous, f);
-                regionsMerging.put(current, f);
-                previous = null;
-                if((regions.size()-1) <= targetRegions){
-                  break;
-                }
-              } else {
-                previous = current;
+              Pair<RegionInfo, RegionInfo> regionPair = new Pair<>(previous, current);
+              regionsMerging.put(f,regionPair);
+              previous = null;
+              if ((regionSize - regionsMerging.size()) <= targetRegions) {
+                break;
               }
-
+            } else {
+              previous = current;
             }
+          }
+          else{
+            LOG.debug("Skipping split region: {}", current.getEncodedName());
           }
         }
         counter.increment();
         LOG.info("Sleeping for {} seconds before next iteration...", (sleepBetweenCycles/1000));
         Thread.sleep(sleepBetweenCycles);
-        Pair<RegionInfo, RegionInfo> completedPair = new Pair<>();
-        regionsMerging.keySet().forEach(r-> {
-          Future f = regionsMerging.get(r);
-          if(completedPair.getFirst()==null){
-            completedPair.setFirst(r);
-          } else if(completedPair.getSecond()==null) {
-            completedPair.setSecond(r);
-          }
-          if(completedPair.getFirst()!=null && completedPair.getSecond()!=null) {
-            if (f.isDone()) {
-              LOG.info("Merged regions {} and {} together.",
-                completedPair.getFirst().getEncodedName(),
-                completedPair.getSecond().getEncodedName());
-              regionsMerging.remove(completedPair.getFirst());
-              regionsMerging.remove(completedPair.getSecond());
-              lastTimeProgessed.reset();
-              lastTimeProgessed.add(counter.longValue());
-            } else {
-              LOG.warn("Merge of regions {} and {} isn't completed yet.",
-                completedPair.getFirst(),
-                completedPair.getSecond());
-            }
-            completedPair.setFirst(null);
-            completedPair.setSecond(null);
+        regionsMerging.forEach((f, currentPair)-> {
+          if (f.isDone()) {
+            LOG.info("Merged regions {} and {} together.",
+              currentPair.getFirst().getEncodedName(),
+              currentPair.getSecond().getEncodedName());
+            regionsMerging.remove(f);
+            lastTimeProgessed.reset();
+            lastTimeProgessed.add(counter.longValue());
+          } else {
+            LOG.warn("Merge of regions {} and {} isn't completed yet.",
+              currentPair.getFirst(),
+              currentPair.getSecond());
           }
         });
-        //again, get all regions, regardless of the state,
-        // in order to avoid breaking the loop prematurely
-        regions = admin.getRegions(table);
         roundsNoProgress = counter.longValue() - lastTimeProgessed.longValue();
         if(roundsNoProgress == this.maxRoundsStuck){
           LOG.warn("Reached {} iterations without progressing with new merges. Aborting...",
             roundsNoProgress);
+          break;
         }
+
+        //again, get all regions, regardless of the state,
+        // in order to avoid breaking the loop prematurely
+        regions = admin.getRegions(table);
       }
     }
   }
@@ -238,13 +231,13 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     if(args.length!=2){
       LOG.error("Wrong number of arguments. "
         + "Arguments are: <TABLE_NAME> <TARGET_NUMBER_OF_REGIONS>");
-      return -1;
+      return 1;
     }
     try {
       this.mergeRegions(args[0], Integer.parseInt(args[1]));
     } catch(Exception e){
-      LOG.error(e.getMessage());
-      return -1;
+      LOG.error("Merging regions failed:", e);
+      return 2;
     }
     return 0;
   }
