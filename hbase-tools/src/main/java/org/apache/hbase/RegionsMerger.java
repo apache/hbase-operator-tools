@@ -55,6 +55,7 @@ import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.util.ToolRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +69,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
   private static final Logger LOG = LoggerFactory.getLogger(RegionsMerger.class.getName());
   public static final String RESULTING_REGION_UPPER_MARK = "hbase.tools.merge.upper.mark";
   public static final String SLEEP = "hbase.tools.merge.sleep";
-  public static final String MAX_ROUNDS_IDDLE = "hbase.tools.max.iterations.blocked";
+  public static final String MAX_ROUNDS_IDLE = "hbase.tools.max.iterations.blocked";
 
   private final Configuration conf;
   private final FileSystem fs;
@@ -83,7 +84,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     resultSizeThreshold = this.conf.getDouble(RESULTING_REGION_UPPER_MARK, 0.9) *
       this.conf.getLong(HConstants.HREGION_MAX_FILESIZE, HConstants.DEFAULT_MAX_FILE_SIZE);
     sleepBetweenCycles = this.conf.getInt(SLEEP, 2000);
-    this.maxRoundsStuck = this.conf.getInt(MAX_ROUNDS_IDDLE, 10);
+    this.maxRoundsStuck = this.conf.getInt(MAX_ROUNDS_IDLE, 10);
   }
 
   private Path getTablePath(TableName table){
@@ -119,13 +120,13 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     filter.addFilter(rowFilter);
     filter.addFilter(colFilter);
     scan.setFilter(filter);
-    ResultScanner rs = metaTbl.getScanner(scan);
-    Result r;
-    while ((r = rs.next()) != null) {
-      RegionInfo region = RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
-      regions.add(region);
+    try(ResultScanner rs = metaTbl.getScanner(scan)){
+      Result r;
+      while ((r = rs.next()) != null) {
+        RegionInfo region = RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
+        regions.add(region);
+      }
     }
-    rs.close();
     return regions;
   }
 
@@ -244,7 +245,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
 
   public static void main(String [] args) throws Exception {
     Configuration conf = HBaseConfiguration.create();
-    int errCode = org.apache.hadoop.util.ToolRunner.run(new RegionsMerger(conf), args);
+    int errCode = ToolRunner.run(new RegionsMerger(conf), args);
     if (errCode != 0) {
       System.exit(errCode);
     }

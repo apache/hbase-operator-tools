@@ -68,39 +68,51 @@ public class TestRegionsMerger {
 
   @Test
   public void testMergeRegionsCanMergeToTarget() throws Exception {
-    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 10);
+    final int originalCount = TEST_UTIL.countRows(table);
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), 3);
     List<RegionInfo> result = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
     assertEquals(3, result.size());
+    assertEquals("Row count before and after merge should be equal",
+        originalCount, TEST_UTIL.countRows(table));
   }
 
   @Test
   public void testMergeRegionsCanMergeSomeButNotToTarget() throws Exception {
-    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 3);
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 3);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     generateTableData();
+    final int originalCount = TEST_UTIL.countRows(table);
     merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), 3);
     List<RegionInfo> result = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
     assertEquals(8, result.size());
+    assertEquals("Row count before and after merge should be equal",
+        originalCount, TEST_UTIL.countRows(table));
   }
 
   @Test
   public void testMergeRegionsCannotMergeAny() throws Exception {
     TEST_UTIL.getConfiguration().setDouble(RegionsMerger.RESULTING_REGION_UPPER_MARK, 0.5);
-    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDDLE, 2);
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 2);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     generateTableData();
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
+    final int originalCount = TEST_UTIL.countRows(table);
     merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), 3);
     List<RegionInfo> result = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
     assertEquals(15, result.size());
+    assertEquals("Row count before and after merge should be equal",
+        originalCount, TEST_UTIL.countRows(table));
   }
 
   @Test
   public void testMergeRegionsInvalidParams() throws Exception {
+    final int originalCount = TEST_UTIL.countRows(table);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
     assertEquals(1, merger.run(new String[]{}));
+    assertEquals("Row count before and after merge should be equal",
+        originalCount, TEST_UTIL.countRows(table));
   }
 
   private void generateTableData() throws Exception {
