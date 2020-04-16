@@ -504,6 +504,20 @@ public class TestHBCK2 {
     assertFalse("Should not contain: " + expectedResult, result.contains(expectedResult));
   }
 
+  @Test
+  public void testFunctionSupported() throws IOException {
+    try (ClusterConnection connection = this.hbck2.connect()) {
+      this.hbck2.checkFunctionSupported(connection, "scheduleRecoveries");
+    }
+  }
+
+  @Test (expected = UnsupportedOperationException.class)
+  public void testFunctionNotSupported() throws IOException {
+    try (ClusterConnection connection = this.hbck2.connect()) {
+      this.hbck2.checkFunctionSupported(connection, "test");
+    }
+  }
+
   private String testFormatExtraRegionsInMetaReport() throws IOException {
     return testFormatExtraRegionsInMeta(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
   }

@@ -21,8 +21,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -94,6 +96,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
   private static final String FIX_META = "fixMeta";
+  // TODO update this map in case of the name of a method changes in Hbck interface
+  //  in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
+  //  does not equals to the method name in Hbck interface.
+  private static final Map<String, List<String> > FUNCTION_NAME_MAP =
+          Collections.unmodifiableMap(new HashMap<String, List<String>>() {{
+              put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
+              put(BYPASS, Arrays.asList("bypassProcedure"));
+              put(SCHEDULE_RECOVERIES, Arrays.asList("scheduleServerCrashProcedure",
+                      "scheduleServerCrashProcedures")); }});
 
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
@@ -130,6 +141,20 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
             serverVersion + "; needs at least a server that matches or exceeds " +
             Arrays.toString(thresholdVersions));
       }
+    }
+  }
+
+  void checkFunctionSupported(ClusterConnection connection, String cmd) throws IOException {
+    if (skipCheck) {
+      LOG.info("Skipped {} command version check; 'skip' set", cmd);
+      return;
+    }
+    List<Method> methods = Arrays.asList(connection.getHbck().getClass().getDeclaredMethods());
+    List<String> finalCmds = FUNCTION_NAME_MAP.getOrDefault(cmd, Collections.singletonList(cmd));
+    boolean supported = methods.stream().anyMatch(method ->  finalCmds.contains(method.getName()));
+    if (!supported) {
+      throw new UnsupportedOperationException("This HBase cluster does not support command: "
+              + cmd);
     }
   }
 
@@ -324,7 +349,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean recursiveFlag = commandLine.hasOption(recursive.getOpt());
     List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
     try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-      checkHBCKSupport(connection, BYPASS);
+      checkFunctionSupported(connection, BYPASS);
       return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
     }
   }
@@ -727,7 +752,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkHBCKSupport(connection, command);
+          checkFunctionSupported(connection, command);
           System.out.println(setTableState(hbck, TableName.valueOf(commands[1]),
               TableState.State.valueOf(commands[2])));
         }
@@ -739,7 +764,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkHBCKSupport(connection, command);
+          checkFunctionSupported(connection, command);
           System.out.println(assigns(hbck, purgeFirst(commands)));
         }
         break;
@@ -749,7 +774,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more pids");
           return EXIT_FAILURE;
         }
-        // bypass does the connection setup and the checkHBCKSupport down
+        // bypass does the connection setup and the checkFunctionSupported down
         // inside in the bypass method delaying connection setup until last
         // moment. It does this because it has another set of command options
         // to process and wants to do that before setting up connection.
@@ -768,7 +793,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkHBCKSupport(connection, command);
+          checkFunctionSupported(connection, command);
           System.out.println(toString(unassigns(hbck, purgeFirst(commands))));
         }
         break;
@@ -813,7 +838,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkHBCKSupport(connection, command, "2.0.3", "2.1.2", "2.2.0", "3.0.0");
+          checkFunctionSupported(connection, command);
           System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
         }
         break;
@@ -824,8 +849,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkHBCKSupport(connection, command, "2.0.6", "2.1.6", "2.2.1", "2.3.0",
-              "3.0.0");
+          checkFunctionSupported(connection, command);
           hbck.fixMeta();
           System.out.println("Server-side processing of fixMeta triggered.");
         }
