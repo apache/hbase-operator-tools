@@ -558,7 +558,7 @@ have related entries on hbase:meta table. This may happen due to problems on spl
 operation mistakes (like deleting/moving the region dir manually), or even meta info data loss
 issues such as HBASE-21843.
 
-Such problem can be addressed with the Master online, using the _removeExtraRegionsFromMeta_
+Such problem can be addressed with the Master online, using the _extraRegionsInMeta --fix_
 command in _HBCK2_. This command is less disruptive to hbase than a full hbase:meta rebuild
 covered later. Also useful when this happens on versions that don't support _fixMeta_ hbck2 option
 (any prior to "2.0.6", "2.1.6", "2.2.1", "2.3.0","3.0.0").
