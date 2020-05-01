@@ -125,6 +125,7 @@ import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hadoop.hbase.replication.ReplicationPeerDescription;
 import org.apache.hadoop.hbase.replication.ReplicationQueueStorage;
 import org.apache.hadoop.hbase.replication.ReplicationStorageFactory;
+import org.apache.hadoop.hbase.security.AccessDeniedException;
 import org.apache.hadoop.hbase.security.UserProvider;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Bytes.ByteArrayComparator;
@@ -144,7 +145,6 @@ import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
 import org.apache.hadoop.hbase.zookeeper.ZNodePaths;
 import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
 import org.apache.hadoop.ipc.RemoteException;
-import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
@@ -2450,7 +2450,7 @@ public class HBaseFsck extends Configured implements Closeable {
     }
   }
 
-  private void preCheckPermission() throws IOException {
+  private void preCheckPermission() throws IOException, AccessDeniedException {
     if (shouldIgnorePreCheckPermission()) {
       return;
     }
@@ -2462,8 +2462,8 @@ public class HBaseFsck extends Configured implements Closeable {
     FileStatus[] files = fs.listStatus(hbaseDir);
     for (FileStatus file : files) {
       try {
-        fs.access(file.getPath(), FsAction.WRITE);
-      } catch (AccessControlException ace) {
+        FSUtils.checkAccess(ugi, file, FsAction.WRITE);
+      } catch (AccessDeniedException ace) {
         LOG.warn("Got AccessDeniedException when preCheckPermission ", ace);
         errors.reportError(ErrorReporter.ERROR_CODE.WRONG_USAGE, "Current user " +
             ugi.getUserName() + " does not have write perms to " + file.getPath() +
