@@ -54,6 +54,7 @@
     </license>
   </licenses>
   <modules>
+    <module>hbase-table-reporter</module>
     <module>hbase-hbck2</module>
     <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
          -->

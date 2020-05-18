@@ -22,3 +22,4 @@ Host for [Apache HBase&trade;](https://hbase.apache.org)
 operator tools including:
 
  * [HBCK2](https://github.com/apache/hbase-operator-tools/tree/master/hbase-hbck2), the hbase-2.x fix-it tool, the successor to hbase-1's _hbck_ (A.K.A _hbck1_).
+ * [TableReporter](https://github.com/apache/hbase-operator-tools/tree/master/hbase-table-reporter), a tool to generate a basic report on Table column counts and row sizes; use when no distributed execution available.
