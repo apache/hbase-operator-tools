@@ -25,10 +25,9 @@ import static org.apache.hadoop.hbase.TableName.META_TABLE_NAME;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -168,7 +167,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       LongAdder lastTimeProgessed = new LongAdder();
       //need to get all regions for the table, regardless of region state
       List<RegionInfo> regions = admin.getRegions(table);
-      Map<Future, Pair<RegionInfo, RegionInfo>> regionsMerging = new HashMap<>();
+      Map<Future, Pair<RegionInfo, RegionInfo>> regionsMerging = new ConcurrentHashMap<>();
       long roundsNoProgress = 0;
       while (regions.size() > targetRegions) {
         LOG.info("Iteration: {}", counter);
