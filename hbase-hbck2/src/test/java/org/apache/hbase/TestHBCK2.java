@@ -22,10 +22,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -144,6 +146,27 @@ public class TestHBCK2 {
         for (RegionInfo ri : regions) {
           RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
               getRegionStates().getRegionState(ri.getEncodedName());
+          LOG.info("RS: {}", rs.toString());
+          assertTrue(rs.toString(), rs.isOpened());
+        }
+        // test input files
+        String testFile = "inputForAssignsTest";
+        FileOutputStream output = new FileOutputStream(testFile, false);
+        LOG.info("writing to: {}", testFile);
+        for (String regionStr : regionStrsArray) {
+          output.write((regionStr + System.lineSeparator()).getBytes());
+          LOG.info("writing {} to: {}", regionStr, testFile);
+        }
+        output.close();
+        List<String> inputArg = new ArrayList<>();
+        inputArg.add("-i");
+        inputArg.add(testFile);
+        LOG.info("input args", inputArg.toString());
+        pids = this.hbck2.assigns(hbck, inputArg.toArray(new String[0]));
+        waitOnPids(pids);
+        for (RegionInfo ri : regions) {
+          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+                  getRegionStates().getRegionState(ri.getEncodedName());
           LOG.info("RS: {}", rs.toString());
           assertTrue(rs.toString(), rs.isOpened());
         }
