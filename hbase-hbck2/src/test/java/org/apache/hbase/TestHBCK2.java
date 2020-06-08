@@ -17,14 +17,8 @@
  */
 package org.apache.hbase;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +26,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -59,6 +55,8 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -144,6 +142,27 @@ public class TestHBCK2 {
         for (RegionInfo ri : regions) {
           RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
               getRegionStates().getRegionState(ri.getEncodedName());
+          LOG.info("RS: {}", rs.toString());
+          assertTrue(rs.toString(), rs.isOpened());
+        }
+        // test input files
+        String testFile = "inputForAssignsTest";
+        FileOutputStream output = new FileOutputStream(testFile, false);
+        LOG.info("writing to: {}", testFile);
+        for (String regionStr : regionStrsArray) {
+          output.write((regionStr + System.lineSeparator()).getBytes());
+          LOG.info("writing {} to: {}", regionStr, testFile);
+        }
+        output.close();
+        List<String> inputArg = new ArrayList<>();
+        inputArg.add("-i");
+        inputArg.add(testFile);
+        LOG.info("input args", inputArg.toString());
+        pids = this.hbck2.assigns(hbck, inputArg.toArray(new String[0]));
+        waitOnPids(pids);
+        for (RegionInfo ri : regions) {
+          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+                  getRegionStates().getRegionState(ri.getEncodedName());
           LOG.info("RS: {}", rs.toString());
           assertTrue(rs.toString(), rs.isOpened());
         }
