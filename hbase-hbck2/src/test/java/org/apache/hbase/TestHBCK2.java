@@ -152,17 +152,11 @@ public class TestHBCK2 {
         // test input files
         String testFile = "inputForAssignsTest";
         FileOutputStream output = new FileOutputStream(testFile, false);
-        LOG.info("writing to: {}", testFile);
         for (String regionStr : regionStrsArray) {
           output.write((regionStr + System.lineSeparator()).getBytes());
-          LOG.info("writing {} to: {}", regionStr, testFile);
         }
         output.close();
-        List<String> inputArg = new ArrayList<>();
-        inputArg.add("-i");
-        inputArg.add(testFile);
-        LOG.info("input args", inputArg.toString());
-        pids = this.hbck2.assigns(hbck, inputArg.toArray(new String[0]));
+        testRunWithArgs(new String[] {"-i", testFile, testFile});
         waitOnPids(pids);
         for (RegionInfo ri : regions) {
           RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
@@ -542,18 +536,18 @@ public class TestHBCK2 {
   }
 
   private String testFormatExtraRegionsInMetaReport() throws IOException {
-    return testFormatExtraRegionsInMeta(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
+    return testRunWithArgs(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
   }
 
   private String testFormatExtraRegionsInMetaFix(String table) throws IOException {
     if(table!=null) {
-      return testFormatExtraRegionsInMeta(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f", table});
+      return testRunWithArgs(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f", table});
     } else {
-      return testFormatExtraRegionsInMeta(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f"});
+      return testRunWithArgs(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f"});
     }
   }
 
-  private String testFormatExtraRegionsInMeta(String[] args) throws IOException {
+  private String testRunWithArgs(String[] args) throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     final StringBuilder builder = new StringBuilder();
     PrintStream originalOS = System.out;
