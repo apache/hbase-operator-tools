@@ -90,7 +90,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   static final int EXIT_FAILURE = 1;
   // Commands
   private static final String SET_TABLE_STATE = "setTableState";
-  private static final String ASSIGNS = "assigns";
   private static final String UNASSIGNS = "unassigns";
   private static final String BYPASS = "bypass";
   private static final String FILESYSTEM = "filesystem";
@@ -112,7 +111,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
+
   static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+  static final String ASSIGNS = "assigns";
+
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;

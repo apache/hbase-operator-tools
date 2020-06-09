@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -129,47 +130,40 @@ public class TestHBCK2 {
             getRegionStates().getRegionState(ri.getEncodedName());
         LOG.info("RS: {}", rs.toString());
       }
-      List<String> regionStrs =
-          regions.stream().map(RegionInfo::getEncodedName).collect(Collectors.toList());
-      String [] regionStrsArray = regionStrs.toArray(new String[] {});
+      String [] regionStrsArray  =
+          regions.stream().map(RegionInfo::getEncodedName).collect(Collectors.toList())
+                  .toArray(new String[] {});
+
       try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
-        List<Long> pids = this.hbck2.unassigns(hbck, regionStrsArray);
+        unassigns(regions, regionStrsArray);
+        List<Long> pids = this.hbck2.assigns(hbck, regionStrsArray);
         waitOnPids(pids);
-        for (RegionInfo ri : regions) {
-          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-              getRegionStates().getRegionState(ri.getEncodedName());
-          LOG.info("RS: {}", rs.toString());
-          assertTrue(rs.toString(), rs.isClosed());
+        validateOpen(regions);
+        // What happens if crappy region list passed?
+        pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
+                collect(Collectors.toList()).toArray(new String[]{}));
+        for (long pid : pids) {
+          assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
         }
-        pids = this.hbck2.assigns(hbck, regionStrsArray);
-        waitOnPids(pids);
-        for (RegionInfo ri : regions) {
-          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-              getRegionStates().getRegionState(ri.getEncodedName());
-          LOG.info("RS: {}", rs.toString());
-          assertTrue(rs.toString(), rs.isOpened());
-        }
+
         // test input files
+        unassigns(regions, regionStrsArray);
         String testFile = "inputForAssignsTest";
         FileOutputStream output = new FileOutputStream(testFile, false);
         for (String regionStr : regionStrsArray) {
           output.write((regionStr + System.lineSeparator()).getBytes());
         }
         output.close();
-        testRunWithArgs(new String[] {"-i", testFile, testFile});
+        String result = testRunWithArgs(new String[] {HBCK2.ASSIGNS, "-i", testFile});
+        Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
+        pids = new ArrayList<>();
+        while (scanner.hasNext()) {
+            pids.add(scanner.nextLong());
+        }
+        scanner.close();
+        //pids = this.hbck2.assigns(hbck, new String[] {"-i", testFile});
         waitOnPids(pids);
-        for (RegionInfo ri : regions) {
-          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-                  getRegionStates().getRegionState(ri.getEncodedName());
-          LOG.info("RS: {}", rs.toString());
-          assertTrue(rs.toString(), rs.isOpened());
-        }
-        // What happens if crappy region list passed?
-        pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
-            collect(Collectors.toList()).toArray(new String[]{}));
-        for (long pid : pids) {
-          assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
-        }
+        validateOpen(regions);
       }
     }
   }
@@ -281,6 +275,29 @@ public class TestHBCK2 {
     //validates namespace region is not reported missing
     expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
+  }
+
+  private void unassigns(List<RegionInfo> regions, String[] regionStrsArray) throws IOException {
+    try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
+      List<Long> pids = this.hbck2.unassigns(hbck, regionStrsArray);
+      waitOnPids(pids);
+    }
+    for (RegionInfo ri : regions) {
+      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+              getRegionStates().getRegionState(ri.getEncodedName());
+      LOG.info("RS: {}", rs.toString());
+      assertTrue(rs.toString(), rs.isClosed());
+    }
+  }
+
+
+  private void validateOpen(List<RegionInfo> regions) {
+    for (RegionInfo ri : regions) {
+      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+              getRegionStates().getRegionState(ri.getEncodedName());
+      LOG.info("RS: {}", rs.toString());
+      assertTrue(rs.toString(), rs.isOpened());
+    }
   }
 
   private String testFormatMissingRegionsInMetaReport()
