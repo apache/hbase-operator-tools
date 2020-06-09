@@ -73,6 +73,8 @@ public class TestHBCK2 {
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
   private static final TableName REGION_STATES_TABLE_NAME = TableName.
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
+  private final static String ASSIGNS = "assigns";
+  private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
 
   @Rule
   public TestName testName = new TestName();
@@ -154,14 +156,13 @@ public class TestHBCK2 {
           output.write((regionStr + System.lineSeparator()).getBytes());
         }
         output.close();
-        String result = testRunWithArgs(new String[] {HBCK2.ASSIGNS, "-i", testFile});
+        String result = testRunWithArgs(new String[] {ASSIGNS, "-i", testFile});
         Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
         pids = new ArrayList<>();
         while (scanner.hasNext()) {
             pids.add(scanner.nextLong());
         }
         scanner.close();
-        //pids = this.hbck2.assigns(hbck, new String[] {"-i", testFile});
         waitOnPids(pids);
         validateOpen(regions);
       }
@@ -553,14 +554,14 @@ public class TestHBCK2 {
   }
 
   private String testFormatExtraRegionsInMetaReport() throws IOException {
-    return testRunWithArgs(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
+    return testRunWithArgs(new String[]{EXTRA_REGIONS_IN_META});
   }
 
   private String testFormatExtraRegionsInMetaFix(String table) throws IOException {
     if(table!=null) {
-      return testRunWithArgs(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f", table});
+      return testRunWithArgs(new String[] {EXTRA_REGIONS_IN_META, "-f", table});
     } else {
-      return testRunWithArgs(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f"});
+      return testRunWithArgs(new String[] {EXTRA_REGIONS_IN_META, "-f"});
     }
   }
 
