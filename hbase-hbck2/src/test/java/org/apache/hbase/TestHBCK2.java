@@ -22,15 +22,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Arrays;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -130,40 +127,32 @@ public class TestHBCK2 {
             getRegionStates().getRegionState(ri.getEncodedName());
         LOG.info("RS: {}", rs.toString());
       }
-      String [] regionStrsArray  =
-          regions.stream().map(RegionInfo::getEncodedName).collect(Collectors.toList())
-                  .toArray(new String[] {});
-
+      List<String> regionStrs =
+          regions.stream().map(RegionInfo::getEncodedName).collect(Collectors.toList());
+      String [] regionStrsArray = regionStrs.toArray(new String[] {});
       try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
-        unassigns(regions, regionStrsArray);
-        List<Long> pids = this.hbck2.assigns(hbck, regionStrsArray);
+        List<Long> pids = this.hbck2.unassigns(hbck, regionStrsArray);
         waitOnPids(pids);
-        validateOpen(regions);
+        for (RegionInfo ri : regions) {
+          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+              getRegionStates().getRegionState(ri.getEncodedName());
+          LOG.info("RS: {}", rs.toString());
+          assertTrue(rs.toString(), rs.isClosed());
+        }
+        pids = this.hbck2.assigns(hbck, regionStrsArray);
+        waitOnPids(pids);
+        for (RegionInfo ri : regions) {
+          RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+              getRegionStates().getRegionState(ri.getEncodedName());
+          LOG.info("RS: {}", rs.toString());
+          assertTrue(rs.toString(), rs.isOpened());
+        }
         // What happens if crappy region list passed?
         pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
-                collect(Collectors.toList()).toArray(new String[]{}));
+            collect(Collectors.toList()).toArray(new String[]{}));
         for (long pid : pids) {
           assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
         }
-
-        // test input files
-        unassigns(regions, regionStrsArray);
-        String testFile = "inputForAssignsTest";
-        FileOutputStream output = new FileOutputStream(testFile, false);
-        for (String regionStr : regionStrsArray) {
-          output.write((regionStr + System.lineSeparator()).getBytes());
-        }
-        output.close();
-        String result = testRunWithArgs(new String[] {HBCK2.ASSIGNS, "-i", testFile});
-        Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
-        pids = new ArrayList<>();
-        while (scanner.hasNext()) {
-            pids.add(scanner.nextLong());
-        }
-        scanner.close();
-        //pids = this.hbck2.assigns(hbck, new String[] {"-i", testFile});
-        waitOnPids(pids);
-        validateOpen(regions);
       }
     }
   }
@@ -275,29 +264,6 @@ public class TestHBCK2 {
     //validates namespace region is not reported missing
     expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
-  }
-
-  private void unassigns(List<RegionInfo> regions, String[] regionStrsArray) throws IOException {
-    try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
-      List<Long> pids = this.hbck2.unassigns(hbck, regionStrsArray);
-      waitOnPids(pids);
-    }
-    for (RegionInfo ri : regions) {
-      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-              getRegionStates().getRegionState(ri.getEncodedName());
-      LOG.info("RS: {}", rs.toString());
-      assertTrue(rs.toString(), rs.isClosed());
-    }
-  }
-
-
-  private void validateOpen(List<RegionInfo> regions) {
-    for (RegionInfo ri : regions) {
-      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-              getRegionStates().getRegionState(ri.getEncodedName());
-      LOG.info("RS: {}", rs.toString());
-      assertTrue(rs.toString(), rs.isOpened());
-    }
   }
 
   private String testFormatMissingRegionsInMetaReport()
@@ -553,18 +519,18 @@ public class TestHBCK2 {
   }
 
   private String testFormatExtraRegionsInMetaReport() throws IOException {
-    return testRunWithArgs(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
+    return testFormatExtraRegionsInMeta(new String[]{HBCK2.EXTRA_REGIONS_IN_META });
   }
 
   private String testFormatExtraRegionsInMetaFix(String table) throws IOException {
     if(table!=null) {
-      return testRunWithArgs(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f", table});
+      return testFormatExtraRegionsInMeta(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f", table});
     } else {
-      return testRunWithArgs(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f"});
+      return testFormatExtraRegionsInMeta(new String[] {HBCK2.EXTRA_REGIONS_IN_META, "-f"});
     }
   }
 
-  private String testRunWithArgs(String[] args) throws IOException {
+  private String testFormatExtraRegionsInMeta(String[] args) throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     final StringBuilder builder = new StringBuilder();
     PrintStream originalOS = System.out;
