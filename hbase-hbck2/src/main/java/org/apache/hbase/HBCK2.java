@@ -17,9 +17,6 @@
  */
 package org.apache.hbase;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -90,6 +87,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   static final int EXIT_FAILURE = 1;
   // Commands
   private static final String SET_TABLE_STATE = "setTableState";
+  private static final String ASSIGNS = "assigns";
   private static final String UNASSIGNS = "unassigns";
   private static final String BYPASS = "bypass";
   private static final String FILESYSTEM = "filesystem";
@@ -111,10 +109,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
-
   static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
-  static final String ASSIGNS = "assigns";
-
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -285,12 +280,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
-  List<Long> assigns(Hbck hbck, String[] args) throws IOException {
+  List<Long> assigns(Hbck hbck, String [] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
-    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(override);
-    options.addOption(inputFile);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
@@ -301,29 +294,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-
-    List<String> argList = commandLine.getArgList();
-    if (!commandLine.hasOption(inputFile.getOpt())) {
-      return hbck.assigns(argList, overrideFlag);
-    } else {
-      List<String> assignmentList = new ArrayList<>();
-      for (String filePath : argList) {
-        try {
-          File file = new File(filePath);
-          FileReader fileReader = new FileReader(file);
-          BufferedReader bufferedReader = new BufferedReader(fileReader);
-          String regionName;
-          while ((regionName = bufferedReader.readLine()) != null) {
-            assignmentList.add(regionName.trim());
-          }
-          fileReader.close();
-        } catch (IOException e) {
-          LOG.error("Error on input file: ", filePath);
-          throw e;
-        }
-      }
-      return hbck.assigns(assignmentList, overrideFlag);
-    }
+    return hbck.assigns(commandLine.getArgList(), overrideFlag);
   }
 
   List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
@@ -470,10 +441,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageAssigns(PrintWriter writer) {
-    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...");
+    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("    -i,--inputFiles  take one or more files of encoded region names");
     writer.println("   A 'raw' assign that can be used even during Master initialization (if");
     writer.println("   the -skip flag is specified). Skirts Coprocessors. Pass one or more");
     writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
@@ -481,9 +451,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   what a user-space encoded region name looks like. For example:");
     writer.println("     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
-    writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains encoded region names, one per line. For example:");
-    writer.println("     $ HBCK2 assigns -i fileName1 fileName2");
   }
 
   private static void usageBypass(PrintWriter writer) {
