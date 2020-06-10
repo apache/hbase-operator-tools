@@ -124,17 +124,20 @@ Command:
    SEE ALSO: reportMissingRegionsInMeta
    SEE ALSO: fixMeta
 
- assigns [OPTIONS] <ENCODED_REGIONNAME>...
+ assigns [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...
    Options:
     -o,--override  override ownership by another procedure
+    -i,--inputFiles  take one or more encoded region names
    A 'raw' assign that can be used even during Master initialization (if
    the -skip flag is specified). Skirts Coprocessors. Pass one or more
    encoded region names. 1588230740 is the hard-coded name for the
    hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example of
    what a user-space encoded region name looks like. For example:
-     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4
+     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created AssignProcedure(s) or -1 if none.
-
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains encoded region names, one per line. For example:
+     $ HBCK2 assigns -i fileName1 fileName2
  bypass [OPTIONS] <PID>...
    Options:
     -o,--override   override if procedure is running/stuck

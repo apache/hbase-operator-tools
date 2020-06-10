@@ -17,10 +17,7 @@
  */
 package org.apache.hbase;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +31,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.LineIterator;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -109,7 +109,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
-  static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+  private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -280,10 +281,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
-  List<Long> assigns(Hbck hbck, String [] args) throws IOException {
+  List<Long> assigns(Hbck hbck, String[] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
+    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(override);
+    options.addOption(inputFile);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
@@ -294,7 +297,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-    return hbck.assigns(commandLine.getArgList(), overrideFlag);
+
+    List<String> argList = commandLine.getArgList();
+    if (!commandLine.hasOption(inputFile.getOpt())) {
+      return hbck.assigns(argList, overrideFlag);
+    }
+    List<String> assignmentList = new ArrayList<>();
+    for (String filePath : argList) {
+      try (InputStream fileStream = new FileInputStream(filePath)){
+        LineIterator it = IOUtils.lineIterator(fileStream, "UTF-8");
+        while (it.hasNext()) {
+          assignmentList.add(it.nextLine().trim());
+        }
+      }
+    }
+    return hbck.assigns(assignmentList, overrideFlag);
   }
 
   List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
@@ -441,9 +458,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageAssigns(PrintWriter writer) {
-    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
+    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
+    writer.println("    -i,--inputFiles  take one or more files of encoded region names");
     writer.println("   A 'raw' assign that can be used even during Master initialization (if");
     writer.println("   the -skip flag is specified). Skirts Coprocessors. Pass one or more");
     writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
@@ -451,6 +469,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   what a user-space encoded region name looks like. For example:");
     writer.println("     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
+    writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
+    writer.println("   Each file contains encoded region names, one per line. For example:");
+    writer.println("     $ HBCK2 assigns -i fileName1 fileName2");
   }
 
   private static void usageBypass(PrintWriter writer) {
