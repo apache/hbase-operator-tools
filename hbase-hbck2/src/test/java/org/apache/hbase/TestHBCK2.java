@@ -133,8 +133,7 @@ public class TestHBCK2 {
         LOG.info("RS: {}", rs.toString());
       }
       String [] regionStrsArray  =
-          regions.stream().map(RegionInfo::getEncodedName).collect(Collectors.toList())
-                  .toArray(new String[] {});
+          regions.stream().map(RegionInfo::getEncodedName).toArray(String[]::new);
 
       try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
         unassigns(regions, regionStrsArray);

@@ -17,13 +17,7 @@
  */
 package org.apache.hbase;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +31,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.LineIterator;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -304,26 +301,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     List<String> argList = commandLine.getArgList();
     if (!commandLine.hasOption(inputFile.getOpt())) {
       return hbck.assigns(argList, overrideFlag);
-    } else {
-      List<String> assignmentList = new ArrayList<>();
-      for (String filePath : argList) {
-        try {
-          File file = new File(filePath);
-          FileReader fileReader = new FileReader(file);
-          BufferedReader bufferedReader = new BufferedReader(fileReader);
-          String regionName = bufferedReader.readLine().trim();
-          while (regionName != null) {
-            assignmentList.add(regionName);
-            regionName = bufferedReader.readLine();
-          }
-          fileReader.close();
-        } catch (IOException e) {
-          LOG.error("Error on input file: ", filePath);
-          throw e;
+    }
+    List<String> assignmentList = new ArrayList<>();
+    for (String filePath : argList) {
+      try (InputStream fileStream = new FileInputStream(filePath)){
+        LineIterator it = IOUtils.lineIterator(fileStream, "UTF-8");
+        while (it.hasNext()) {
+          assignmentList.add(it.nextLine().trim());
         }
       }
-      return hbck.assigns(assignmentList, overrideFlag);
     }
+    return hbck.assigns(assignmentList, overrideFlag);
   }
 
   List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
