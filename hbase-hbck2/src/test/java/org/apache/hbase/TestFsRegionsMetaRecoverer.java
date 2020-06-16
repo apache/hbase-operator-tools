@@ -49,10 +49,12 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
+import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
@@ -146,7 +148,20 @@ public class TestFsRegionsMetaRecoverer {
       .thenReturn(fis);
     fixer.putRegionInfoFromHdfsInMeta(regionPath);
     Mockito.verify(this.mockedConnection).getTable(TableName.META_TABLE_NAME);
-    Mockito.verify(this.mockedTable).put(any(Put.class));
+    ArgumentCaptor<Put> captor = ArgumentCaptor.forClass(Put.class);
+    Mockito.verify(this.mockedTable).put(captor.capture());
+    Put capturedPut = captor.getValue();
+    List<Cell> cells = capturedPut.get(HConstants.CATALOG_FAMILY,
+      HConstants.STATE_QUALIFIER);
+    assertEquals(1, cells.size());
+    String state = Bytes.toString(cells.get(0).getValueArray(),
+      cells.get(0).getValueOffset(), cells.get(0).getValueLength());
+    assertEquals(RegionState.State.valueOf(state), RegionState.State.CLOSED);
+    cells = capturedPut.get(HConstants.CATALOG_FAMILY,
+      HConstants.REGIONINFO_QUALIFIER);
+    byte[] returnedInfo = Bytes.copy(cells.get(0).getValueArray(),
+      cells.get(0).getValueOffset(), cells.get(0).getValueLength());
+    assertEquals(info, RegionInfo.parseFrom(returnedInfo));
   }
 
   @Test
