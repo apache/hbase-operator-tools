@@ -457,7 +457,7 @@ public final class HBCKMetaTableAccessor {
     return put;
   }
 
-  private static Put addRegionStateToPut(Put put, RegionState.State state) throws IOException {
+  private static void addRegionStateToPut(Put put, RegionState.State state) throws IOException {
     put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
       .setRow(put.getRow())
       .setFamily(HConstants.CATALOG_FAMILY)
@@ -466,7 +466,6 @@ public final class HBCKMetaTableAccessor {
       .setType(Cell.Type.Put)
       .setValue(Bytes.toBytes(state.name()))
       .build());
-    return put;
   }
 
   /**
