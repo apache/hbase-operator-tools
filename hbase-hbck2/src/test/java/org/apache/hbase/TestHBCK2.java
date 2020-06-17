@@ -22,6 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -149,13 +150,13 @@ public class TestHBCK2 {
 
         // test input files
         unassigns(regions, regionStrsArray);
-        String testFile = "inputForAssignsTest";
-        FileOutputStream output = new FileOutputStream(testFile, false);
-        for (String regionStr : regionStrsArray) {
-          output.write((regionStr + System.lineSeparator()).getBytes());
+        File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForAssignsTest");
+        try (FileOutputStream output = new FileOutputStream(testFile, false)) {
+          for (String regionStr : regionStrsArray) {
+            output.write((regionStr + System.lineSeparator()).getBytes());
+          }
         }
-        output.close();
-        String result = testRunWithArgs(new String[] {ASSIGNS, "-i", testFile});
+        String result = testRunWithArgs(new String[]{ASSIGNS, "-i", testFile.toString()});
         Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
         pids = new ArrayList<>();
         while (scanner.hasNext()) {
