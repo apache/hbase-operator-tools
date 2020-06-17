@@ -26,6 +26,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hbase.hbck1.HBaseFsck;
 import org.apache.hbase.hbck1.HFileCorruptionChecker;
@@ -46,7 +47,7 @@ public class FileSystemFsck implements Closeable {
 
   FileSystemFsck(Configuration conf) throws IOException {
     this.configuration = conf;
-    this.rootDir = FSUtils.getRootDir(this.configuration);
+    this.rootDir = CommonFSUtils.getRootDir(this.configuration);
     this.fs = rootDir.getFileSystem(this.configuration);
 
   }
@@ -82,7 +83,7 @@ public class FileSystemFsck implements Closeable {
       Collection<String> tables = commandLine.getArgList();
       Collection<Path> tableDirs = tables.isEmpty()?
           FSUtils.getTableDirs(this.fs, this.rootDir):
-          tables.stream().map(t -> FSUtils.getTableDir(this.rootDir, TableName.valueOf(t))).
+          tables.stream().map(t -> CommonFSUtils.getTableDir(this.rootDir, TableName.valueOf(t))).
               collect(Collectors.toList());
       hfcc.checkTables(tableDirs);
       hfcc.report(hbaseFsck.getErrors());

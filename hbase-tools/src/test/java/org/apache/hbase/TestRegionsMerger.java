@@ -29,11 +29,7 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 
 public class TestRegionsMerger {
@@ -71,9 +67,13 @@ public class TestRegionsMerger {
     final int originalCount = TEST_UTIL.countRows(table);
     TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
-    merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), 3);
+    // hbase-2.3 and hbase-2.1 merge's work differently; 2.3 won't merge if a merge candidate is a parent.
+    // The below used to merge until only 3 regions. Made it less aggressive. Originally there are 15 regions.
+    // Merge till 10.
+    final int target = 10;
+    merger.mergeRegions(TABLE_NAME.getNameWithNamespaceInclAsString(), target);
     List<RegionInfo> result = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
-    assertEquals(3, result.size());
+    assertEquals(target, result.size());
     assertEquals("Row count before and after merge should be equal",
         originalCount, TEST_UTIL.countRows(table));
   }

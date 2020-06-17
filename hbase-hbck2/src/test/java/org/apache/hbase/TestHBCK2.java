@@ -51,6 +51,7 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.util.Threads;
 
@@ -409,7 +410,7 @@ public class TestHBCK2 {
 
   private void deleteRegionDir(TableName tableName, String regionEncodedName) {
     try {
-      Path tableDir = FSUtils.getTableDir(this.TEST_UTIL.getDataTestDirOnTestFS(), tableName);
+      Path tableDir = CommonFSUtils.getTableDir(this.TEST_UTIL.getDataTestDirOnTestFS(), tableName);
       Path regionPath = new Path(tableDir, regionEncodedName);
       this.TEST_UTIL.getTestFileSystem().delete(regionPath, true);
     } catch (IOException e) {

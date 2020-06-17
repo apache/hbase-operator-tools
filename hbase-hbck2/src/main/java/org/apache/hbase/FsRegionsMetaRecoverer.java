@@ -77,7 +77,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   private List<Path> getTableRegionsDirs(String table) throws IOException {
     String hbaseRoot = this.config.get(HConstants.HBASE_DIR);
-    Path tableDir = FSUtils.getTableDir(new Path(hbaseRoot), TableName.valueOf(table));
+    Path tableDir = CommonFSUtils.getTableDir(new Path(hbaseRoot), TableName.valueOf(table));
     return FSUtils.getRegionDirs(fs, tableDir);
   }
 

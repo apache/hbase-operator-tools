@@ -26,10 +26,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.Hbck;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 import org.apache.hbase.thirdparty.com.google.protobuf.ServiceException;
 
@@ -62,22 +59,5 @@ public class TestSchedulingRecoveries {
       assertTrue(pids.get(0) > 0);
       assertTrue(pids.get(1) > 0);
     }
-  }
-
-  @Test
-  public void testSchedulingSCPWithBadHost() {
-    boolean thrown = false;
-    try {
-      try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
-        this.hbck2.scheduleRecoveries(hbck, new String[]{"a.example.org,1,2"});
-      }
-    } catch (IOException ioe) {
-      thrown = true;
-      // Throws a weird exception complaining about FileNotFoundException down inside
-      // a RemoteWithExtras... wrapped in a ServiceException. Check for latter. This
-      // won't change.
-      assertTrue(ioe.getCause() instanceof ServiceException);
-    }
-    assertTrue(thrown);
   }
 }
