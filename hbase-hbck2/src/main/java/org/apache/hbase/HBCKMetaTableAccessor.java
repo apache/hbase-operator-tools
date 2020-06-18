@@ -59,6 +59,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.exceptions.DeserializationException;
+import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Pair;
@@ -237,8 +238,10 @@ public final class HBCKMetaTableAccessor {
    * @throws IOException on any issues related with scanning meta table
    */
   public static void addRegionToMeta(Connection conn, RegionInfo region) throws IOException {
-    conn.getTable(TableName.META_TABLE_NAME).put(makePutFromRegionInfo(region,
-      System.currentTimeMillis()));
+    Put put = makePutFromRegionInfo(region,
+      System.currentTimeMillis());
+    addRegionStateToPut(put, RegionState.State.CLOSED);
+    conn.getTable(TableName.META_TABLE_NAME).put(put);
   }
 
   /**
@@ -449,6 +452,17 @@ public final class HBCKMetaTableAccessor {
       .setValue(RegionInfo.toByteArray(RegionReplicaUtil.getRegionInfoForDefaultReplica(region)))
       .build());
     return put;
+  }
+
+  private static void addRegionStateToPut(Put put, RegionState.State state) throws IOException {
+    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
+      .setRow(put.getRow())
+      .setFamily(HConstants.CATALOG_FAMILY)
+      .setQualifier(HConstants.STATE_QUALIFIER)
+      .setTimestamp(put.getTimestamp())
+      .setType(Cell.Type.Put)
+      .setValue(Bytes.toBytes(state.name()))
+      .build());
   }
 
   /**
