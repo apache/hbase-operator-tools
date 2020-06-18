@@ -114,6 +114,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
+  private boolean getFromFile = false;
 
   /**
    * Wait 1ms on lock by default.
@@ -203,8 +204,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     Map<TableName,List<Path>> report;
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
         new FsRegionsMetaRecoverer(this.conf)) {
-      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(
-        formatNameSpaceTableParam(nameSpaceOrTable));
+      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(getFromArgsOrFiles(
+        formatNameSpaceTableParam(nameSpaceOrTable)));
     } catch (IOException e) {
       LOG.error("Error reporting missing regions: ", e);
       throw e;
@@ -228,7 +229,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     Map<TableName, List<String>> result = new HashMap<>();
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
       new FsRegionsMetaRecoverer(this.conf)) {
-      List<String> namespacesTables = formatNameSpaceTableParam(commandLine.getArgs());
+      List<String> namespacesTables = getFromArgsOrFiles(formatNameSpaceTableParam(commandLine.getArgs()));
       Map<TableName, List<RegionInfo>> reportMap =
         fsRegionsMetaRecoverer.reportTablesExtraRegions(namespacesTables);
       final List<String> toFix = new ArrayList<>();
@@ -265,16 +266,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return result;
   }
 
-  private List<String> formatNameSpaceTableParam(String... nameSpaceOrTable) {
-    return nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
-  }
-
   List<Future<List<String>>> addMissingRegionsInMetaForTables(String...
       nameSpaceOrTable) throws IOException {
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
       new FsRegionsMetaRecoverer(this.conf)) {
-      return fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(
-        formatNameSpaceTableParam(nameSpaceOrTable));
+      return fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(getFromArgsOrFiles(
+        formatNameSpaceTableParam(nameSpaceOrTable)));
     } catch (IOException e) {
       LOG.error("Error adding missing regions: ", e);
       throw e;
@@ -284,9 +281,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   List<Long> assigns(Hbck hbck, String[] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
-    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(override);
-    options.addOption(inputFile);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
@@ -297,21 +292,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-
     List<String> argList = commandLine.getArgList();
-    if (!commandLine.hasOption(inputFile.getOpt())) {
-      return hbck.assigns(argList, overrideFlag);
-    }
-    List<String> assignmentList = new ArrayList<>();
-    for (String filePath : argList) {
-      try (InputStream fileStream = new FileInputStream(filePath)){
-        LineIterator it = IOUtils.lineIterator(fileStream, "UTF-8");
-        while (it.hasNext()) {
-          assignmentList.add(it.nextLine().trim());
-        }
-      }
-    }
-    return hbck.assigns(assignmentList, overrideFlag);
+    return hbck.assigns(this.getFromArgsOrFiles(argList), overrideFlag);
   }
 
   List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
@@ -328,7 +310,30 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-    return hbck.unassigns(commandLine.getArgList(), overrideFlag);
+    return hbck.unassigns(getFromArgsOrFiles(commandLine.getArgList()), overrideFlag);
+  }
+
+  private List<String> formatNameSpaceTableParam(String... nameSpaceOrTable) {
+    return nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
+  }
+
+  /**
+   * @return Read arguments from a list of input files
+   */
+  private List<String> getFromArgsOrFiles(List<String> args) throws IOException {
+    if (!getFromFile || args == null) {
+      return args;
+    }
+    List<String> argList = new ArrayList<>();
+    for (String filePath : args) {
+      try (InputStream fileStream = new FileInputStream(filePath)){
+        LineIterator it = IOUtils.lineIterator(fileStream, "UTF-8");
+        while (it.hasNext()) {
+          argList.add(it.nextLine().trim());
+        }
+      }
+    }
+    return argList;
   }
 
   /**
@@ -461,7 +466,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("    -i,--inputFiles  take one or more files of encoded region names");
     writer.println("   A 'raw' assign that can be used even during Master initialization (if");
     writer.println("   the -skip flag is specified). Skirts Coprocessors. Pass one or more");
     writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
@@ -471,7 +475,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println("   Each file contains encoded region names, one per line. For example:");
-    writer.println("     $ HBCK2 assigns -i fileName1 fileName2");
+    writer.println("     $ HBCK2 -i assigns fileName1 fileName2");
   }
 
   private static void usageBypass(PrintWriter writer) {
@@ -641,6 +645,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   of what a userspace encoded region name looks like. For example:");
     writer.println("     $ HBCK2 unassigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
+    writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
+    writer.println("   Each file contains encoded region names, one per line. For example:");
+    writer.println("     $ HBCK2 -i unassigns fileName1 fileName2");
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
     writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
@@ -695,6 +702,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     Option skip = Option.builder("s").longOpt("skip").
         desc("skip hbase version check (PleaseHoldException)").build();
     options.addOption(skip);
+    Option inputFile = Option.builder("i").longOpt("inputFiles")
+            .desc("take one or more files to read the args from").build();
+    options.addOption(inputFile);
 
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
@@ -744,6 +754,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     if (commandLine.hasOption(skip.getOpt())) {
       skipCheck = true;
+    }
+    if (commandLine.hasOption(inputFile.getOpt())) {
+      getFromFile = true;
     }
     return doCommandLine(commandLine, options);
   }

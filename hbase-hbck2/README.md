@@ -137,12 +137,13 @@ Command:
    Returns the pid(s) of the created AssignProcedure(s) or -1 if none.
    If -i or --inputFiles is specified, pass one or more input file names.
    Each file contains encoded region names, one per line. For example:
-     $ HBCK2 assigns -i fileName1 fileName2
+     $ HBCK2 -i assigns fileName1 fileName2
  bypass [OPTIONS] <PID>...
    Options:
     -o,--override   override if procedure is running/stuck
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
     -w,--lockWait   milliseconds to wait before giving up; default=1
+    -i, --inputFile   take one or more files to read the args from
    Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
    of bypassed procedure will also be skipped to the finish. Entities will
    be left in an inconsistent state and will require manual fixup. May
@@ -280,6 +281,9 @@ Command:
    of what a userspace encoded region name looks like. For example:
      $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains encoded region names, one per line. For example:
+     $ HBCK2 -i unassigns fileName1 fileName2
 
    SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline
    hbase:meta tool. See the HBCK2 README for how to use.

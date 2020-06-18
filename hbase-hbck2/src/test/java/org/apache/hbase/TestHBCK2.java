@@ -52,7 +52,6 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
-import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.util.Threads;
 
 import org.junit.After;
@@ -77,6 +76,7 @@ public class TestHBCK2 {
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
   private final static String ASSIGNS = "assigns";
   private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+  private final static String UNASSIGNS = "unassigns";
 
   @Rule
   public TestName testName = new TestName();
@@ -126,6 +126,24 @@ public class TestHBCK2 {
   }
 
   @Test
+  public void testUnAssigns() throws IOException {
+    try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
+      List<RegionInfo> regions = admin.getRegions(TABLE_NAME);
+      for (RegionInfo ri : regions) {
+        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
+                getRegionStates().getRegionState(ri.getEncodedName());
+        LOG.info("RS: {}", rs.toString());
+      }
+      String[] regionStrsArray =
+              regions.stream().map(RegionInfo::getEncodedName).toArray(String[]::new);
+      File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForUnAssignsTest");
+      writeStringsToAFile(testFile, regionStrsArray);
+      String result = testRunWithArgs(new String[]{"-i", UNASSIGNS, testFile.toString()});
+      validateRegionEndState(getPidsFromResult(result), regions, false);
+    }
+  }
+
+  @Test
   public void testAssigns() throws IOException {
     try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
       List<RegionInfo> regions = admin.getRegions(TABLE_NAME);
@@ -140,8 +158,7 @@ public class TestHBCK2 {
       try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
         unassigns(regions, regionStrsArray);
         List<Long> pids = this.hbck2.assigns(hbck, regionStrsArray);
-        waitOnPids(pids);
-        validateOpen(regions);
+        validateRegionEndState(pids,regions, true);
         // What happens if crappy region list passed?
         pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
                 collect(Collectors.toList()).toArray(new String[]{}));
@@ -152,20 +169,9 @@ public class TestHBCK2 {
         // test input files
         unassigns(regions, regionStrsArray);
         File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForAssignsTest");
-        try (FileOutputStream output = new FileOutputStream(testFile, false)) {
-          for (String regionStr : regionStrsArray) {
-            output.write((regionStr + System.lineSeparator()).getBytes());
-          }
-        }
-        String result = testRunWithArgs(new String[]{ASSIGNS, "-i", testFile.toString()});
-        Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
-        pids = new ArrayList<>();
-        while (scanner.hasNext()) {
-            pids.add(scanner.nextLong());
-        }
-        scanner.close();
-        waitOnPids(pids);
-        validateOpen(regions);
+        writeStringsToAFile(testFile, regionStrsArray);
+        String result = testRunWithArgs(new String[]{"-i", ASSIGNS, testFile.toString()});
+        validateRegionEndState(getPidsFromResult(result), regions, true);
       }
     }
   }
@@ -279,6 +285,23 @@ public class TestHBCK2 {
     assertTrue(result.contains(expectedResult));
   }
 
+  private void writeStringsToAFile(File testFile, String[] strs) throws IOException {
+    try (FileOutputStream output = new FileOutputStream(testFile, false)) {
+      for (String regionStr : strs) {
+        output.write((regionStr + System.lineSeparator()).getBytes());
+      }
+    }
+  }
+  private List<Long> getPidsFromResult(String result) {
+    Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
+    List<Long> pids = new ArrayList<>();
+    while (scanner.hasNext()) {
+      pids.add(scanner.nextLong());
+    }
+    scanner.close();
+    return pids;
+  }
+
   private void unassigns(List<RegionInfo> regions, String[] regionStrsArray) throws IOException {
     try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
       List<Long> pids = this.hbck2.unassigns(hbck, regionStrsArray);
@@ -292,13 +315,13 @@ public class TestHBCK2 {
     }
   }
 
-
-  private void validateOpen(List<RegionInfo> regions) {
+  private void validateRegionEndState(List<Long> pids, List<RegionInfo> regions, boolean open) {
+    waitOnPids(pids);
     for (RegionInfo ri : regions) {
       RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
               getRegionStates().getRegionState(ri.getEncodedName());
       LOG.info("RS: {}", rs.toString());
-      assertTrue(rs.toString(), rs.isOpened());
+      assertTrue(rs.toString(), open? rs.isOpened() : rs.isClosed());
     }
   }
 
