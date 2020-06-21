@@ -91,6 +91,7 @@ The above command with no options or arguments passed will dump out the _HBCK2_ 
 usage: HBCK2 [OPTIONS] COMMAND <ARGS>
 Options:
  -d,--debug                                       run with debug output
+ -i, --inputfiles                                 take one or more files to read the args from
  -h,--help                                        output this help message
  -p,--hbase.zookeeper.property.clientPort <arg>   port of hbase ensemble
  -q,--hbase.zookeeper.quorum <arg>                hbase ensemble
