@@ -17,6 +17,8 @@
  */
 package org.apache.hbase;
 
+import java.io.IOException;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -24,7 +26,6 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.yetus.audience.InterfaceAudience;
 
-import java.io.IOException;
 
 /**
  * hbck's local version of the CommonFSUtils from the hbase repo
@@ -32,6 +33,13 @@ import java.io.IOException;
  */
 @InterfaceAudience.Private
 public final class HBCKFsUtils {
+
+  /**
+   * Private constructor to keep this class from being instantiated.
+   */
+  private HBCKFsUtils() {
+  }
+
   /**
    * Returns the {@link org.apache.hadoop.fs.Path} object representing the table directory under
    * path rootdir
