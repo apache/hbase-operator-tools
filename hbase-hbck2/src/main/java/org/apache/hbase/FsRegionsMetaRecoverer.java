@@ -42,7 +42,6 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
-import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 
 import org.slf4j.Logger;
@@ -64,7 +63,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   public FsRegionsMetaRecoverer(Configuration configuration) throws IOException {
     this.config = configuration;
-    this.fs = CommonFSUtils.getRootDirFileSystem(configuration);
+    this.fs = HBCKFsUtils.getRootDir(configuration).getFileSystem(configuration);
     this.conn = ConnectionFactory.createConnection(configuration);
   }
 
@@ -77,7 +76,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   private List<Path> getTableRegionsDirs(String table) throws IOException {
     String hbaseRoot = this.config.get(HConstants.HBASE_DIR);
-    Path tableDir = CommonFSUtils.getTableDir(new Path(hbaseRoot), TableName.valueOf(table));
+    Path tableDir = HBCKFsUtils.getTableDir(new Path(hbaseRoot), TableName.valueOf(table));
     return FSUtils.getRegionDirs(fs, tableDir);
   }
 
