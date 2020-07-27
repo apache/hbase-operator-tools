@@ -90,7 +90,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     Path basePath = new Path(conf.get(HConstants.HBASE_DIR));
     basePath = new Path(basePath, "data");
     Path tablePath = new Path(basePath, table.getNamespaceAsString());
-    return new Path(tablePath, table.getNameAsString());
+    return new Path(tablePath, table.getQualifierAsString());
   }
 
   private long sumSizeInFS(Path parentPath) throws IOException {
