@@ -150,6 +150,8 @@
         <version>2.6</version>
         <configuration>
           <signatures>org.apache.hadoop.hbase.MetaTableAccessor</signatures>
+          <signatures>org.apache.hadoop.hbase.util.FSUtils</signatures>
+          <signatures>org.apache.hadoop.hbase.util.CommonFSUtils</signatures>
         </configuration>
         <executions>
           <execution>

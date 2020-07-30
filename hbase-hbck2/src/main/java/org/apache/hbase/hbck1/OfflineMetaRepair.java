@@ -22,10 +22,10 @@ import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.util.CommonFSUtils;
-import org.apache.hadoop.hbase.util.FSUtils;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.io.MultipleIOException;
 
+import org.apache.hbase.HBCKFsUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +71,7 @@ public final class OfflineMetaRepair {
     Configuration conf = HBaseConfiguration.create();
     // Cover both bases, the old way of setting default fs and the new.
     // We're supposed to run on 0.20 and 0.21 anyways.
-    CommonFSUtils.setFsDefault(conf, CommonFSUtils.getRootDir(conf));
+    conf.set("fs.defaultFS", HBCKFsUtils.getRootDir(conf).toString());
     HBaseFsck fsck = new HBaseFsck(conf);
 
     // Process command-line args.
@@ -86,8 +86,8 @@ public final class OfflineMetaRepair {
         }
         // update hbase root dir to user-specified base
         i++;
-        CommonFSUtils.setRootDir(conf, new Path(args[i]));
-        CommonFSUtils.setFsDefault(conf, CommonFSUtils.getRootDir(conf));
+        conf.set(HConstants.HBASE_DIR, new Path(args[i]).toString());
+        conf.set("fs.defaultFS", HBCKFsUtils.getRootDir(conf).toString());
       } else if (cmd.equals("-sidelineDir")) {
         if (i == args.length - 1) {
           System.err.println("OfflineMetaRepair: -sidelineDir needs an HDFS path.");

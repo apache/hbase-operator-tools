@@ -41,11 +41,10 @@ import org.apache.hadoop.hbase.io.hfile.CacheConfig;
 import org.apache.hadoop.hbase.io.hfile.CorruptHFileException;
 import org.apache.hadoop.hbase.io.hfile.HFile;
 import org.apache.hadoop.hbase.mob.MobUtils;
-import org.apache.hadoop.hbase.util.CommonFSUtils;
-import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.util.FSUtils.FamilyDirFilter;
 import org.apache.hadoop.hbase.util.FSUtils.HFileFilter;
 import org.apache.hadoop.hbase.util.FSUtils.RegionDirFilter;
+import org.apache.hbase.HBCKFsUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.slf4j.Logger;
@@ -145,7 +144,7 @@ public class HFileCorruptionChecker {
     Path tableDir = regionDir.getParent();
 
     // build up the corrupted dirs structure
-    Path corruptBaseDir = new Path(CommonFSUtils.getRootDir(conf), HConstants.CORRUPT_DIR_NAME);
+    Path corruptBaseDir = new Path(HBCKFsUtils.getRootDir(conf), HConstants.CORRUPT_DIR_NAME);
     if (conf.get("hbase.hfile.quarantine.dir") != null) {
       LOG.warn("hbase.hfile.quarantine.dir is deprecated. Default to " + corruptBaseDir);
     }
@@ -171,7 +170,7 @@ public class HFileCorruptionChecker {
       return;
     }
 
-    List<FileStatus> hfs = FSUtils.filterFileStatuses(statuses, new HFileFilter(fs));
+    List<FileStatus> hfs = HBCKFsUtils.filterFileStatuses(statuses, new HFileFilter(fs));
     // Hadoop 1.0 listStatus does not throw an exception if the path does not exist.
     if (hfs.isEmpty() && !fs.exists(cfDir)) {
       LOG.warn("Colfam Directory " + cfDir +
@@ -200,7 +199,7 @@ public class HFileCorruptionChecker {
       return;
     }
 
-    List<FileStatus> hfs = FSUtils.filterFileStatuses(statuses, new HFileFilter(fs));
+    List<FileStatus> hfs = HBCKFsUtils.filterFileStatuses(statuses, new HFileFilter(fs));
     // Hadoop 1.0 listStatus does not throw an exception if the path does not exist.
     if (hfs.isEmpty() && !fs.exists(cfDir)) {
       LOG.warn("Mob colfam Directory " + cfDir +
@@ -298,7 +297,7 @@ public class HFileCorruptionChecker {
       return;
     }
 
-    List<FileStatus> cfs = FSUtils.filterFileStatuses(statuses, new FamilyDirFilter(fs));
+    List<FileStatus> cfs = HBCKFsUtils.filterFileStatuses(statuses, new FamilyDirFilter(fs));
     // Hadoop 1.0 listStatus does not throw an exception if the path does not exist.
     if (cfs.isEmpty() && !fs.exists(regionDir)) {
       LOG.warn("Region Directory " + regionDir +
@@ -318,7 +317,7 @@ public class HFileCorruptionChecker {
    */
   void checkTableDir(Path tableDir) throws IOException {
     List<FileStatus> rds =
-        FSUtils.listStatusWithStatusFilter(fs, tableDir, new RegionDirFilter(fs));
+      HBCKFsUtils.listStatusWithStatusFilter(fs, tableDir, new RegionDirFilter(fs));
     if (rds == null) {
       if (!fs.exists(tableDir)) {
         LOG.warn("Table Directory " + tableDir +
@@ -419,7 +418,7 @@ public class HFileCorruptionChecker {
    * @return An instance of MobRegionDirChecker.
    */
   private MobRegionDirChecker createMobRegionDirChecker(Path tableDir) {
-    TableName tableName = CommonFSUtils.getTableName(tableDir);
+    TableName tableName = HBCKFsUtils.getTableName(tableDir);
     Path mobDir = MobUtils.getMobRegionPath(conf, tableName);
     return new MobRegionDirChecker(mobDir);
   }
