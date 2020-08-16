@@ -54,3 +54,4 @@ lsblk -ta >"${output}/lsblk-ta" 2>&1 || true
 lsblk -fa >"${output}/lsblk-fa" 2>&1 || true
 ulimit -a >"${output}/ulimit-a" 2>&1 || true
 uptime >"${output}/uptime" 2>&1 || true
+hostname -a >"${output}/hostname-a" 2>&1 || true

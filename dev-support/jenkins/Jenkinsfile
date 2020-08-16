@@ -78,7 +78,6 @@ pipeline {
                         usernameVariable: 'GITHUB_USER'
                       )]) {
                         sh label: 'test-patch', script: '''#!/bin/bash -e
-                            hostname -a ; pwd ; ls -la
                             printenv 2>&1 | sort
                             echo "[INFO] Launching Yetus via ${YETUS_DRIVER}"
                             "${YETUS_DRIVER}"
