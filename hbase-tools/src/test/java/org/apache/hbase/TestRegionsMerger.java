@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
@@ -29,9 +30,14 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.TableDescriptor;
+import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.*;
-
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 public class TestRegionsMerger {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
@@ -130,6 +136,27 @@ public class TestRegionsMerger {
     assertEquals(1, merger.run(new String[]{}));
     assertEquals("Row count before and after merge should be equal",
         originalCount, TEST_UTIL.countRows(table));
+  }
+
+  @Test
+  public void testRegionHasNoState() throws Exception {
+    // Turn on the replication of the table, and then merge two regions, the parent regions will
+    // not have the column info:state in the meta table, only the column
+    // rep_barrier:seqnumDuringOpen is left. And we should skip the parent regions.
+    TableDescriptor tableDesc = TEST_UTIL.getAdmin().getDescriptor(TABLE_NAME);
+    TEST_UTIL.getAdmin().modifyTable(TableDescriptorBuilder.newBuilder(tableDesc).
+      setReplicationScope(HConstants.REPLICATION_SCOPE_GLOBAL).build());
+    generateTableData();
+    List<RegionInfo> regions = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
+    TEST_UTIL.getAdmin().mergeRegionsAsync(regions.get(0).getEncodedNameAsBytes(),
+      regions.get(1).getEncodedNameAsBytes(), false).get(1, TimeUnit.MINUTES);
+
+    TEST_UTIL.getAdmin().flush(TABLE_NAME);
+    final int originalCount = TEST_UTIL.countRows(table);
+    List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 10);
+    assertEquals(10, result.size());
+    assertEquals("Row count before and after merge should be equal",
+      originalCount, TEST_UTIL.countRows(table));
   }
 
   private void generateTableData() throws Exception {
