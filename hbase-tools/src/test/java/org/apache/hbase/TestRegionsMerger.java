@@ -21,17 +21,18 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellBuilderFactory;
+import org.apache.hadoop.hbase.CellBuilderType;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.MetaTableAccessor;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Table;
-import org.apache.hadoop.hbase.client.TableDescriptor;
-import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -140,16 +141,23 @@ public class TestRegionsMerger {
 
   @Test
   public void testRegionHasNoState() throws Exception {
+    TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 3);
+    generateTableData();
     // Turn on the replication of the table, and then merge two regions, the parent regions will
     // not have the column info:state in the meta table, only the column
     // rep_barrier:seqnumDuringOpen is left. And we should skip the parent regions.
-    TableDescriptor tableDesc = TEST_UTIL.getAdmin().getDescriptor(TABLE_NAME);
-    TEST_UTIL.getAdmin().modifyTable(TableDescriptorBuilder.newBuilder(tableDesc).
-      setReplicationScope(HConstants.REPLICATION_SCOPE_GLOBAL).build());
-    generateTableData();
-    List<RegionInfo> regions = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
-    TEST_UTIL.getAdmin().mergeRegionsAsync(regions.get(0).getEncodedNameAsBytes(),
-      regions.get(1).getEncodedNameAsBytes(), false).get(1, TimeUnit.MINUTES);
+    // Here we manually put a region with no state defined.
+    String noStateRegion = TABLE_NAME.getNameAsString()+",0";
+    Put put = new Put(Bytes.toBytes(noStateRegion));
+    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
+      .setRow(put.getRow())
+      .setFamily(HConstants.REPLICATION_BARRIER_FAMILY)
+      .setQualifier(HConstants.SEQNUM_QUALIFIER)
+      .setTimestamp(put.getTimestamp())
+      .setType(Cell.Type.Put)
+      .setValue(Bytes.toBytes(1))
+      .build());
+    MetaTableAccessor.getMetaHTable(TEST_UTIL.getConnection()).put(put);
 
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
     final int originalCount = TEST_UTIL.countRows(table);
