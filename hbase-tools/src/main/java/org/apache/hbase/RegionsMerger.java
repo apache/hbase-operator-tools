@@ -114,6 +114,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       new SubstringComparator(tblName+","));
     SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY,
       STATE_QUALIFIER, CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
+    colFilter.setFilterIfMissing(true);
     Scan scan = new Scan();
     FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
     filter.addFilter(rowFilter);
