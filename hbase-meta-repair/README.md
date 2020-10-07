@@ -18,8 +18,8 @@
 
 # Apache HBase Tool for repair metadata
 
-_MetaRepair_ is an utility tool for repairing hbase metadata table from hdfs regioninfo file. 
-When using the [Apache HBase&trade;](https://hbase.apache.org) 
+_MetaRepair_ is an utility tool for repairing hbase metadata table from hdfs regioninfo file.
+When using the [Apache HBase&trade;](https://hbase.apache.org)
 versions before 2.0.3 and 2.1.1 (**Without HBCK2**), You can use it to fix the HBase metadata correctly.
 
 ## Build
@@ -47,20 +47,20 @@ For example, to repair metadata of table `my-table` , assuming the _setup_ step 
 ```
 $ hbase org.apache.hbase.repair.MetaRepair my-table
 ```
-> The table with _namespace_ use `namespace:tablename`  form of parameter. 
+> The table with _namespace_ use `namespace:tablename` form of parameter.
 
 ## Implementation Details
 
 HBase uses table `hbase:meta` to store metadata. The table structure is as follows:
 
-|  Column |  Description | 
+|  Column |  Description |
 | ------ | ------ |
-| info:state | region state | 
-| info:sn | region server node, It consists of server and serverstartcode, such as `slave1,16020,1557998852385` | 
-| info:serverstartcode | region server start timestamp | 
-| info:server | region server address and port，such as `slave1:16020` | 
-| info:seqnumDuringOpen | a binary string representing the online duration of the region | 
-| info:regioninfo | same as the `.regioninfo` file | 
+| info:state | region state |
+| info:sn | region server node, It consists of server and serverstartcode, such as `slave1,16020,1557998852385` |
+| info:serverstartcode | region server start timestamp |
+| info:server | region server address and port，such as `slave1:16020` |
+| info:seqnumDuringOpen | a binary string representing the online duration of the region |
+| info:regioninfo | same as the `.regioninfo` file |
 
 > `info:seqnumDuringOpen` and `info:serverstartcode` will be automatically generated after the region server is restarted.
 
