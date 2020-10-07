@@ -51,7 +51,7 @@ public class TestMetaRepair {
   @BeforeClass
   public static void beforeClass() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
-        Long.toString(1024 * 1024 * 1));
+        Long.toString(1024 * 1024 * 3));
     TEST_UTIL.startMiniCluster(3);
   }
 
