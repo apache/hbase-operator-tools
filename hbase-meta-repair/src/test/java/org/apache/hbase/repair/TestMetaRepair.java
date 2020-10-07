@@ -42,9 +42,9 @@ public class TestMetaRepair {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final String NAMESPACE = "TEST";
   private static final TableName TABLE_NAME_WITH_NAMESPACE =
-          TableName.valueOf(NAMESPACE, TestMetaRepair.class.getSimpleName());
+      TableName.valueOf(NAMESPACE, TestMetaRepair.class.getSimpleName());
   private static final TableName TABLE_NAME =
-          TableName.valueOf(TestMetaRepair.class.getSimpleName());
+      TableName.valueOf(TestMetaRepair.class.getSimpleName());
   private static final byte[] family = Bytes.toBytes("test");
   private Table table;
 
