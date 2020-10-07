@@ -59,7 +59,8 @@
     <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
          -->
     <module>hbase-operator-tools-assembly</module>
-      <module>hbase-tools</module>
+    <module>hbase-tools</module>
+    <module>hbase-meta-repair</module>
   </modules>
   <scm>
     <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase-operator-tools.git</connection>
