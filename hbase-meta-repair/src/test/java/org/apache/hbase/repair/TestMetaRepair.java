@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
@@ -50,8 +49,6 @@ public class TestMetaRepair {
 
   @BeforeClass
   public static void beforeClass() throws Exception {
-    TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
-        Long.toString(1024 * 1024 * 3));
     TEST_UTIL.startMiniCluster(3);
   }
 
@@ -62,7 +59,7 @@ public class TestMetaRepair {
 
   @Before
   public void setup() throws Exception {
-    table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 10);
+    table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 5);
     TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME);
   }
 
@@ -76,8 +73,8 @@ public class TestMetaRepair {
     MetaRepair metaRepair = new MetaRepair(TEST_UTIL.getConfiguration());
     Map<String, byte[]> hbaseRegions = metaRepair.getMetaRegions(TABLE_NAME.getNameAsString());
     Map<String, RegionInfo> hdfsRegions = metaRepair.getHdfsRegions(TABLE_NAME.getNameAsString());
-    assertEquals(10, hbaseRegions.size());
-    assertEquals(10, hdfsRegions.size());
+    assertEquals(5, hbaseRegions.size());
+    assertEquals(5, hdfsRegions.size());
     assertTrue(hbaseRegions.keySet().containsAll(hdfsRegions.keySet()));
   }
 
