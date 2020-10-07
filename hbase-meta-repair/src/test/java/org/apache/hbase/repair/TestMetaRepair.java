@@ -95,9 +95,7 @@ public class TestMetaRepair {
     try {
       TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
       Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 6);
-      TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME_WITH_NAMESPACE);
       MetaRepair metaRepair = new MetaRepair(TEST_UTIL.getConfiguration());
-      generateTableData(TABLE_NAME_WITH_NAMESPACE);
       final int originalCount = TEST_UTIL.countRows(tableWithNamespace);
       metaRepair.repairMetadata(TABLE_NAME_WITH_NAMESPACE.getNameAsString());
       assertEquals("Row count before and after repair should be equal",
