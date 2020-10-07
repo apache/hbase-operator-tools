@@ -50,7 +50,8 @@ public class TestMetaRepair {
 
   @BeforeClass
   public static void beforeClass() throws Exception {
-    TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE, Long.toString(1024 * 1024 * 1));
+    TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
+        Long.toString(1024 * 1024 * 1));
     TEST_UTIL.startMiniCluster(3);
   }
 
@@ -94,7 +95,8 @@ public class TestMetaRepair {
   public void testRepairMetadataWithNameSpace() throws Exception {
     try {
       TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
-      Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 6);
+      Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE,
+          family, 6);
       MetaRepair metaRepair = new MetaRepair(TEST_UTIL.getConfiguration());
       final int originalCount = TEST_UTIL.countRows(tableWithNamespace);
       metaRepair.repairMetadata(TABLE_NAME_WITH_NAMESPACE.getNameAsString());
