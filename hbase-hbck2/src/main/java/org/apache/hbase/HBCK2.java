@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,6 +61,7 @@ import org.apache.hadoop.hbase.master.RegionState;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
+import org.mortbay.log.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,7 +137,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).getHBaseVersion();
       String [] thresholdVersions = supportedVersions == null || supportedVersions.length == 0?
           MINIMUM_HBCK2_VERSION: supportedVersions;
-      boolean supported = Version.check(serverVersion, thresholdVersions);
+//      boolean supported = Version.check(serverVersion, thresholdVersions);
+      boolean supported=true;
       if (!supported) {
         throw new UnsupportedOperationException(cmd + " not supported on server version=" +
             serverVersion + "; needs at least a server that matches or exceeds " +
@@ -149,8 +152,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       LOG.info("Skipped {} command version check; 'skip' set", cmd);
       return;
     }
-    List<Method> methods = Arrays.asList(connection.getHbck().getClass().getDeclaredMethods());
+    LOG.info("Class name: {}",connection.getHbck().getClass().getName());
+    URL location = connection.getHbck().getClass().getProtectionDomain().getCodeSource().getLocation();
+    LOG.info("CodeSource path: {}" ,connection.getHbck().getClass().getProtectionDomain().getCodeSource());
+    List<Method> methods = Arrays.asList(connection.getHbck().getClass().getMethods());
     List<String> finalCmds = FUNCTION_NAME_MAP.getOrDefault(cmd, Collections.singletonList(cmd));
+    for (Method method : methods) {
+      LOG.info("Method names: {}",method.getName());
+    }
+    LOG.info("FinalCmds {}",finalCmds);
     boolean supported = methods.stream().anyMatch(method ->  finalCmds.contains(method.getName()));
     if (!supported) {
       throw new UnsupportedOperationException("This HBase cluster does not support command: "
