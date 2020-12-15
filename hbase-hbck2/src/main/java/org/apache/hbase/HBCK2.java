@@ -95,6 +95,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
+  private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
   private static final String FIX_META = "fixMeta";
   // TODO update this map in case of the name of a method changes in Hbck interface
   //  in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
@@ -413,6 +414,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageFixMeta(writer);
     writer.println();
+    usageGenerateMissingTableInfo(writer);
+    writer.println();
     usageReplication(writer);
     writer.println();
     usageReportMissingRegionsInMeta(writer);
@@ -518,6 +521,28 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         " will clear up hbase:meta issues. See 'HBase HBCK' UI");
     writer.println("   for how to generate new execute.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
+  }
+
+  private static void usageGenerateMissingTableInfo(PrintWriter writer) {
+    writer.println(" " + GENERATE_TABLE_INFO + " <TABLENAME>");
+    writer.println("   Trying to fix an orphan table by generating a missing table descriptor");
+    writer.println("   file. This command will have no affect if the table folder is missing");
+    writer.println("   or if the .tableinfo is present (we don't override existing table");
+    writer.println("   descriptors). This command will first check it the TableDescriptor is");
+    writer.println("   cached in HBase Master in which case it will recover the .tableinfo");
+    writer.println("   accordingly. If TableDescriptor is not cached in master then it will");
+    writer.println("   create a default .tableinfo file with the following items:");
+    writer.println("     - the table name");
+    writer.println("     - the column family list determined based on the file system");
+    writer.println("     - the default properties for both TableDescriptor and");
+    writer.println("       ColumnFamilyDescriptors");
+    writer.println("   If the .tableinfo file was generated using default parameters then");
+    writer.println("   make sure you check the table / column family properties later (and");
+    writer.println("   change them if needed).");
+    writer.println("   This method does not change anything in HBase, only writes the new");
+    writer.println("   .tableinfo file to the file system. Orphan tables can cause e.g.");
+    writer.println("   ServerCrashProcedures to stuck, you might need to fix these still");
+    writer.println("   after you generated the missing table info files.");
   }
 
   private static void usageReplication(PrintWriter writer) {
@@ -914,6 +939,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         } catch (Exception e) {
           return EXIT_FAILURE;
         }
+        break;
+
+      case GENERATE_TABLE_INFO:
+        if(commands.length != 2 ) {
+          showErrorMessage(command + " takes one table name as argument.");
+          return EXIT_FAILURE;
+        }
+        MissingTableDescriptorGenerator tableInfoGenerator =
+          new MissingTableDescriptorGenerator(getConf());
+        tableInfoGenerator.generateTableDescriptorFileIfMissing(commands[1].trim());
         break;
 
       default:
