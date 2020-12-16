@@ -17,7 +17,11 @@
  */
 package org.apache.hbase;
 
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -526,7 +530,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static void usageGenerateMissingTableInfo(PrintWriter writer) {
     writer.println(" " + GENERATE_TABLE_INFO + " <TABLENAME>");
     writer.println("   Trying to fix an orphan table by generating a missing table descriptor");
-    writer.println("   file. This command will have no affect if the table folder is missing");
+    writer.println("   file. This command will have no effect if the table folder is missing");
     writer.println("   or if the .tableinfo is present (we don't override existing table");
     writer.println("   descriptors). This command will first check it the TableDescriptor is");
     writer.println("   cached in HBase Master in which case it will recover the .tableinfo");
@@ -785,6 +789,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   /**
    * Process parsed command-line. General options have already been processed by caller.
    */
+  @SuppressWarnings("checkstyle:methodlength")
   private int doCommandLine(CommandLine commandLine, Options options) throws IOException {
     // Now process command.
     String[] commands = commandLine.getArgs();
@@ -942,7 +947,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         break;
 
       case GENERATE_TABLE_INFO:
-        if(commands.length != 2 ) {
+        if(commands.length != 2) {
           showErrorMessage(command + " takes one table name as argument.");
           return EXIT_FAILURE;
         }

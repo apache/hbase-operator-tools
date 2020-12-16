@@ -36,8 +36,6 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
-import org.apache.hadoop.hbase.util.FSTableDescriptors;
-import org.apache.hadoop.hbase.util.FSUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,15 +84,8 @@ public class MissingTableDescriptorGenerator {
       return;
     }
 
-    FSTableDescriptors fstd;
-    try {
-      fstd = new FSTableDescriptors(configuration);
-    } catch (IOException e) {
-      LOG.error("Unable to initialize FSTableDescriptors, exiting without changing anything.", e);
-      return;
-    }
-
     Optional<TableDescriptor> tableDescriptorFromMaster = getTableDescriptorFromMaster(tableName);
+    HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootDir);
     try {
       if (tableDescriptorFromMaster.isPresent()) {
         LOG.info("Table descriptor found in the cache of HBase Master, " +
@@ -119,7 +110,7 @@ public class MissingTableDescriptorGenerator {
     try {
       if (!fs.exists(tableDir)) {
         throw new IllegalStateException("Exiting without changing anything. " +
-                                        "Table folder not exists: " + tableDir);
+                                        "Table folder does not exist: " + tableDir);
       }
       if (!fs.getFileStatus(tableDir).isDirectory()) {
         throw new IllegalStateException("Exiting without changing anything. " +
@@ -135,7 +126,7 @@ public class MissingTableDescriptorGenerator {
   private boolean checkIfTableInfoPresent(TableName tableName) {
     final Path tableDir = HBCKFsUtils.getTableDir(rootDir, tableName);
     try {
-      FileStatus tableInfoFile = FSTableDescriptors.getTableInfoPath(fs, tableDir);
+      FileStatus tableInfoFile = HBCKFsTableDescriptors.getTableInfoPath(fs, tableDir);
       if (tableInfoFile != null) {
         LOG.info("Table descriptor found for table {} in: {}", tableName, tableInfoFile.getPath());
         return true;
@@ -162,7 +153,7 @@ public class MissingTableDescriptorGenerator {
     return Optional.empty();
   }
 
-  private void generateDefaultTableInfo(FSTableDescriptors fstd, TableName tableName)
+  private void generateDefaultTableInfo(HBCKFsTableDescriptors fstd, TableName tableName)
     throws IOException {
     Set<String> columnFamilies = getColumnFamilies(tableName);
     if(columnFamilies.isEmpty()) {
@@ -182,10 +173,10 @@ public class MissingTableDescriptorGenerator {
   private Set<String> getColumnFamilies(TableName tableName) {
     try {
       final Path tableDir = HBCKFsUtils.getTableDir(rootDir, tableName);
-      final List<Path> regionDirs = FSUtils.getRegionDirs(fs, tableDir);
+      final List<Path> regionDirs = HBCKFsUtils.getRegionDirs(fs, tableDir);
       Set<String> columnFamilies = new HashSet<>();
       for (Path regionDir : regionDirs) {
-        FileStatus[] familyDirs = fs.listStatus(regionDir, new FSUtils.FamilyDirFilter(fs));
+        FileStatus[] familyDirs = fs.listStatus(regionDir, new HBCKFsUtils.FamilyDirFilter(fs));
         for (FileStatus familyDir : familyDirs) {
           String columnFamily = familyDir.getPath().getName();
           columnFamilies.add(columnFamily);

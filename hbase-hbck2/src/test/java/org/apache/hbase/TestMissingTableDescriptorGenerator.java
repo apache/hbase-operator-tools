@@ -34,7 +34,6 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.FSTableDescriptors;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,7 +61,9 @@ public class TestMissingTableDescriptorGenerator {
       .build();
 
   private MissingTableDescriptorGenerator missingTableDescriptorGenerator;
-  private FSTableDescriptors tableDescriptorUtil;
+  private HBCKFsTableDescriptors tableDescriptorUtil;
+  private Path rootDir;
+  private FileSystem fs;
 
   @Before
   public void before() throws Exception {
@@ -72,9 +73,9 @@ public class TestMissingTableDescriptorGenerator {
 
     // creating FSTableDescriptors helper class, with usecache=false, so it will
     // always fetch the table descriptors from the filesystem
-    final Path rootDir = TEST_UTIL.getDefaultRootDirPath();
-    final FileSystem fs = TEST_UTIL.getTestFileSystem();
-    tableDescriptorUtil = new FSTableDescriptors(conf, fs, rootDir, false, false);
+    rootDir = TEST_UTIL.getDefaultRootDirPath();
+    fs = TEST_UTIL.getTestFileSystem();
+    tableDescriptorUtil = new HBCKFsTableDescriptors(fs, rootDir);
   }
 
   @After
@@ -94,7 +95,8 @@ public class TestMissingTableDescriptorGenerator {
 
     // verify table info file content (as the table descriptor should be restored based on the
     // cache in HBase Master, we expect the maxFileSize to be set to the non-default value)
-    TableDescriptor descriptor = tableDescriptorUtil.get(TABLE_NAME);
+    TableDescriptor descriptor =
+      HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, TABLE_NAME);
     assertEquals(TABLE_NAME.getNameAsString(), descriptor.getTableName().getNameAsString());
     assertTrue(descriptor.hasColumnFamily(FAMILY_A));
     assertTrue(descriptor.hasColumnFamily(FAMILY_B));
@@ -132,7 +134,8 @@ public class TestMissingTableDescriptorGenerator {
 
     // verify table info file content (as the table descriptor should be restored based on the
     // file system, we expect the maxFileSize to be set to the default value)
-    TableDescriptor descriptor = tableDescriptorUtil.get(TABLE_NAME);
+    TableDescriptor descriptor =
+      HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, TABLE_NAME);
     assertEquals(TABLE_NAME.getNameAsString(), descriptor.getTableName().getNameAsString());
     assertTrue(descriptor.hasColumnFamily(FAMILY_A));
     assertTrue(descriptor.hasColumnFamily(FAMILY_B));
