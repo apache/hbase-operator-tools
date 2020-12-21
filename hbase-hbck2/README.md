@@ -200,6 +200,26 @@ Command:
    for how to generate new report.
    SEE ALSO: reportMissingRegionsInMeta
 
+ generateMissingTableDescriptorFile <TABLENAME>
+   Trying to fix an orphan table by generating a missing table descriptor
+   file. This command will have no effect if the table folder is missing
+   or if the .tableinfo is present (we don't override existing table
+   descriptors). This command will first check it the TableDescriptor is
+   cached in HBase Master in which case it will recover the .tableinfo
+   accordingly. If TableDescriptor is not cached in master then it will
+   create a default .tableinfo file with the following items:
+     - the table name
+     - the column family list determined based on the file system
+     - the default properties for both TableDescriptor and
+       ColumnFamilyDescriptors
+   If the .tableinfo file was generated using default parameters then
+   make sure you check the table / column family properties later (and
+   change them if needed).
+   This method does not change anything in HBase, only writes the new
+   .tableinfo file to the file system. Orphan tables can cause e.g.
+   ServerCrashProcedures to stuck, you might need to fix these still
+   after you generated the missing table info files.
+
  replication [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    fix any replication issues found.
