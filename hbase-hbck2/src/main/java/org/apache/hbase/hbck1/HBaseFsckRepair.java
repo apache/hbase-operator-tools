@@ -42,7 +42,6 @@ import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.master.ServerManager;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
-import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hbase.HBCKMetaTableAccessor;
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
