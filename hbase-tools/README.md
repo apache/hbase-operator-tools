@@ -19,9 +19,9 @@
 # Extra Tools for fixing Apache HBase inconsistencies
 
 This _Operator Tools_ module provides extra tools for fixing different types of inconsistencies
-in HBase. It differs from _HBCK2_ module by defining more complex operations than the commands 
-available in _HBCK2_. These tools often perform a set of steps to fix the underlying issues, 
-sometimes combining _HBCK2_ commands with other existing tools. 
+in HBase. It differs from _HBCK2_ module by defining more complex operations than the commands
+available in _HBCK2_. These tools often perform a set of steps to fix the underlying issues,
+sometimes combining _HBCK2_ commands with other existing tools.
 
 
 The current available tools in this
@@ -105,11 +105,11 @@ integer value configured via `hbase.tools.max.iterations.blocked` property.
 
 ## MissingRegionDirsRepairTool - Tool for sideline regions dirs for regions not in meta table
 
-_MissingRegionDirsRepairTool_ moves regions dirs existing under table's dir, but not in meta. 
+_MissingRegionDirsRepairTool_ moves regions dirs existing under table's dir, but not in meta.
 To be used in cases where the region is not present in meta, but still has a dir with hfiles on the
 underlying file system, and no holes in the table region chain has been detected.
 
-When no _region holes_ are reported, existing `HBCK2.addFsRegionsMissingInMeta` 
+When no _region holes_ are reported, existing `HBCK2.addFsRegionsMissingInMeta`
 command isn't appropriate, as it would bring the region back in meta and cause overlaps.
 
 This tool performs the following actions:
@@ -117,7 +117,7 @@ This tool performs the following actions:
 2) For each of these regions, sidelines the related dir to a temp folder;
 3) Load hfiles from each sidelined region to the related table;
 
-Sidelined regions are never removed from temp folder. Operators should remove those manually, 
+Sidelined regions are never removed from temp folder. Operators should remove those manually,
 after they certified on data integrity.
 
 ### Usage
@@ -131,11 +131,11 @@ $ hbase org.apache.hbase.MissingRegionDirsRepairTool
 
 ### Implementation Details
 
-_MissingRegionDirsRepairTool_ uses `HBCK2.reportTablesWithMissingRegionsInMeta` to retrieve a 
-_Map<TableName,List<Path>>_ containing the list of affected regions grouped by table. For each of 
+_MissingRegionDirsRepairTool_ uses `HBCK2.reportTablesWithMissingRegionsInMeta` to retrieve a
+_Map<TableName,List<Path>>_ containing the list of affected regions grouped by table. For each of
 the affected regions, it copies the entire region dir to a
-`HBASE_ROOT_DIR/.missing_dirs_repair/TS/TBL_NAME/sidelined` directory. Then, it copies each of the 
-region hfiles to a `HBASE_ROOT_DIR/.missing_dirs_repair/TS/TBL_NAME/bulkload` dir, renaming these 
-files with the pattern `REGION_NAME-FILENAME`. For a given table, all affected regions would then 
-have all its files under same directory for bulkload. _MissingRegionDirsRepairTool_ then uses 
+`HBASE_ROOT_DIR/.missing_dirs_repair/TS/TBL_NAME/sidelined` directory. Then, it copies each of the
+region hfiles to a `HBASE_ROOT_DIR/.missing_dirs_repair/TS/TBL_NAME/bulkload` dir, renaming these
+files with the pattern `REGION_NAME-FILENAME`. For a given table, all affected regions would then
+have all its files under same directory for bulkload. _MissingRegionDirsRepairTool_ then uses
 _LoadIncrementalHFiles_ to load all files for a given table at once.
