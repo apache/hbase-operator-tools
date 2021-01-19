@@ -214,6 +214,7 @@
           <configuration>
             <failIfNoTests>false</failIfNoTests>
             <reuseForks>false</reuseForks>
+            <forkCount>1</forkCount>
             <testFailureIgnore>${surefire.testFailureIgnore}</testFailureIgnore>
             <forkedProcessTimeoutInSeconds>${surefire.timeout}</forkedProcessTimeoutInSeconds>
             <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
