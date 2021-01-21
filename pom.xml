@@ -213,12 +213,11 @@
           <!-- Generic testing configuration for all packages -->
           <configuration>
             <failIfNoTests>false</failIfNoTests>
-            <reuseForks>true</reuseForks>
-            <forkCount>3</forkCount>
+            <reuseForks>false</reuseForks>
             <testFailureIgnore>${surefire.testFailureIgnore}</testFailureIgnore>
             <forkedProcessTimeoutInSeconds>${surefire.timeout}</forkedProcessTimeoutInSeconds>
             <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
-            <argLine>-Xss512k -Xms512m -Xmx4096m -XX:MaxPermSize=2048m</argLine>
+            <argLine>-Xss1024k -Xms512m -Xmx4096m -XX:MaxPermSize=2048m</argLine>
             <systemPropertyVariables>
               <test.build.classes>${test.build.classes}</test.build.classes>
             </systemPropertyVariables>
