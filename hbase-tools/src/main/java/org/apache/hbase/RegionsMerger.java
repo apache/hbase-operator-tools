@@ -224,6 +224,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
         // in order to avoid breaking the loop prematurely
         regions = admin.getRegions(table);
       }
+      admin.close();
     }
   }
 
