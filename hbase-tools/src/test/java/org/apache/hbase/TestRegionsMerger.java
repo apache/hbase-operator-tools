@@ -35,11 +35,13 @@ import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestRegionsMerger {
-  private static HBaseTestingUtility TEST_UTIL;
+  private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final String NAMESPACE = "TEST";
   private static final TableName TABLE_NAME_WITH_NAMESPACE =
     TableName.valueOf(NAMESPACE, TestRegionsMerger.class.getSimpleName());
@@ -48,24 +50,20 @@ public class TestRegionsMerger {
   private static final byte[] family = Bytes.toBytes("f");
   private Table table;
 
-//  @BeforeClass
-//  public static void beforeClass() throws Exception {
-//    TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
-//      Long.toString(1024*1024*3));
-//    TEST_UTIL.startMiniCluster(1);
-//  }
-//
-//  @AfterClass
-//  public static void afterClass() throws Exception {
-//    TEST_UTIL.shutdownMiniCluster();
-//  }
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
+      Long.toString(1024*1024*3));
+    TEST_UTIL.startMiniCluster(3);
+  }
+
+  @AfterClass
+  public static void afterClass() throws Exception {
+    TEST_UTIL.shutdownMiniCluster();
+  }
 
   @Before
   public void setup() throws Exception {
-    TEST_UTIL = new HBaseTestingUtility();
-    TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
-      Long.toString(1024*1024*3));
-    TEST_UTIL.startMiniCluster(1);
     table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 7);
     TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME);
   }
@@ -73,7 +71,6 @@ public class TestRegionsMerger {
   @After
   public void tearDown() throws Exception {
     TEST_UTIL.deleteTable(TABLE_NAME);
-    TEST_UTIL.shutdownMiniCluster();
   }
 
   @Test
