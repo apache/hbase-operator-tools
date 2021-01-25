@@ -50,11 +50,20 @@ public class TestRegionsMerger {
   private static final byte[] family = Bytes.toBytes("f");
   private Table table;
 
-  @Before
-  public void setup() throws Exception {
+  @BeforeClass
+  public static void beforeClass() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
       Long.toString(1024*1024*3));
     TEST_UTIL.startMiniCluster(3);
+  }
+
+  @AfterClass
+  public static void afterClass() throws Exception {
+    TEST_UTIL.shutdownMiniCluster();
+  }
+
+  @Before
+  public void setup() throws Exception {
     table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 15);
     TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME);
   }
@@ -62,7 +71,6 @@ public class TestRegionsMerger {
   @After
   public void tearDown() throws Exception {
     TEST_UTIL.deleteTable(TABLE_NAME);
-    TEST_UTIL.shutdownMiniCluster();
   }
 
   @Test
