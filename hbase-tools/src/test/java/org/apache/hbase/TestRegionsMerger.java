@@ -50,27 +50,19 @@ public class TestRegionsMerger {
   private static final byte[] family = Bytes.toBytes("f");
   private Table table;
 
-  @BeforeClass
-  public static void beforeClass() throws Exception {
+  @Before
+  public void setup() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
       Long.toString(1024*1024*3));
     TEST_UTIL.startMiniCluster(3);
-  }
-
-  @AfterClass
-  public static void afterClass() throws Exception {
-    TEST_UTIL.shutdownMiniCluster();
-  }
-
-  @Before
-  public void setup() throws Exception {
-    table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 7);
+    table = TEST_UTIL.createMultiRegionTable(TABLE_NAME, family, 15);
     TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME);
   }
 
   @After
   public void tearDown() throws Exception {
     TEST_UTIL.deleteTable(TABLE_NAME);
+    TEST_UTIL.shutdownMiniCluster();
   }
 
   @Test
@@ -80,7 +72,7 @@ public class TestRegionsMerger {
     // hbase-2.3 and hbase-2.1 merge's work differently; 2.3 won't merge if a merge candidate is a parent.
     // The below used to merge until only 3 regions. Made it less aggressive. Originally there are 15 regions.
     // Merge till 10.
-    final int target = 5;
+    final int target = 10;
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, target);
     assertEquals(target, result.size());
     assertEquals("Row count before and after merge should be equal",
@@ -92,9 +84,9 @@ public class TestRegionsMerger {
     try {
       TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
       TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
-      Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 7);
+      Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
       final int originalCount = TEST_UTIL.countRows(tableWithNamespace);
-      final int target = 5;
+      final int target = 10;
       List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME_WITH_NAMESPACE, target);
       assertEquals(target, result.size());
       assertEquals("Row count before and after merge should be equal",
@@ -112,7 +104,7 @@ public class TestRegionsMerger {
     generateTableData();
     final int originalCount = TEST_UTIL.countRows(table);
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 3);
-    assertEquals(4, result.size());
+    assertEquals(8, result.size());
     assertEquals("Row count before and after merge should be equal",
         originalCount, TEST_UTIL.countRows(table));
   }
@@ -125,7 +117,7 @@ public class TestRegionsMerger {
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
     final int originalCount = TEST_UTIL.countRows(table);
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 3);
-    assertEquals(7, result.size());
+    assertEquals(15, result.size());
     assertEquals("Row count before and after merge should be equal",
         originalCount, TEST_UTIL.countRows(table));
   }
@@ -161,8 +153,8 @@ public class TestRegionsMerger {
 
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
     final int originalCount = TEST_UTIL.countRows(table);
-    List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 5);
-    assertEquals(5, result.size());
+    List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 10);
+    assertEquals(10, result.size());
     assertEquals("Row count before and after merge should be equal",
       originalCount, TEST_UTIL.countRows(table));
   }
