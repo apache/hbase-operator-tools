@@ -120,6 +120,9 @@ YETUS_ARGS+=("--sentinel")
 # use emoji vote so it is easier to find the broken line
 YETUS_ARGS+=("--github-use-emoji-vote")
 YETUS_ARGS+=("--github-repo=apache/hbase-operator-tools")
+# increasing proc limit to avoid OOME: unable to create native threads
+YETUS_ARGS+=("--proclimit=5000")
+
 
 echo "Launching yetus with command line:"
 echo "${TESTPATCHBIN} ${YETUS_ARGS[*]}"
