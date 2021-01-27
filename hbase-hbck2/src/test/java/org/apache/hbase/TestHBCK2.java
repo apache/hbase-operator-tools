@@ -244,6 +244,7 @@ public class TestHBCK2 {
     List<RegionInfo> regions = HBCKMetaTableAccessor
       .getTableRegions(TEST_UTIL.getConnection(), TableName.valueOf("hbase:namespace"));
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), regions.get(0));
+    //entering a line break just to trigger this UT run on pre-commit for PR#80, I will revert it once it works
     this.testReportMissingRegionsInMeta(5, 6,
       TABLE_NAME.getNameWithNamespaceInclAsString(), "hbase:namespace");
   }
