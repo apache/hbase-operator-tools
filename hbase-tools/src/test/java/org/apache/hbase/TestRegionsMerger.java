@@ -94,7 +94,7 @@ public class TestRegionsMerger {
       TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
       Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
       final int originalCount = TEST_UTIL.countRows(tableWithNamespace);
-      final int target = 12;
+      final int target = 10;
       List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME_WITH_NAMESPACE, target);
       assertEquals(target, result.size());
       assertEquals("Row count before and after merge should be equal",
