@@ -27,8 +27,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -52,7 +52,6 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
-import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.util.Threads;
 
 import org.junit.After;
@@ -161,7 +160,7 @@ public class TestHBCK2 {
         Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
         pids = new ArrayList<>();
         while (scanner.hasNext()) {
-            pids.add(scanner.nextLong());
+          pids.add(scanner.nextLong());
         }
         scanner.close();
         waitOnPids(pids);
