@@ -17,6 +17,7 @@
  */
 package org.apache.hbase;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -35,6 +36,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.LineIterator;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -97,6 +101,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
+  private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
   private static final String FIX_META = "fixMeta";
   // TODO update this map in case of the name of a method changes in Hbck interface
   //  in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
@@ -111,7 +116,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
-  static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+  private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+
   private Configuration conf;
   static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
   private boolean skipCheck = false;
@@ -290,10 +296,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
-  List<Long> assigns(Hbck hbck, String [] args) throws IOException {
+  List<Long> assigns(Hbck hbck, String[] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
+    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(override);
+    options.addOption(inputFile);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
@@ -304,7 +312,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
-    return hbck.assigns(commandLine.getArgList(), overrideFlag);
+
+    List<String> argList = commandLine.getArgList();
+    if (!commandLine.hasOption(inputFile.getOpt())) {
+      return hbck.assigns(argList, overrideFlag);
+    }
+    List<String> assignmentList = new ArrayList<>();
+    for (String filePath : argList) {
+      try (InputStream fileStream = new FileInputStream(filePath)){
+        LineIterator it = IOUtils.lineIterator(fileStream, "UTF-8");
+        while (it.hasNext()) {
+          assignmentList.add(it.nextLine().trim());
+        }
+      }
+    }
+    return hbck.assigns(assignmentList, overrideFlag);
   }
 
   List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
@@ -406,6 +428,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageFixMeta(writer);
     writer.println();
+    usageGenerateMissingTableInfo(writer);
+    writer.println();
     usageReplication(writer);
     writer.println();
     usageReportMissingRegionsInMeta(writer);
@@ -451,9 +475,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageAssigns(PrintWriter writer) {
-    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME>...");
+    writer.println(" " + ASSIGNS + " [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
+    writer.println("    -i,--inputFiles  take one or more files of encoded region names");
     writer.println("   A 'raw' assign that can be used even during Master initialization (if");
     writer.println("   the -skip flag is specified). Skirts Coprocessors. Pass one or more");
     writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
@@ -461,6 +486,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   what a user-space encoded region name looks like. For example:");
     writer.println("     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
+    writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
+    writer.println("   Each file contains encoded region names, one per line. For example:");
+    writer.println("     $ HBCK2 assigns -i fileName1 fileName2");
   }
 
   private static void usageBypass(PrintWriter writer) {
@@ -507,6 +535,28 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         " will clear up hbase:meta issues. See 'HBase HBCK' UI");
     writer.println("   for how to generate new execute.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
+  }
+
+  private static void usageGenerateMissingTableInfo(PrintWriter writer) {
+    writer.println(" " + GENERATE_TABLE_INFO + " <TABLENAME>");
+    writer.println("   Trying to fix an orphan table by generating a missing table descriptor");
+    writer.println("   file. This command will have no effect if the table folder is missing");
+    writer.println("   or if the .tableinfo is present (we don't override existing table");
+    writer.println("   descriptors). This command will first check it the TableDescriptor is");
+    writer.println("   cached in HBase Master in which case it will recover the .tableinfo");
+    writer.println("   accordingly. If TableDescriptor is not cached in master then it will");
+    writer.println("   create a default .tableinfo file with the following items:");
+    writer.println("     - the table name");
+    writer.println("     - the column family list determined based on the file system");
+    writer.println("     - the default properties for both TableDescriptor and");
+    writer.println("       ColumnFamilyDescriptors");
+    writer.println("   If the .tableinfo file was generated using default parameters then");
+    writer.println("   make sure you check the table / column family properties later (and");
+    writer.println("   change them if needed).");
+    writer.println("   This method does not change anything in HBase, only writes the new");
+    writer.println("   .tableinfo file to the file system. Orphan tables can cause e.g.");
+    writer.println("   ServerCrashProcedures to stuck, you might need to fix these still");
+    writer.println("   after you generated the missing table info files.");
   }
 
   private static void usageReplication(PrintWriter writer) {
@@ -749,6 +799,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   /**
    * Process parsed command-line. General options have already been processed by caller.
    */
+  @SuppressWarnings("checkstyle:methodlength")
   private int doCommandLine(CommandLine commandLine, Options options) throws IOException {
     // Now process command.
     String[] commands = commandLine.getArgs();
@@ -903,6 +954,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         } catch (Exception e) {
           return EXIT_FAILURE;
         }
+        break;
+
+      case GENERATE_TABLE_INFO:
+        if(commands.length != 2) {
+          showErrorMessage(command + " takes one table name as argument.");
+          return EXIT_FAILURE;
+        }
+        MissingTableDescriptorGenerator tableInfoGenerator =
+          new MissingTableDescriptorGenerator(getConf());
+        tableInfoGenerator.generateTableDescriptorFileIfMissing(commands[1].trim());
         break;
 
       default:

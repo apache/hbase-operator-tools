@@ -90,7 +90,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     Path basePath = new Path(conf.get(HConstants.HBASE_DIR));
     basePath = new Path(basePath, "data");
     Path tablePath = new Path(basePath, table.getNamespaceAsString());
-    return new Path(tablePath, table.getNameAsString());
+    return new Path(tablePath, table.getQualifierAsString());
   }
 
   private long sumSizeInFS(Path parentPath) throws IOException {
@@ -114,6 +114,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       new SubstringComparator(tblName+","));
     SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY,
       STATE_QUALIFIER, CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
+    colFilter.setFilterIfMissing(true);
     Scan scan = new Scan();
     FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
     filter.addFilter(rowFilter);

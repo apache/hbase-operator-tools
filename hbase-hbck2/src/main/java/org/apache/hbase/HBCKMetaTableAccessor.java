@@ -22,8 +22,6 @@ import static org.apache.hadoop.hbase.HConstants.REGIONINFO_QUALIFIER;
 import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
 import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
 
-import edu.umd.cs.findbugs.annotations.Nullable;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,10 +59,12 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.exceptions.DeserializationException;
+import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.PairOfSameType;
+
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -238,8 +238,10 @@ public final class HBCKMetaTableAccessor {
    * @throws IOException on any issues related with scanning meta table
    */
   public static void addRegionToMeta(Connection conn, RegionInfo region) throws IOException {
-    conn.getTable(TableName.META_TABLE_NAME).put(makePutFromRegionInfo(region,
-      System.currentTimeMillis()));
+    Put put = makePutFromRegionInfo(region,
+      System.currentTimeMillis());
+    addRegionStateToPut(put, RegionState.State.CLOSED);
+    conn.getTable(TableName.META_TABLE_NAME).put(put);
   }
 
   /**
@@ -391,7 +393,6 @@ public final class HBCKMetaTableAccessor {
    * (Copied from MetaTableAccessor)
    * @return null if not found
    */
-  @Nullable
   public static TableState getTableState(Result r) throws IOException {
     Cell cell = r.getColumnLatestCell(TABLE_FAMILY, TABLE_STATE_QUALIFIER);
     if (cell == null) {
@@ -411,7 +412,6 @@ public final class HBCKMetaTableAccessor {
    * @param conn connection to use
    * @param tableName table to fetch state for
    */
-  @Nullable
   public static TableState getTableState(Connection conn, TableName tableName)
     throws IOException {
     if (tableName.equals(TableName.META_TABLE_NAME)) {
@@ -454,6 +454,17 @@ public final class HBCKMetaTableAccessor {
     return put;
   }
 
+  private static void addRegionStateToPut(Put put, RegionState.State state) throws IOException {
+    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
+      .setRow(put.getRow())
+      .setFamily(HConstants.CATALOG_FAMILY)
+      .setQualifier(HConstants.STATE_QUALIFIER)
+      .setTimestamp(put.getTimestamp())
+      .setType(Cell.Type.Put)
+      .setValue(Bytes.toBytes(state.name()))
+      .build());
+  }
+
   /**
    * Remove state for table from meta
    * (Copied from MetaTableAccessor)
@@ -489,7 +500,6 @@ public final class HBCKMetaTableAccessor {
    * @param qualifier Column family qualifier
    * @return An RegionInfo instance or null.
    */
-  @Nullable
   public static RegionInfo getRegionInfo(final Result r, byte [] qualifier) {
     Cell cell = r.getColumnLatestCell(CATALOG_FAMILY, qualifier);
     if (cell == null) {
@@ -538,7 +548,6 @@ public final class HBCKMetaTableAccessor {
    * @param r Result to pull from
    * @return A ServerName instance or null if necessary fields not found or empty.
    */
-  @Nullable
   @InterfaceAudience.Private // for use by HMaster#getTableRegionRow which is used for testing only
   public static ServerName getServerName(final Result r, final int replicaId) {
     byte[] serverColumn = getServerColumn(replicaId);
@@ -568,7 +577,6 @@ public final class HBCKMetaTableAccessor {
    * @return an HRegionLocationList containing all locations for the region range or null if
    *   we can't deserialize the result.
    */
-  @Nullable
   public static RegionLocations getRegionLocations(final Result r) {
     if (r == null) {
       return null;

@@ -124,17 +124,20 @@ Command:
    SEE ALSO: reportMissingRegionsInMeta
    SEE ALSO: fixMeta
 
- assigns [OPTIONS] <ENCODED_REGIONNAME>...
+ assigns [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...
    Options:
     -o,--override  override ownership by another procedure
+    -i,--inputFiles  take one or more encoded region names
    A 'raw' assign that can be used even during Master initialization (if
    the -skip flag is specified). Skirts Coprocessors. Pass one or more
    encoded region names. 1588230740 is the hard-coded name for the
    hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example of
    what a user-space encoded region name looks like. For example:
-     $ HBCK2 assign 1588230740 de00010733901a05f5a2a3a382e27dd4
+     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created AssignProcedure(s) or -1 if none.
-
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains encoded region names, one per line. For example:
+     $ HBCK2 assigns -i fileName1 fileName2
  bypass [OPTIONS] <PID>...
    Options:
     -o,--override   override if procedure is running/stuck
@@ -196,6 +199,26 @@ Command:
    fixMeta will clear up hbase:meta issues. See 'HBase HBCK' UI
    for how to generate new report.
    SEE ALSO: reportMissingRegionsInMeta
+
+ generateMissingTableDescriptorFile <TABLENAME>
+   Trying to fix an orphan table by generating a missing table descriptor
+   file. This command will have no effect if the table folder is missing
+   or if the .tableinfo is present (we don't override existing table
+   descriptors). This command will first check it the TableDescriptor is
+   cached in HBase Master in which case it will recover the .tableinfo
+   accordingly. If TableDescriptor is not cached in master then it will
+   create a default .tableinfo file with the following items:
+     - the table name
+     - the column family list determined based on the file system
+     - the default properties for both TableDescriptor and
+       ColumnFamilyDescriptors
+   If the .tableinfo file was generated using default parameters then
+   make sure you check the table / column family properties later (and
+   change them if needed).
+   This method does not change anything in HBase, only writes the new
+   .tableinfo file to the file system. Orphan tables can cause e.g.
+   ServerCrashProcedures to stuck, you might need to fix these still
+   after you generated the missing table info files.
 
  replication [OPTIONS] [<TABLENAME>...]
    Options:

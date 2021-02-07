@@ -17,7 +17,9 @@
  */
 package org.apache.hbase;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,11 +29,13 @@ import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.BeforeClass;
@@ -55,11 +59,33 @@ public class TestHBCKMetaTableAccessor {
 
   @Test
   public void testDeleteRegionInfo() throws Exception {
+    assertFalse(listRegionsInMeta().contains(createTableAnddeleteFirstRegion()));
+  }
+
+  private RegionInfo createTableAnddeleteFirstRegion() throws Exception {
     TableName tableName = createTestTable(5);
     List<RegionInfo> regions = TEST_UTIL.getAdmin().getRegions(tableName);
     RegionInfo toBeDeleted = regions.get(0);
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), toBeDeleted);
-    assertFalse(listRegionsInMeta().contains(toBeDeleted));
+    return toBeDeleted;
+  }
+
+  @Test
+  public void testAddRegionToMeta() throws Exception {
+    RegionInfo regionInfo = createTableAnddeleteFirstRegion();
+    HBCKMetaTableAccessor.addRegionToMeta(TEST_UTIL.getConnection(), regionInfo);
+    Connection connection = TEST_UTIL.getConnection();
+    Table meta = connection.getTable(TableName.META_TABLE_NAME);
+    Get get = new Get(regionInfo.getRegionName());
+    Result r = meta.get(get);
+    assertNotNull(r);
+    assertFalse(r.isEmpty());
+    RegionInfo returnedRI = RegionInfo.parseFrom(r.getValue(HConstants.CATALOG_FAMILY,
+      HConstants.REGIONINFO_QUALIFIER));
+    assertEquals(regionInfo, returnedRI);
+    String state = Bytes.toString(r.getValue(HConstants.CATALOG_FAMILY,
+      HConstants.STATE_QUALIFIER));
+    assertEquals(RegionState.State.valueOf(state), RegionState.State.CLOSED);
   }
 
   private List<RegionInfo> listRegionsInMeta() throws Exception {
