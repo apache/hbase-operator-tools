@@ -267,19 +267,14 @@ public final class HBCKMetaTableAccessor {
    * @throws IOException on any issues related with scanning meta table
    */
   public static Map<TableName, List<byte[]>> getDirtyMetadata(Connection conn) throws IOException {
-    Scan scan = new Scan();
     Map<TableName, List<byte[]>> dirtyTableRegions = new HashMap<>();
-    List<TableName> tables = getTables(conn);
-    Map<String,TableName > tableNameMap = new HashMap<>();
-    for (TableName tableName : tables) {
-      tableNameMap.put(tableName.getNameAsString(), tableName);
-    }
-
+    Map<String, TableName> tableNameMap = new HashMap<>();
+    getTables(conn).forEach(tableName -> tableNameMap.put(tableName.getNameAsString(), tableName));
     Table metaTable = conn.getTable(TableName.META_TABLE_NAME);
+    Scan scan = new Scan();
     ResultScanner resultScanner = metaTable.getScanner(scan);
     for (Result result : resultScanner) {
-      List<Cell> cells = result.listCells();
-      for (Cell cell : cells) {
+      result.listCells().forEach(cell -> {
         byte[] rowBytes = CellUtil.cloneRow(cell);
         String row = Bytes.toString(rowBytes);
         String tableName = row.split(",")[0];
@@ -292,7 +287,7 @@ public final class HBCKMetaTableAccessor {
             dirtyTableRegions.put(tableNameMap.get(tableName), list);
           }
         }
-      }
+      });
     }
     return dirtyTableRegions;
   }
