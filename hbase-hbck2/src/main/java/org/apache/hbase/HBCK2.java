@@ -144,8 +144,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).getHBaseVersion();
       String [] thresholdVersions = supportedVersions == null || supportedVersions.length == 0?
           MINIMUM_HBCK2_VERSION: supportedVersions;
-//      boolean supported = Version.check(serverVersion, thresholdVersions);
-      boolean supported=true;
+      boolean supported = Version.check(serverVersion, thresholdVersions);
       if (!supported) {
         throw new UnsupportedOperationException(cmd + " not supported on server version=" +
             serverVersion + "; needs at least a server that matches or exceeds " +
