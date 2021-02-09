@@ -23,13 +23,7 @@ import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
 import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.SortedMap;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -60,6 +54,8 @@ import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
 import org.apache.hadoop.hbase.util.Pair;
@@ -261,6 +257,44 @@ public final class HBCKMetaTableAccessor {
           cell.getValueOffset(), cell.getValueLength());
         return info.isSplit() ? null : info;
       });
+  }
+
+
+  /**
+   * List all dirty metadata currently in META.
+   * @param conn a valid, open connection.
+   * @return a Map of all dirty metadata in META.
+   * @throws IOException on any issues related with scanning meta table
+   */
+  public static Map<TableName, List<byte[]>> getDirtyMetadata(Connection conn) throws IOException {
+    Scan scan = new Scan();
+    Map<TableName, List<byte[]>> dirtyTableRegions = new HashMap<>();
+    List<TableName> tables = getTables(conn);
+    Map<String,TableName > tableNameMap = new HashMap<>();
+    for (TableName tableName : tables) {
+      tableNameMap.put(tableName.getNameAsString(), tableName);
+    }
+
+    Table metaTable = conn.getTable(TableName.META_TABLE_NAME);
+    ResultScanner resultScanner = metaTable.getScanner(scan);
+    for (Result result : resultScanner) {
+      List<Cell> cells = result.listCells();
+      for (Cell cell : cells) {
+        byte[] rowBytes = CellUtil.cloneRow(cell);
+        String row = Bytes.toString(rowBytes);
+        String tableName = row.split(",")[0];
+        if (!tableNameMap.containsKey(tableName)) {
+          if (dirtyTableRegions.containsKey(tableNameMap.get(tableName))) {
+            dirtyTableRegions.get(tableNameMap.get(tableName)).add(rowBytes);
+          } else {
+            List<byte[]> list = new ArrayList<>();
+            list.add(rowBytes);
+            dirtyTableRegions.put(tableNameMap.get(tableName), list);
+          }
+        }
+      }
+    }
+    return dirtyTableRegions;
   }
 
   /**

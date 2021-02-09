@@ -63,9 +63,9 @@ import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
-import org.mortbay.log.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,6 +102,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
   private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
+  private static final String REPORT_DIRTY_METADATA = "reportDirtyMetadata";
   private static final String FIX_META = "fixMeta";
   // TODO update this map in case of the name of a method changes in Hbck interface
   //  in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
@@ -280,6 +281,33 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return result;
   }
 
+  Map<TableName, List<String>> reportDirtyRegionsInMeta(String[] args)
+      throws Exception {
+    Options options = new Options();
+    Option fixOption = Option.builder("f").longOpt("fix").build();
+    options.addOption(fixOption);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine;
+    commandLine = parser.parse(options, args, false);
+    boolean fix = commandLine.hasOption(fixOption.getOpt());
+    Map<TableName, List<String>> result = new HashMap<>();
+    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+             new FsRegionsMetaRecoverer(this.conf)) {
+      Map<TableName, List<byte[]>> reportMap = fsRegionsMetaRecoverer.reportDirtyMetadata();
+      reportMap.forEach((key, value) -> result.put(key, value.stream().map(Bytes::toString)
+          .collect(Collectors.toList())));
+      if(fix) {
+        fsRegionsMetaRecoverer.deleteDirtyMetadata(reportMap);
+      }
+    } catch (IOException e) {
+      LOG.error("Error on checking extra regions: ", e);
+      throw e;
+    }
+
+    return result;
+  }
+
   private List<String> formatNameSpaceTableParam(String... nameSpaceOrTable) {
     return nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
   }
@@ -421,6 +449,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     usageAssigns(writer);
     writer.println();
     usageBypass(writer);
+    writer.println();
+    usageReportDirtyRegionsInMeta(writer);
     writer.println();
     usageExtraRegionsInMeta(writer);
     writer.println();
@@ -566,6 +596,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Looks for undeleted replication queues and deletes them if passed the");
     writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
     writer.println("   purge if '--fix'.");
+  }
+
+  private static void usageReportDirtyRegionsInMeta(PrintWriter writer){
+    writer.println(" " + REPORT_DIRTY_METADATA + " [OPTIONS]");
+    writer.println("   Options:");
+    writer.println("    -f, --fix    fix meta by delete all dirty metadata found.");
+    writer.println("   Looks for undeleted metadata in meta table. ");
+    writer.println("   Undeleted metadata means a table has been deleted, but not delete all metadata in meta.");
   }
 
   private static void usageExtraRegionsInMeta(PrintWriter writer) {
@@ -955,6 +993,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         break;
+      case REPORT_DIRTY_METADATA:
+        try {
+          Map<TableName, List<String>> report = reportDirtyRegionsInMeta(purgeFirst(commands));
+          System.out.println(formatDirtyMetadataReport(report));
+        }catch (Exception e) {
+          return EXIT_FAILURE;
+        }
+        break;
 
       case GENERATE_TABLE_INFO:
         if(commands.length != 2) {
@@ -985,6 +1031,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private String formatExtraRegionsReport(Map<TableName,List<String>> report) {
     String message = "Regions in Meta but having no equivalent dir, for each table:\n\t";
+    return formatReportMessage(message, (HashMap)report, s -> s);
+  }
+
+  private String formatDirtyMetadataReport(Map<TableName,List<String>> report) {
+    String message = "Dirty metadata in Meta, for each table:\n\t";
     return formatReportMessage(message, (HashMap)report, s -> s);
   }
 

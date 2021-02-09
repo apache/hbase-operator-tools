@@ -37,10 +37,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
 import org.apache.hadoop.hbase.util.FSUtils;
 
@@ -90,6 +87,26 @@ public class FsRegionsMetaRecoverer implements Closeable {
       reportTablesExtraRegions(final List<String> namespacesOrTables) throws IOException {
     InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
     return extraChecker.reportTablesRegions(namespacesOrTables, this::findExtraRegionsInMETA);
+  }
+
+  public Map<TableName, List<byte[]>>
+  reportDirtyMetadata() throws IOException {
+    return HBCKMetaTableAccessor.getDirtyMetadata(this.conn);
+  }
+
+
+  public void deleteDirtyMetadata(Map<TableName, List<byte[]>> reportMap) throws IOException {
+    Table table = conn.getTable(TableName.META_TABLE_NAME);
+    for (Map.Entry<TableName, List<byte[]>> entry : reportMap.entrySet()) {
+      List<Delete> list=new ArrayList<>();
+      for (byte[] bytes : entry.getValue()) {
+        Delete delete=new Delete(bytes);
+        list.add(delete);
+      }
+      table.delete(list);
+      LOG.info("delete dirty table {} metadata",entry.getKey().getNameAsString());
+    }
+    table.close();
   }
 
   List<Path> findMissingRegionsInMETA(String table) throws IOException {
