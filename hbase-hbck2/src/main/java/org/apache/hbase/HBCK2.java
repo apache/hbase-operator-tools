@@ -158,15 +158,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       LOG.info("Skipped {} command version check; 'skip' set", cmd);
       return;
     }
-    LOG.info("Class name: {}",connection.getHbck().getClass().getName());
-    URL location = connection.getHbck().getClass().getProtectionDomain().getCodeSource().getLocation();
-    LOG.info("CodeSource path: {}" ,connection.getHbck().getClass().getProtectionDomain().getCodeSource());
-    List<Method> methods = Arrays.asList(connection.getHbck().getClass().getMethods());
+    List<Method> methods = Arrays.asList(connection.getHbck().getClass().getDeclaredMethods());
     List<String> finalCmds = FUNCTION_NAME_MAP.getOrDefault(cmd, Collections.singletonList(cmd));
-    for (Method method : methods) {
-      LOG.info("Method names: {}",method.getName());
-    }
-    LOG.info("FinalCmds {}",finalCmds);
     boolean supported = methods.stream().anyMatch(method ->  finalCmds.contains(method.getName()));
     if (!supported) {
       throw new UnsupportedOperationException("This HBase cluster does not support command: "
