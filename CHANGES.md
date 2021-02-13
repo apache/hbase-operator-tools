@@ -20,6 +20,73 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
+## Release hbase-operator-tools-1.1.0 - Unreleased (as of 2021-02-13)
+
+
+
+### NEW FEATURES:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-25266](https://issues.apache.org/jira/browse/HBASE-25266) | [hbase-operator-tools] Add a repair tool for moving stale regions dir not present in meta away from table dir |  Major | hbase-operator-tools |
+| [HBASE-23562](https://issues.apache.org/jira/browse/HBASE-23562) | [operator tools] Add a RegionsMerge tool that allows for merging multiple adjacent regions until a desired number of regions is reached. |  Minor | hbase-operator-tools |
+| [HBASE-23371](https://issues.apache.org/jira/browse/HBASE-23371) | [HBCK2] Provide client side method for removing "ghost" regions in meta. |  Major | hbase-operator-tools |
+
+
+### IMPROVEMENTS:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-25297](https://issues.apache.org/jira/browse/HBASE-25297) | [HBCK2] Regenerate missing table descriptors by hbck2 |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-24626](https://issues.apache.org/jira/browse/HBASE-24626) | [HBCK2] Remove reference to hase I.A. private class CommonFsUtils from FsRegionsMetaRecoverer |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-23927](https://issues.apache.org/jira/browse/HBASE-23927) | hbck2 assigns command should accept one or more files containing a list of region names |  Major | hbase-operator-tools, hbck2, Operability, Usability |
+| [HBASE-24039](https://issues.apache.org/jira/browse/HBASE-24039) | HBCK2 feature negotiation to check what commands are supported |  Critical | hbck2, Operability |
+| [HBASE-24116](https://issues.apache.org/jira/browse/HBASE-24116) | Update Apache POM to version 23 for hbase-operator-tools |  Minor | hbase-operator-tools |
+| [HBASE-23934](https://issues.apache.org/jira/browse/HBASE-23934) | [operator tools] Add forbiddennapis plugin to pom.xml so that we can permanently ban references to hbase I.A. private classes from hbck2 |  Major | hbase-operator-tools |
+| [HBASE-23791](https://issues.apache.org/jira/browse/HBASE-23791) | [operator tools] Remove reference to I.A. Private interface MetaTableAccessor |  Major | hbase-operator-tools |
+| [HBASE-23610](https://issues.apache.org/jira/browse/HBASE-23610) | Update Apache POM to version 21 for hbase-operator-tools |  Trivial | hbck2 |
+| [HBASE-23609](https://issues.apache.org/jira/browse/HBASE-23609) | Clean up tests in hbase-operator-tools |  Minor | hbck2 |
+| [HBASE-23611](https://issues.apache.org/jira/browse/HBASE-23611) | Enforcer plugin does not use configured version in hbase-operator-tools |  Minor | hbck2 |
+| [HBASE-23577](https://issues.apache.org/jira/browse/HBASE-23577) | Bump Checkstyle from 8.11 to 8.18 in hbase-operator-tools |  Minor | hbase-operator-tools |
+| [HBASE-23256](https://issues.apache.org/jira/browse/HBASE-23256) | fix hbck2 assigns/unassigns usage |  Minor | hbck2 |
+| [HBASE-23031](https://issues.apache.org/jira/browse/HBASE-23031) | Upgrade Yetus version in RM scripts |  Minor | hbase-operator-tools |
+| [HBASE-23109](https://issues.apache.org/jira/browse/HBASE-23109) | [hbase-operator-tools] Fix checkstyle issues |  Minor | hbase-operator-tools |
+
+
+### BUG FIXES:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-25529](https://issues.apache.org/jira/browse/HBASE-25529) | [hbase-operator-tools]Fix OOME "unable to create new native thread" on UTs |  Major | hbase-operator-tools |
+| [HBASE-24997](https://issues.apache.org/jira/browse/HBASE-24997) | [hbase-operator-tools] NPE in RegionsMerger#mergeRegions |  Major | hbase-operator-tools |
+| [HBASE-24889](https://issues.apache.org/jira/browse/HBASE-24889) | [hbase-operator-tools] Add missing ASF headers |  Major | hbase-operator-tools |
+| [HBASE-24778](https://issues.apache.org/jira/browse/HBASE-24778) | [hbase-operator-tools] Merging regions failed when the table is not default namespace |  Major | hbase-operator-tools |
+| [HBASE-24571](https://issues.apache.org/jira/browse/HBASE-24571) | HBCK2 fix addFsRegionsMissingInMeta to add regions in CLOSED state again |  Major | hbase-operator-tools |
+| [HBASE-24482](https://issues.apache.org/jira/browse/HBASE-24482) | [hbase-operator-tools] build of hbck2 fails with HBase branch-2.3, due to missing dependencies |  Major | hbase-operator-tools |
+| [HBASE-24398](https://issues.apache.org/jira/browse/HBASE-24398) | [hbase-operator-tools] RegionsMerger ConcurrentModificationException |  Major | hbase-operator-tools |
+| [HBASE-24239](https://issues.apache.org/jira/browse/HBASE-24239) | [HBCK2] Remove removeExtraRegionsFromMeta from HBCK2 doc |  Minor | documentation, hbase-operator-tools |
+| [HBASE-23112](https://issues.apache.org/jira/browse/HBASE-23112) | [hbase-operator-tools] fixMeta in hbck2 is porcelain, in hbck1 it was plumbing; fix |  Major | hbase-operator-tools |
+
+
+### SUB-TASKS:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-25137](https://issues.apache.org/jira/browse/HBASE-25137) | Migrate HBase-Operator-Tools-PreCommit jenkins job from Hadoop to hbase |  Major | hbase-operator-tools, jenkins |
+| [HBASE-24397](https://issues.apache.org/jira/browse/HBASE-24397) | [hbase-operator-tools] Tool to Report on row sizes and column counts |  Major | hbase-operator-tools, tooling |
+
+
+### OTHER:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-24882](https://issues.apache.org/jira/browse/HBASE-24882) | Migrate hbase-operator-tools testing to ci-hadoop |  Major | build, hbase-operator-tools |
+| [HBASE-23180](https://issues.apache.org/jira/browse/HBASE-23180) | Add a hbck2 testing tool |  Major | hbase-operator-tools |
+| [HBASE-23714](https://issues.apache.org/jira/browse/HBASE-23714) | Move to Apache parent POM version 22 for operator-tools |  Minor | dependencies, hbase-operator-tools |
+| [HBASE-23641](https://issues.apache.org/jira/browse/HBASE-23641) | Use ReplicationPeerConfig.needToReplicate in HBaseFsck |  Major | hbase-operator-tools |
+| [HBASE-23124](https://issues.apache.org/jira/browse/HBASE-23124) | [hbase-operator-tools] Remove commons-lang3 dependency |  Minor | hbase-operator-tools |
+
+
 ## Release hbase-operator-tools-1.0.0 - Unreleased (as of 2019-09-20)
 
 
