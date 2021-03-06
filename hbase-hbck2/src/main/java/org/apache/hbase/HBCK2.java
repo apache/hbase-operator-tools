@@ -661,7 +661,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageGenerateMissingTableInfo(PrintWriter writer) {
-    writer.println(" " + GENERATE_TABLE_INFO + " <TABLENAME>");
+    writer.println(" " + GENERATE_TABLE_INFO + " [OPTIONS] [<TABLENAME>...]");
     writer.println("   Trying to fix an orphan table by generating a missing table descriptor");
     writer.println("   file. This command will have no effect if the table folder is missing");
     writer.println("   or if the .tableinfo is present (we don't override existing table");
@@ -679,7 +679,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   This method does not change anything in HBase, only writes the new");
     writer.println("   .tableinfo file to the file system. Orphan tables can cause e.g.");
     writer.println("   ServerCrashProcedures to stuck, you might need to fix these still");
-    writer.println("   after you generated the missing table info files.");
+    writer.println("   after you generated the missing table info files. If no tables are ");
+    writer.println("   specified, .tableinfo will be genrated for all missing table descriptors.");
   }
 
   private static void usageReplication(PrintWriter writer) {
@@ -1163,13 +1164,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         break;
 
       case GENERATE_TABLE_INFO:
-        if(commands.length != 2) {
-          showErrorMessage(command + " takes one table name as argument.");
+        List<String> tableNames = Arrays.asList(purgeFirst(commands));
+        MissingTableDescriptorGenerator tableInfoGenerator =
+            new MissingTableDescriptorGenerator(getConf());
+        try (ClusterConnection connection = connect()) {
+          tableInfoGenerator
+              .generateTableDescriptorFileIfMissing(connection.getAdmin(), tableNames);
+        } catch (IOException e) {
+          showErrorMessage(e.getMessage());
           return EXIT_FAILURE;
         }
-        MissingTableDescriptorGenerator tableInfoGenerator =
-          new MissingTableDescriptorGenerator(getConf());
-        tableInfoGenerator.generateTableDescriptorFileIfMissing(commands[1].trim());
         break;
 
       case REGIONINFO_MISMATCH:
