@@ -112,7 +112,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
               put(SCHEDULE_RECOVERIES, Arrays.asList("scheduleServerCrashProcedure",
                       "scheduleServerCrashProcedures"));
               put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
-          }});
+            }});
 
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
@@ -674,7 +674,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   as unknown.");
     writer.println("   Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if");
     writer.println("   no procedure created (see master logs for why not).");
-    writer.println("   Command support added in hbase versions 2.2.7, 2.3.5, 2.4.3, 2.5.0 or newer.");
+    writer.println("   Command support added in hbase versions 2.2.7, 2.3.5, 2.4.3,");
+    writer.println("     2.5.0 or newer.");
   }
 
   private static void usageUnassigns(PrintWriter writer) {
