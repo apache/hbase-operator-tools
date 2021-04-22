@@ -670,7 +670,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageRecoverUnknown(PrintWriter writer) {
     writer.println(" " + RECOVER_UNKNOWN);
-    writer.println("   Schedule ServerCrashProcedure(SCP) RegionServers that are reported");
+    writer.println("   Schedule ServerCrashProcedure(SCP) for RegionServers that are reported");
     writer.println("   as unknown.");
     writer.println("   Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if");
     writer.println("   no procedure created (see master logs for why not).");
