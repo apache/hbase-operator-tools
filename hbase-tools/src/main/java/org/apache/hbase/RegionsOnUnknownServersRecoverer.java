@@ -17,6 +17,12 @@
  */
 package org.apache.hbase;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -27,11 +33,6 @@ import org.apache.hadoop.util.ToolRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Tool for identifying Unknown Servers from master logs and schedule SCPs for each of those using
@@ -51,20 +52,28 @@ public class RegionsOnUnknownServersRecoverer extends Configured implements Tool
 
   private Set<String> unknownServers = new HashSet<>();
 
+  private boolean dryRun = false;
+
   public RegionsOnUnknownServersRecoverer(Configuration conf){
     this.conf = conf;
   }
 
   @Override
   public int run(String[] args) throws Exception {
-    if(args.length!=1){
+    String logPath = null;
+    if(args.length>=1 && args.length<3) {
+      logPath = args[0];
+      if(args.length==2) {
+        dryRun = Boolean.parseBoolean(args[1]);
+      }
+    } else {
       LOG.error("Wrong number of arguments. "
-        + "Arguments are: <PATH_TO_MASTER_LOGS>");
+        + "Arguments are: <PATH_TO_MASTER_LOGS> [dryRun]");
       return 1;
     }
     BufferedReader reader = null;
     try(Connection conn = ConnectionFactory.createConnection(conf)) {
-      reader = new BufferedReader(new FileReader(new File(args[0])));
+      reader = new BufferedReader(new FileReader(new File(logPath)));
       String line = null;
       while((line = reader.readLine()) != null){
         if(line.contains(CATALOG_JANITOR)){
@@ -78,8 +87,17 @@ public class RegionsOnUnknownServersRecoverer extends Configured implements Tool
           }
         }
       }
-      HBCK2 hbck2 = new HBCK2(conf);
-      hbck2.scheduleRecoveries(conn.getHbck(), unknownServers.toArray(new String[]{}));
+      if(dryRun){
+        StringBuilder builder =
+          new StringBuilder("This is a dry run, no SCPs will be submitted. Found unknown servers:");
+        builder.append("\n");
+        unknownServers.stream().forEach( s -> builder.append(s).append("\n"));
+        LOG.info(builder.toString());
+      } else {
+        HBCK2 hbck2 = new HBCK2(conf);
+        LOG.info("Submitting SCPs for the found unknown servers with HBCK2 scheduleRecoveries option.");
+        hbck2.scheduleRecoveries(conn.getHbck(), unknownServers.toArray(new String[] {}));
+      }
     } catch(Exception e){
       LOG.error("Recovering unknown servers failed:", e);
       return 2;
@@ -96,6 +114,5 @@ public class RegionsOnUnknownServersRecoverer extends Configured implements Tool
       System.exit(errCode);
     }
   }
-
 }
 
