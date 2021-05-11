@@ -91,11 +91,12 @@ public class RegionsOnUnknownServersRecoverer extends Configured implements Tool
         StringBuilder builder =
           new StringBuilder("This is a dry run, no SCPs will be submitted. Found unknown servers:");
         builder.append("\n");
-        unknownServers.stream().forEach( s -> builder.append(s).append("\n"));
+        unknownServers.stream().forEach(s -> builder.append(s).append("\n"));
         LOG.info(builder.toString());
       } else {
         HBCK2 hbck2 = new HBCK2(conf);
-        LOG.info("Submitting SCPs for the found unknown servers with HBCK2 scheduleRecoveries option.");
+        LOG.info("Submitting SCPs for the found unknown servers with "
+          + "HBCK2 scheduleRecoveries option.");
         hbck2.scheduleRecoveries(conn.getHbck(), unknownServers.toArray(new String[] {}));
       }
     } catch(Exception e){
