@@ -154,11 +154,15 @@ For any of these versions or higher, HBCK2 'recoverUnknown' option can be used a
 
 ### Usage
 
-This tool requires the master logs path as parameter. Assuming classpath is properly set, can be run as follows:
+This tool requires the master logs path as parameter. Assuming classpath is properly set, 
+can be run as follows:
 
 ```
-$ hbase org.apache.hbase.RegionsOnUnknownServersRecoverer PATH_TO_MASTER_LOGS
+$ hbase org.apache.hbase.RegionsOnUnknownServersRecoverer PATH_TO_MASTER_LOGS [dryRun]
 ```
+
+The `dryRun` optional parameter will just parse the logs and print the list of unknown servers,
+without invoking `hbck2 scheduleRecoveries` command.
 
 
 ### Implementation Details
