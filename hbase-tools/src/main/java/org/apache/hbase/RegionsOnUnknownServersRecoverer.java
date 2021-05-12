@@ -64,7 +64,7 @@ public class RegionsOnUnknownServersRecoverer extends Configured implements Tool
     if(args.length>=1 && args.length<3) {
       logPath = args[0];
       if(args.length==2) {
-        dryRun = Boolean.parseBoolean(args[1]);
+        dryRun = args[1].equals("dryRun");
       }
     } else {
       LOG.error("Wrong number of arguments. "
