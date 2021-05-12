@@ -154,7 +154,7 @@ For any of these versions or higher, HBCK2 'recoverUnknown' option can be used a
 
 ### Usage
 
-This tool requires the master logs path as parameter. Assuming classpath is properly set, 
+This tool requires the master logs path as parameter. Assuming classpath is properly set,
 can be run as follows:
 
 ```
