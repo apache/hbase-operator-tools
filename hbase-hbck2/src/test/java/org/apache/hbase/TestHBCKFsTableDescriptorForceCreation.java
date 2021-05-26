@@ -30,6 +30,7 @@ import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.testclassification.MiscTests;
 import org.apache.hadoop.hbase.testclassification.SmallTests;
+import org.apache.hadoop.hbase.util.FSUtils;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -55,7 +56,7 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public void testShouldCreateNewTableDescriptorIfForcefulCreationIsFalse()
     throws IOException {
     final String name = this.name.getMethodName();
-    FileSystem fs = FileSystem.get(UTIL.getConfiguration());
+    FileSystem fs = FSUtils.getCurrentFileSystem(UTIL.getConfiguration());
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
 
@@ -68,7 +69,7 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public void testShouldNotCreateTheSameTableDescriptorIfForcefulCreationIsFalse()
     throws IOException {
     final String name = this.name.getMethodName();
-    FileSystem fs = FileSystem.get(UTIL.getConfiguration());
+    FileSystem fs = FSUtils.getCurrentFileSystem(UTIL.getConfiguration());
     // Cleanup old tests if any detritus laying around.
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
@@ -83,7 +84,7 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public void testShouldAllowForcefulCreationOfAlreadyExistingTableDescriptor()
     throws Exception {
     final String name = this.name.getMethodName();
-    FileSystem fs = FileSystem.get(UTIL.getConfiguration());
+    FileSystem fs = FSUtils.getCurrentFileSystem(UTIL.getConfiguration());
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
     TableDescriptor htd = TableDescriptorBuilder.newBuilder(TableName.valueOf(name)).build();

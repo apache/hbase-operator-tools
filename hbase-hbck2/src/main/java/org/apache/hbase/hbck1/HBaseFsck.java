@@ -1535,7 +1535,7 @@ public class HBaseFsck extends Configured implements Closeable {
       return;
     }
 
-    FileSystem fs = FileSystem.get(getConf());
+    FileSystem fs = FSUtils.getCurrentFileSystem(getConf());
     RegionInfo hri = HRegionFileSystem.loadRegionInfoFileContent(fs, regionDir);
     LOG.debug("RegionInfo read: " + hri.toString());
     hbi.hdfsEntry.hri = hri;
@@ -1927,7 +1927,7 @@ public class HBaseFsck extends Configured implements Closeable {
       HBaseTestingUtility.closeRegionAndWAL(meta);
       // Clean out the WAL we created and used here.
       LOG.info("Deleting {}, result={}", waldir,
-          CommonFSUtils.delete(FileSystem.get(getConf()), waldir, true));
+          CommonFSUtils.delete(FSUtils.getWALFileSystem(getConf()), waldir, true));
     }
     LOG.info("Success! hbase:meta table rebuilt. Old hbase:meta moved into " + backupDir);
     return true;
@@ -3500,7 +3500,7 @@ public class HBaseFsck extends Configured implements Closeable {
           return;
         }
 
-        FileSystem fs = FileSystem.get(conf);
+        FileSystem fs = FSUtils.getCurrentFileSystem(conf);
         LOG.info("Found parent: " + parent.getRegionNameAsString());
         LOG.info("Found potential daughter a: " + daughterA.getRegionNameAsString());
         LOG.info("Found potential daughter b: " + daughterB.getRegionNameAsString());
@@ -3624,7 +3624,7 @@ public class HBaseFsck extends Configured implements Closeable {
         }
         List<HbckInfo> regionsToSideline =
           RegionSplitCalculator.findBigRanges(bigOverlap, overlapsToSideline);
-        FileSystem fs = FileSystem.get(conf);
+        FileSystem fs = FSUtils.getCurrentFileSystem(conf);
         for (HbckInfo regionToSideline: regionsToSideline) {
           try {
             LOG.info("Closing region: " + regionToSideline);

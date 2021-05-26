@@ -84,7 +84,7 @@ public class HFileCorruptionChecker {
   public HFileCorruptionChecker(Configuration conf, ExecutorService executor,
       boolean quarantine) throws IOException {
     this.conf = conf;
-    this.fs = FileSystem.get(conf);
+    this.fs = FSUtils.getCurrentFileSystem(conf);
     this.cacheConf = CacheConfig.DISABLED;
     this.executor = executor;
     this.inQuarantineMode = quarantine;
