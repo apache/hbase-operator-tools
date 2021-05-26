@@ -56,6 +56,13 @@ public final class HBCKFsUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(HBCKFsUtils.class);
 
+  /** Parameter name for HBase WAL directory */
+  public static final String HBASE_WAL_DIR = "hbase.wal.dir";
+
+  /** Parameter to disable stream capability enforcement checks */
+  public static final String UNSAFE_STREAM_CAPABILITY_ENFORCE =
+      "hbase.unsafe.stream.capability.enforce";
+
   /**
    * Private constructor to keep this class from being instantiated.
    */
@@ -105,6 +112,55 @@ public final class HBCKFsUtils {
     Path p = new Path(c.get(HConstants.HBASE_DIR));
     FileSystem fs = p.getFileSystem(c);
     return p.makeQualified(fs.getUri(), fs.getWorkingDirectory());
+  }
+
+  /**
+   * @param conf must not be null
+   * @return Returns the filesystem of the hbase rootdir.
+   * @throws IOException from underlying FileSystem
+   */
+  public static FileSystem getCurrentFileSystem(Configuration conf) throws IOException {
+    return getRootDir(conf).getFileSystem(conf);
+  }
+
+  private static boolean isValidWALRootDir(Path walDir, final Configuration c) throws IOException {
+    Path rootDir = getRootDir(c);
+    FileSystem fs = walDir.getFileSystem(c);
+    Path qualifiedWalDir = walDir.makeQualified(fs.getUri(), fs.getWorkingDirectory());
+    if (!qualifiedWalDir.equals(rootDir)) {
+      if (qualifiedWalDir.toString().startsWith(rootDir.toString() + "/")) {
+        throw new IllegalStateException("Illegal WAL directory specified. " +
+            "WAL directories are not permitted to be under root directory: rootDir=" +
+            rootDir.toString() + ", qualifiedWALDir=" + qualifiedWalDir);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @param c configuration
+   * @return {@link Path} to hbase log root directory: e.g. {@value HBASE_WAL_DIR} from
+   *     configuration as a qualified Path. Defaults to HBase root dir.
+   * @throws IOException e
+   */
+  public static Path getWALRootDir(final Configuration c) throws IOException {
+    Path p = new Path(c.get(HBASE_WAL_DIR, c.get(HConstants.HBASE_DIR)));
+    if (!isValidWALRootDir(p, c)) {
+      return getRootDir(c);
+    }
+    FileSystem fs = p.getFileSystem(c);
+    return p.makeQualified(fs.getUri(), fs.getWorkingDirectory());
+  }
+
+  public static FileSystem getWALFileSystem(final Configuration c) throws IOException {
+    Path p = getWALRootDir(c);
+    FileSystem fs = p.getFileSystem(c);
+    // hadoop-core does fs caching, so need to propagate this if set
+    String enforceStreamCapability = c.get(UNSAFE_STREAM_CAPABILITY_ENFORCE);
+    if (enforceStreamCapability != null) {
+      fs.getConf().set(UNSAFE_STREAM_CAPABILITY_ENFORCE, enforceStreamCapability);
+    }
+    return fs;
   }
 
   /**
