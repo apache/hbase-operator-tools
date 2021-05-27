@@ -51,7 +51,6 @@ public class TestHBaseFsck {
 
   private String defaultRootDir;
   private String nonDefaultRootDir;
-  private FileSystem rootFs;
   private FileSystem testFileSystem;
   private LocalFileSystem localFileSystem;
   private Configuration conf;
@@ -103,24 +102,22 @@ public class TestHBaseFsck {
 
   @Test
   public void testFileLockCallableWithSetHBaseRootDir() throws IOException {
+    FileSystem fs = new Path(nonDefaultRootDir).getFileSystem(conf);
     try {
+      assertNotEquals(TEST_UTIL.getTestFileSystem().getUri().getScheme(),
+          fs.getScheme());
+
       conf.set(HConstants.HBASE_DIR, nonDefaultRootDir);
+      Path expectedLockFilePath = new Path(HBaseFsck.getTmpDir(conf), HBaseFsck.HBCK2_LOCK_FILE);
       HBaseFsck.FileLockCallable fileLockCallable = new HBaseFsck.FileLockCallable(conf,
           HBaseFsck.createLockRetryCounterFactory(conf).create());
-      rootFs = fileLockCallable.getRootFs();
-      String defaultFsScheme = testFileSystem.getUri().getScheme();
-      String actualFsScheme = rootFs.getScheme();
 
-      assertEquals(localFileSystem.getUri().getScheme(), actualFsScheme);
-      assertNotEquals(testFileSystem.getUri().getScheme(), actualFsScheme);
+      assertTrue(!fs.exists(expectedLockFilePath));
       // make a call and generate the hbck2 lock file to the non default file system
       fileLockCallable.call();
-
-      Path lockFilePath = new Path(HBaseFsck.getTmpDir(conf), HBaseFsck.HBCK2_LOCK_FILE);
-      assertTrue(rootFs.exists(lockFilePath));
-      assertNotEquals(defaultFsScheme, lockFilePath.toUri().getScheme());
+      assertTrue(fs.exists(expectedLockFilePath));
     } finally {
-      HBCKFsUtils.delete(rootFs, new Path(nonDefaultRootDir), true);
+      HBCKFsUtils.delete(fs, new Path(nonDefaultRootDir), true);
     }
   }
 

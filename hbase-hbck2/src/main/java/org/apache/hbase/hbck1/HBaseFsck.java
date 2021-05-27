@@ -437,7 +437,7 @@ public class HBaseFsck extends Configured implements Closeable {
    */
   @VisibleForTesting
   public static Path getTmpDir(Configuration conf) throws IOException {
-    return new Path(CommonFSUtils.getRootDir(conf), HConstants.HBASE_TEMP_DIRECTORY);
+    return new Path(HBCKFsUtils.getRootDir(conf), HConstants.HBASE_TEMP_DIRECTORY);
   }
 
   /**
@@ -448,18 +448,15 @@ public class HBaseFsck extends Configured implements Closeable {
     private final Configuration conf;
     private Path hbckLockPath = null;
     private String lockFileName;
-    private FileSystem rootFs;
 
-    public FileLockCallable(Configuration conf, RetryCounter retryCounter) throws IOException {
+    public FileLockCallable(Configuration conf, RetryCounter retryCounter) {
       this(conf, retryCounter, HBCK2_LOCK_FILE);
     }
 
-    public FileLockCallable(Configuration conf, RetryCounter retryCounter, String lockFileName)
-        throws IOException {
+    public FileLockCallable(Configuration conf, RetryCounter retryCounter, String lockFileName) {
       this.retryCounter = retryCounter;
       this.conf = conf;
       this.lockFileName = lockFileName;
-      this.rootFs = HBCKFsUtils.getCurrentFileSystem(conf);
     }
 
     /**
@@ -469,20 +466,17 @@ public class HBaseFsck extends Configured implements Closeable {
       return this.hbckLockPath;
     }
 
-    FileSystem getRootFs() {
-      return this.rootFs;
-    }
-
     @Override
     public FSDataOutputStream call() throws IOException {
       try {
-        FsPermission defaultPerms = CommonFSUtils.getFilePermissions(rootFs, this.conf,
-            HConstants.DATA_FILE_UMASK_KEY);
+        // tmpDir is created based on hbase.rootdir
         Path tmpDir = getTmpDir(conf);
+        FileSystem fs = tmpDir.getFileSystem(conf);
+        FsPermission defaultPerms = CommonFSUtils.getFilePermissions(fs, this.conf,
+            HConstants.DATA_FILE_UMASK_KEY);
         this.hbckLockPath = new Path(tmpDir, this.lockFileName);
-        rootFs.mkdirs(tmpDir);
-        final FSDataOutputStream out = createFileWithRetries(rootFs, this.hbckLockPath,
-            defaultPerms);
+        fs.mkdirs(tmpDir);
+        final FSDataOutputStream out = createFileWithRetries(fs, this.hbckLockPath, defaultPerms);
         out.writeBytes(InetAddress.getLocalHost().toString());
         // Add a note into the file we write on why hbase2 is writing out an hbck1 lock file.
         out.writeBytes(" Written by an hbase-2.x Master to block an " +
@@ -570,7 +564,7 @@ public class HBaseFsck extends Configured implements Closeable {
       do {
         try {
           IOUtils.closeQuietly(hbckOutFd);
-          CommonFSUtils.delete(rootFs, hbckLockPath, true);
+          HBCKFsUtils.delete(rootFs, hbckLockPath, true);
           return;
         } catch (IOException ioe) {
           LOG.info("Failed to delete " + hbckLockPath + ", try="
@@ -1937,15 +1931,10 @@ public class HBaseFsck extends Configured implements Closeable {
       HBaseTestingUtility.closeRegionAndWAL(meta);
       // Clean out the WAL we created and used here.
       LOG.info("Deleting {}, result={}", waldir,
-          deleteWALDir(waldir));
+          HBCKFsUtils.delete(waldir.getFileSystem(getConf()), waldir, true));
     }
     LOG.info("Success! hbase:meta table rebuilt. Old hbase:meta moved into " + backupDir);
     return true;
-  }
-
-  boolean deleteWALDir(Path waldir) throws IOException {
-    // Clean out the WAL we created and used here.
-    return CommonFSUtils.delete(HBCKFsUtils.getWALFileSystem(getConf()), waldir, true);
   }
 
   /**
