@@ -55,7 +55,7 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public void testShouldCreateNewTableDescriptorIfForcefulCreationIsFalse()
     throws IOException {
     final String name = this.name.getMethodName();
-    FileSystem fs = HBCKFsUtils.getCurrentFileSystem(UTIL.getConfiguration());
+    FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
 
@@ -68,7 +68,7 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public void testShouldNotCreateTheSameTableDescriptorIfForcefulCreationIsFalse()
     throws IOException {
     final String name = this.name.getMethodName();
-    FileSystem fs = HBCKFsUtils.getCurrentFileSystem(UTIL.getConfiguration());
+    FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     // Cleanup old tests if any detritus laying around.
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
@@ -83,7 +83,7 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public void testShouldAllowForcefulCreationOfAlreadyExistingTableDescriptor()
     throws Exception {
     final String name = this.name.getMethodName();
-    FileSystem fs = HBCKFsUtils.getCurrentFileSystem(UTIL.getConfiguration());
+    FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
     TableDescriptor htd = TableDescriptorBuilder.newBuilder(TableName.valueOf(name)).build();

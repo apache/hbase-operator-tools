@@ -112,7 +112,7 @@ public final class HBCKFsUtils {
    * @return Returns the filesystem of the hbase rootdir.
    * @throws IOException from underlying FileSystem
    */
-  public static FileSystem getCurrentFileSystem(Configuration conf) throws IOException {
+  public static FileSystem getRootDirFileSystem(Configuration conf) throws IOException {
     return getRootDir(conf).getFileSystem(conf);
   }
 

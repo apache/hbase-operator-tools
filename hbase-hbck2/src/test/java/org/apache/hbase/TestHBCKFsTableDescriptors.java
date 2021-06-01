@@ -107,7 +107,7 @@ public class TestHBCKFsTableDescriptors {
 
   @Test public void testReadingHTDFromFS() throws IOException {
     final String name = this.name.getMethodName();
-    FileSystem fs = HBCKFsUtils.getCurrentFileSystem(UTIL.getConfiguration());
+    FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     TableDescriptor htd = TableDescriptorBuilder.newBuilder(TableName.valueOf(name)).build();
     Path rootdir = UTIL.getDataTestDir(name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
@@ -120,7 +120,7 @@ public class TestHBCKFsTableDescriptors {
   @Test(expected = TableInfoMissingException.class)
   public void testNoSuchTable() throws IOException {
     final String name = "testNoSuchTable";
-    FileSystem fs = HBCKFsUtils.getCurrentFileSystem(UTIL.getConfiguration());
+    FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     // Cleanup old tests if any detrius laying around.
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors htds = new HBCKFsTableDescriptors(fs, rootdir);
@@ -161,7 +161,7 @@ public class TestHBCKFsTableDescriptors {
     Path testdir = UTIL.getDataTestDir(name.getMethodName());
     final TableName name = TableName.valueOf(this.name.getMethodName());
     TableDescriptor htd = TableDescriptorBuilder.newBuilder(name).build();
-    FileSystem fs = HBCKFsUtils.getCurrentFileSystem(UTIL.getConfiguration());
+    FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, testdir);
     assertTrue(fstd.createTableDescriptor(htd, false));
     assertFalse(fstd.createTableDescriptor(htd, false));

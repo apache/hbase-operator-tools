@@ -405,7 +405,7 @@ public class HBaseFsck extends Configured implements Closeable {
     lockFileRetryCounterFactory = createLockRetryCounterFactory(getConf());
     createZNodeRetryCounterFactory = createZnodeRetryCounterFactory(getConf());
     zkw = createZooKeeperWatcher();
-    rootFs = HBCKFsUtils.getCurrentFileSystem(conf);
+    rootFs = HBCKFsUtils.getRootDirFileSystem(conf);
   }
 
   /**
