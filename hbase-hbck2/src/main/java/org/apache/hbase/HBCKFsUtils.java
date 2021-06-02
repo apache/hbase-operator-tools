@@ -108,6 +108,15 @@ public final class HBCKFsUtils {
   }
 
   /**
+   * @param conf must not be null
+   * @return Returns the filesystem of the hbase rootdir.
+   * @throws IOException from underlying FileSystem
+   */
+  public static FileSystem getRootDirFileSystem(Configuration conf) throws IOException {
+    return getRootDir(conf).getFileSystem(conf);
+  }
+
+  /**
    * Copy all files/subdirectories from source path to destination path.
    *
    * COPIED from FSUtils.copyFilesParallel

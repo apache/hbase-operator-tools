@@ -46,6 +46,7 @@ import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.util.FSUtils.FamilyDirFilter;
 import org.apache.hadoop.hbase.util.FSUtils.HFileFilter;
 import org.apache.hadoop.hbase.util.FSUtils.RegionDirFilter;
+import org.apache.hbase.HBCKFsUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.slf4j.Logger;
@@ -84,7 +85,7 @@ public class HFileCorruptionChecker {
   public HFileCorruptionChecker(Configuration conf, ExecutorService executor,
       boolean quarantine) throws IOException {
     this.conf = conf;
-    this.fs = FileSystem.get(conf);
+    this.fs = HBCKFsUtils.getRootDirFileSystem(conf);
     this.cacheConf = CacheConfig.DISABLED;
     this.executor = executor;
     this.inQuarantineMode = quarantine;

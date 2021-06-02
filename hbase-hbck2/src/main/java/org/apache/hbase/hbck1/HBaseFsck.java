@@ -149,6 +149,7 @@ import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
+import org.apache.hbase.HBCKFsUtils;
 import org.apache.hbase.HBCKMetaTableAccessor;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
@@ -274,6 +275,8 @@ public class HBaseFsck extends Configured implements Closeable {
   private int retcode = 0;
   private Path hbckLockPath;
   private FSDataOutputStream hbckOutFd;
+  // single root file system instance to be used within HBaseFsck
+  private FileSystem rootFs;
   // This lock is to prevent cleanup of balancer resources twice between
   // ShutdownHook and the main code. We cleanup only if the connect() is
   // successful
@@ -402,6 +405,7 @@ public class HBaseFsck extends Configured implements Closeable {
     lockFileRetryCounterFactory = createLockRetryCounterFactory(getConf());
     createZNodeRetryCounterFactory = createZnodeRetryCounterFactory(getConf());
     zkw = createZooKeeperWatcher();
+    rootFs = HBCKFsUtils.getRootDirFileSystem(conf);
   }
 
   /**
@@ -433,13 +437,13 @@ public class HBaseFsck extends Configured implements Closeable {
    */
   @VisibleForTesting
   public static Path getTmpDir(Configuration conf) throws IOException {
-    return new Path(CommonFSUtils.getRootDir(conf), HConstants.HBASE_TEMP_DIRECTORY);
+    return new Path(HBCKFsUtils.getRootDir(conf), HConstants.HBASE_TEMP_DIRECTORY);
   }
 
   /**
    * Creates an hbck lock file.
    */
-  private static class FileLockCallable implements Callable<FSDataOutputStream> {
+  static class FileLockCallable implements Callable<FSDataOutputStream> {
     RetryCounter retryCounter;
     private final Configuration conf;
     private Path hbckLockPath = null;
@@ -465,10 +469,11 @@ public class HBaseFsck extends Configured implements Closeable {
     @Override
     public FSDataOutputStream call() throws IOException {
       try {
-        FileSystem fs = CommonFSUtils.getCurrentFileSystem(this.conf);
+        // tmpDir is created based on hbase.rootdir
+        Path tmpDir = getTmpDir(conf);
+        FileSystem fs = tmpDir.getFileSystem(conf);
         FsPermission defaultPerms = CommonFSUtils.getFilePermissions(fs, this.conf,
             HConstants.DATA_FILE_UMASK_KEY);
-        Path tmpDir = getTmpDir(conf);
         this.hbckLockPath = new Path(tmpDir, this.lockFileName);
         fs.mkdirs(tmpDir);
         final FSDataOutputStream out = createFileWithRetries(fs, this.hbckLockPath, defaultPerms);
@@ -559,7 +564,7 @@ public class HBaseFsck extends Configured implements Closeable {
       do {
         try {
           IOUtils.closeQuietly(hbckOutFd);
-          CommonFSUtils.delete(CommonFSUtils.getCurrentFileSystem(getConf()), hbckLockPath, true);
+          HBCKFsUtils.delete(rootFs, hbckLockPath, true);
           return;
         } catch (IOException ioe) {
           LOG.info("Failed to delete " + hbckLockPath + ", try="
@@ -1535,8 +1540,7 @@ public class HBaseFsck extends Configured implements Closeable {
       return;
     }
 
-    FileSystem fs = FileSystem.get(getConf());
-    RegionInfo hri = HRegionFileSystem.loadRegionInfoFileContent(fs, regionDir);
+    RegionInfo hri = HRegionFileSystem.loadRegionInfoFileContent(rootFs, regionDir);
     LOG.debug("RegionInfo read: " + hri.toString());
     hbi.hdfsEntry.hri = hri;
   }
@@ -1927,7 +1931,7 @@ public class HBaseFsck extends Configured implements Closeable {
       HBaseTestingUtility.closeRegionAndWAL(meta);
       // Clean out the WAL we created and used here.
       LOG.info("Deleting {}, result={}", waldir,
-          CommonFSUtils.delete(FileSystem.get(getConf()), waldir, true));
+          HBCKFsUtils.delete(waldir.getFileSystem(getConf()), waldir, true));
     }
     LOG.info("Success! hbase:meta table rebuilt. Old hbase:meta moved into " + backupDir);
     return true;
@@ -3500,7 +3504,6 @@ public class HBaseFsck extends Configured implements Closeable {
           return;
         }
 
-        FileSystem fs = FileSystem.get(conf);
         LOG.info("Found parent: " + parent.getRegionNameAsString());
         LOG.info("Found potential daughter a: " + daughterA.getRegionNameAsString());
         LOG.info("Found potential daughter b: " + daughterB.getRegionNameAsString());
@@ -3528,7 +3531,7 @@ public class HBaseFsck extends Configured implements Closeable {
           return;
         }
 
-        sidelineRegionDir(fs, parent);
+        sidelineRegionDir(rootFs, parent);
         LOG.info("[" + thread + "] Sidelined parent region dir "+ parent.getHdfsRegionDir() +
             " into " + getSidelineDir());
         debugLsr(parent.getHdfsRegionDir());
@@ -3624,7 +3627,6 @@ public class HBaseFsck extends Configured implements Closeable {
         }
         List<HbckInfo> regionsToSideline =
           RegionSplitCalculator.findBigRanges(bigOverlap, overlapsToSideline);
-        FileSystem fs = FileSystem.get(conf);
         for (HbckInfo regionToSideline: regionsToSideline) {
           try {
             LOG.info("Closing region: " + regionToSideline);
@@ -3643,7 +3645,7 @@ public class HBaseFsck extends Configured implements Closeable {
           }
 
           LOG.info("Before sideline big overlapped region: " + regionToSideline.toString());
-          Path sidelineRegionDir = sidelineRegionDir(fs, TO_BE_LOADED, regionToSideline);
+          Path sidelineRegionDir = sidelineRegionDir(rootFs, TO_BE_LOADED, regionToSideline);
           if (sidelineRegionDir != null) {
             sidelinedRegions.put(sidelineRegionDir, regionToSideline);
             LOG.info("After sidelined big overlapped region: "
@@ -5441,7 +5443,7 @@ public class HBaseFsck extends Configured implements Closeable {
             tableDirs.add(CommonFSUtils.getTableDir(rootdir, t));
           }
         } else {
-          tableDirs = FSUtils.getTableDirs(CommonFSUtils.getCurrentFileSystem(getConf()), rootdir);
+          tableDirs = FSUtils.getTableDirs(rootFs, rootdir);
         }
         hfcc.checkTables(tableDirs);
         hfcc.report(errors);
@@ -5615,5 +5617,9 @@ public class HBaseFsck extends Configured implements Closeable {
         debugLsr(conf, status.getPath(), errors);
       }
     }
+  }
+
+  FileSystem getRootFs() {
+    return rootFs;
   }
 }
