@@ -1930,8 +1930,8 @@ public class HBaseFsck extends Configured implements Closeable {
     } finally {
       HBaseTestingUtility.closeRegionAndWAL(meta);
       // Clean out the WAL we created and used here.
-      LOG.info("Deleting {}, result={}", waldir,
-          HBCKFsUtils.delete(waldir.getFileSystem(getConf()), waldir, true));
+      boolean deleteWalDir = HBCKFsUtils.delete(waldir.getFileSystem(getConf()), waldir, true);
+      LOG.info("Deleting WAL directory {}, result={}", waldir, deleteWalDir);
     }
     LOG.info("Success! hbase:meta table rebuilt. Old hbase:meta moved into " + backupDir);
     return true;
