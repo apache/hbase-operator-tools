@@ -235,6 +235,12 @@
       <version>2.1.0</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.github.stephenc.findbugs</groupId>
+      <artifactId>findbugs-annotations</artifactId>
+      <version>${findbugs-annotations.version}</version>
+      <scope>compile</scope>
+    </dependency>
   </dependencies>
 
   <profiles>
