@@ -17,21 +17,6 @@
  */
 package org.apache.hbase;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -40,9 +25,18 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
 import org.apache.hadoop.hbase.util.FSUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * This class implements the inner works required for checking and recovering regions that wrongly
@@ -89,23 +83,34 @@ public class FsRegionsMetaRecoverer implements Closeable {
     return extraChecker.reportTablesRegions(namespacesOrTables, this::findExtraRegionsInMETA);
   }
 
-  public Map<TableName, List<byte[]>>
-  reportDirtyMetadata() throws IOException {
-    return HBCKMetaTableAccessor.getDirtyMetadata(this.conn);
+  public Map<String, List<byte[]>> reportUndeletedRegions() throws IOException {
+    return HBCKMetaTableAccessor.getUndeletedRegions(this.conn);
   }
 
-
-  public void deleteDirtyMetadata(Map<TableName, List<byte[]>> reportMap) throws IOException {
+  public Map<String, Integer> removeUndeletedRegion(Map<String, List<byte[]>> reportMap) throws IOException {
     Table table = conn.getTable(TableName.META_TABLE_NAME);
-    for (Map.Entry<TableName, List<byte[]>> entry : reportMap.entrySet()) {
-      List<Delete> list=new ArrayList<>();
+    Map<String, Integer> map = new HashMap<>();
+    for (Map.Entry<String, List<byte[]>> entry : reportMap.entrySet()) {
+      List<Delete> list = new ArrayList<>();
       for (byte[] bytes : entry.getValue()) {
+        Delete delete = new Delete(bytes);
+        list.add(delete);
+      }
+      map.put(entry.getKey(), list.size());
+      table.delete(list);
+    }
+    table.close();
+    return map;
+  }
+
+  void deleteRegions(TableName tableName,List<byte[]> rowkeys) throws IOException {
+    Table table = conn.getTable(tableName);
+      List<Delete> list=new ArrayList<>();
+      for (byte[] bytes : rowkeys) {
         Delete delete=new Delete(bytes);
         list.add(delete);
       }
       table.delete(list);
-      LOG.info("delete dirty table {} metadata",entry.getKey().getNameAsString());
-    }
     table.close();
   }
 

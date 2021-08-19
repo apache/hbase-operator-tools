@@ -17,52 +17,29 @@
  */
 package org.apache.hbase;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
-
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.ClusterConnection;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.Hbck;
-import org.apache.hadoop.hbase.client.RegionInfo;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.Table;
-import org.apache.hadoop.hbase.client.TableState;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.Threads;
-
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+
+import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
+import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
+import static org.junit.Assert.*;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -76,6 +53,8 @@ public class TestHBCK2 {
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
   private final static String ASSIGNS = "assigns";
   private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+  private static final String REPORT_UNDELETED_REGIONS_IN_META =
+          "reportUndeletedRegionsInMeta";
 
   @Rule
   public TestName testName = new TestName();
@@ -320,6 +299,12 @@ public class TestHBCK2 {
 
   private TableName createTestTable(int totalRegions) throws IOException {
     TableName tableName = TableName.valueOf(testName.getMethodName());
+    TEST_UTIL.createMultiRegionTable(tableName, Bytes.toBytes("family1"), totalRegions);
+    return tableName;
+  }
+
+  private TableName createTestTable(int totalRegions, String name) throws IOException {
+    TableName tableName = TableName.valueOf(name);
     TEST_UTIL.createMultiRegionTable(tableName, Bytes.toBytes("family1"), totalRegions);
     return tableName;
   }
@@ -608,6 +593,74 @@ public class TestHBCK2 {
     long resultingExtraRegions = report.keySet().stream().mapToLong(nsTbl ->
       report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalExtraRegions, resultingExtraRegions);
+  }
+
+  private void deleteTableFamilyRegion() {
+    try {
+      HBCKMetaTableAccessor.MetaScanner<byte[]> scanner =
+        new HBCKMetaTableAccessor.MetaScanner<>();
+      List<byte[]> rowkeys = scanner.scanMeta(TEST_UTIL.getConnection(),
+        scan -> scan.addColumn(TABLE_FAMILY, TABLE_STATE_QUALIFIER),
+          r -> {
+            byte[] bytes = r.getRow();
+            String row=Bytes.toString(bytes);
+            String tableName = row.split(",")[0];
+            if(tableName.equals(TABLE_NAME.getNameAsString())){
+              return bytes;
+            }
+            return null;
+          });
+      try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+        new FsRegionsMetaRecoverer(TEST_UTIL.getConfiguration())) {
+        fsRegionsMetaRecoverer.deleteRegions(TableName.META_TABLE_NAME,rowkeys);
+      }
+    } catch (IOException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testReportUndeletedRegionsInMeta() throws Exception {
+    testReportUndeletedRegionsInMeta(5,5);
+  }
+
+  private void testReportUndeletedRegionsInMeta(int undeletedRegions,
+    int expectedUndeletedRegions, String... namespaceOrTable) throws Exception {
+    List<RegionInfo> regions = HBCKMetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+    regions.subList(0, undeletedRegions).forEach(r -> {
+      deleteRegionDir(TABLE_NAME, r.getEncodedName());
+    });
+    deleteTableFamilyRegion();
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    final Map<TableName, List<String>> report =
+      hbck.reportUndeletedRegionsInMeta(namespaceOrTable);
+    long resultingExtraRegions = report.keySet().stream().mapToLong(nsTbl ->
+      report.get(nsTbl).size()).sum();
+    assertEquals(expectedUndeletedRegions, resultingExtraRegions);
+    String expectedResult = "Regions in Meta but having no valid table, for each table:\n";
+    String result = testFormatUndeleteRegionsInMeta(null);
+    //validates initial execute message
+    assertTrue(result.contains(expectedResult));
+    //validates our test table region is reported as extra
+    expectedResult = "\t" + TABLE_NAME.getNameAsString() + "->\n\t\t"
+      + TABLE_NAME.getNameAsString();
+    assertTrue(result.contains(expectedResult));
+    //validates remove region with --fix
+    result = testFormatUndeleteRegionsInMeta("-f");
+    expectedResult = "\n\tRegions that had relate to the not found table '"
+      + TABLE_NAME.getNameAsString() + "' and got removed from Meta: "
+      + resultingExtraRegions;
+    assertTrue(result.contains(expectedResult));
+    createTestTable(5, TABLE_NAME.getNameAsString());
+  }
+
+  private String testFormatUndeleteRegionsInMeta(String options) throws IOException {
+    if (options == null) {
+      return testRunWithArgs(new String[]{REPORT_UNDELETED_REGIONS_IN_META});
+    } else {
+      return testRunWithArgs(new String[]{REPORT_UNDELETED_REGIONS_IN_META, options});
+    }
   }
 
 }

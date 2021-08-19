@@ -17,10 +17,18 @@
  */
 package org.apache.hbase;
 
-import static org.apache.hadoop.hbase.HConstants.CATALOG_FAMILY;
-import static org.apache.hadoop.hbase.HConstants.REGIONINFO_QUALIFIER;
-import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
-import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.exceptions.DeserializationException;
+import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
+import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.util.PairOfSameType;
+import org.apache.hbase.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
@@ -29,43 +37,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.CellBuilder;
-import org.apache.hadoop.hbase.CellBuilderFactory;
-import org.apache.hadoop.hbase.CellBuilderType;
-import org.apache.hadoop.hbase.CellUtil;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HRegionLocation;
-import org.apache.hadoop.hbase.RegionLocations;
-import org.apache.hadoop.hbase.ServerName;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.RegionInfo;
-import org.apache.hadoop.hbase.client.RegionInfoBuilder;
-import org.apache.hadoop.hbase.client.RegionLocator;
-import org.apache.hadoop.hbase.client.RegionReplicaUtil;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.client.Table;
-import org.apache.hadoop.hbase.client.TableState;
-import org.apache.hadoop.hbase.exceptions.DeserializationException;
-import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
-import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.apache.hadoop.hbase.util.Pair;
-import org.apache.hadoop.hbase.util.PairOfSameType;
-
-import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.apache.hbase.thirdparty.com.google.common.annotations.VisibleForTesting;
+import static org.apache.hadoop.hbase.HConstants.*;
 
 /**
  * hbck's local version of the MetaTableAccessor from the hbase repo
@@ -261,35 +233,37 @@ public final class HBCKMetaTableAccessor {
 
 
   /**
-   * List all dirty metadata currently in META.
+   * List all undeleted regions currently in META.
+   * Undeleted regions means table not exist on hbase, but regions still in META.
    * @param conn a valid, open connection.
    * @return a Map of all dirty metadata in META.
    * @throws IOException on any issues related with scanning meta table
    */
-  public static Map<TableName, List<byte[]>> getDirtyMetadata(Connection conn) throws IOException {
-    Map<TableName, List<byte[]>> dirtyTableRegions = new HashMap<>();
-    Map<String, TableName> tableNameMap = new HashMap<>();
-    getTables(conn).forEach(tableName -> tableNameMap.put(tableName.getNameAsString(), tableName));
+  public static Map<String, List<byte[]>> getUndeletedRegions(Connection conn)
+          throws IOException {
+    final Map<String, List<byte[]>> undeletedTableRegions = new HashMap<>();
+    final Map<String, TableName> tableNameMap = new HashMap<>();
+    List<TableName> tables = getTables(conn);
+    tables.forEach(tableName -> tableNameMap.put(tableName.getNameAsString(), tableName));
     Table metaTable = conn.getTable(TableName.META_TABLE_NAME);
     Scan scan = new Scan();
     ResultScanner resultScanner = metaTable.getScanner(scan);
     for (Result result : resultScanner) {
-      result.listCells().forEach(cell -> {
-        byte[] rowBytes = CellUtil.cloneRow(cell);
-        String row = Bytes.toString(rowBytes);
-        String tableName = row.split(",")[0];
-        if (!tableNameMap.containsKey(tableName)) {
-          if (dirtyTableRegions.containsKey(tableNameMap.get(tableName))) {
-            dirtyTableRegions.get(tableNameMap.get(tableName)).add(rowBytes);
-          } else {
-            List<byte[]> list = new ArrayList<>();
-            list.add(rowBytes);
-            dirtyTableRegions.put(tableNameMap.get(tableName), list);
-          }
+      Cell cell =result.listCells().get(0);
+      byte[] rowBytes = CellUtil.cloneRow(cell);
+      String row = Bytes.toString(rowBytes);
+      String tableName = row.split(",")[0];
+      if (!tableNameMap.containsKey(tableName)) {
+        if (undeletedTableRegions.containsKey(tableName)) {
+          undeletedTableRegions.get(tableName).add(rowBytes);
+        } else {
+          List<byte[]> list = new ArrayList<>();
+          list.add(rowBytes);
+          undeletedTableRegions.put(tableName, list);
         }
-      });
+      }
     }
-    return dirtyTableRegions;
+    return undeletedTableRegions;
   }
 
   /**
