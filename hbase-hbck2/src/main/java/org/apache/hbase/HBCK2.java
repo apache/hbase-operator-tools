@@ -610,8 +610,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example triggering undeleted regions report");
     writer.println("     $ HBCK2 " + REPORT_UNDELETED_REGIONS_IN_META);
     writer.println("   Returns list of undeleted regions for each not found table");
-    writer.println("   for each table on namespaces specified as parameter.");
-
     writer.println("   If master log continues to print 'TableNotFoundException', or master ");
     writer.println("   ui report RITs for those table not found regions, or hbck.jsp web page ");
     writer.println("   report regions but related tables not existing, remove those undeleted ");
