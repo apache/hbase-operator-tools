@@ -250,8 +250,7 @@ public final class HBCKMetaTableAccessor {
     Scan scan = new Scan();
     ResultScanner resultScanner = metaTable.getScanner(scan);
     for (Result result : resultScanner) {
-      Cell cell =result.listCells().get(0);
-      byte[] rowBytes = CellUtil.cloneRow(cell);
+      byte[] rowBytes = result.getRow();
       String row = Bytes.toString(rowBytes);
       String tableName = row.split(",")[0];
       if (!tableNameMap.containsKey(tableName)) {
