@@ -604,16 +604,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static void usageReportUndeletedRegionsInMeta(PrintWriter writer){
     writer.println(" " + REPORT_UNDELETED_REGIONS_IN_META + " [OPTIONS]");
     writer.println("   Options:");
-    writer.println("    -f, --fix    fix meta by removing all undeleted regions found.");
+    writer.println("    -f, --fix    fix meta by removing all undeleted regions found. ");
     writer.println("   Reports regions present on hbase:meta, but related tables have been ");
-    writer.println("   deleted on hbase. Needs hbase:meta to be online.");
-    writer.println("   An example triggering undeleted regions report");
+    writer.println("   deleted on hbase. Needs hbase:meta to be online. ");
+    writer.println("   An example triggering undeleted regions report ");
     writer.println("     $ HBCK2 " + REPORT_UNDELETED_REGIONS_IN_META);
     writer.println("   Returns list of undeleted regions for each not found table");
     writer.println("   If master log continues to print 'TableNotFoundException', or master ");
     writer.println("   ui report RITs for those table not found regions, or hbck.jsp web page ");
-    writer.println("   report regions but related tables not existing, remove those undeleted ");
-    writer.println("   undeleted regions with '--fix' option. ");
+    writer.println("   report regions but related tables not existing, remove these undeleted ");
+    writer.println("   regions with '--fix' option. ");
     writer.println("   You should switch active master after remove undeleted regions, then ");
     writer.println("   those abnormal regions info will disappear. ");
   }
