@@ -65,6 +65,7 @@ public final class HBCKMetaTableAccessor {
   // Constants
   private static final byte[] MERGE_QUALIFIER_PREFIX = Bytes.toBytes("merge");
 
+  /** COPIED MetaTableAccessor.getMergeRegions */
   public static List<RegionInfo> getMergeRegions(Cell[] cells) {
     if (cells == null) {
       return null;

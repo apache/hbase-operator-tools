@@ -20,6 +20,49 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
+# HBASE  hbase-operator-tools-1.1.0 Release Notes
+
+These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.
+
+
+---
+
+* [HBASE-24482](https://issues.apache.org/jira/browse/HBASE-24482) | *Major* | **[hbase-operator-tools] build of hbck2 fails with HBase branch-2.3, due to missing dependencies**
+
+Make it so tests and compile works against hbase-2.3.x as well as hbase-2.1.x.
+
+
+---
+
+* [HBASE-23927](https://issues.apache.org/jira/browse/HBASE-23927) | *Major* | **hbck2 assigns command should accept one or more files containing a list of region names**
+
+This adds a new option -i or --inputFile to assigns function to allow one or more files to read the region list from for region assignment. Each file contains encoded region names, one per line. White spaces will be trimmed. For example:
+     $ HBCK2 assigns -i file1 file2
+The files can be generated or piped from operator running grep/sed over log files.
+
+
+---
+
+* [HBASE-23180](https://issues.apache.org/jira/browse/HBASE-23180) | *Major* | **Add a hbck2 testing tool**
+
+This adds a new tool that spins up hbase on hadoop minicluster and mimicks actions of hbck2 to verify it's functionalities. The tool has been designed for easy addition of more compound actions (i.e. collection of actions) to verify hbck2. deleteRegionInMeta.sh is one such example of a compound action script.
+
+
+---
+
+* [HBASE-23610](https://issues.apache.org/jira/browse/HBASE-23610) | *Trivial* | **Update Apache POM to version 21 for hbase-operator-tools**
+
+Updated parent POM from version 18 to version 21 - https://github.com/apache/maven-apache-parent/compare/apache-18...apache-21
+
+
+---
+
+* [HBASE-23577](https://issues.apache.org/jira/browse/HBASE-23577) | *Minor* | **Bump Checkstyle from 8.11 to 8.18 in hbase-operator-tools**
+
+Bumped the Checkstyle version from 8.11 to 8.18
+
+
+
 # HBASE  hbase-operator-tools-1.0.0 Release Notes
 
 These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.

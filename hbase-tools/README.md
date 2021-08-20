@@ -29,7 +29,7 @@ module are:
 
 - RegionsMerger;
 - MissingRegionDirsRepairTool;
-
+- RegionsOnUnknownServersRecoverer;
 
 ## Setup
 Make sure HBase tools jar is added to HBase classpath:
@@ -139,3 +139,34 @@ region hfiles to a `HBASE_ROOT_DIR/.missing_dirs_repair/TS/TBL_NAME/bulkload` di
 files with the pattern `REGION_NAME-FILENAME`. For a given table, all affected regions would then
 have all its files under same directory for bulkload. _MissingRegionDirsRepairTool_ then uses
 _LoadIncrementalHFiles_ to load all files for a given table at once.
+
+## RegionsOnUnknownServersRecoverer - Tool for recovering regions on "unknown servers."
+
+_RegionsOnUnknownServersRecoverer_ parses the master log to identify `unknown servers`
+holding regions. This condition may happen in the event of recovering previously destroyed clusters,
+where new Master/RS names completely differ from the previous ones currently
+stored in meta table (see HBASE-24286).
+
+```
+NOTE: This tool is useful for clusters runing hbase versions lower than 2.2.7, 2.3.5 and 2.4.7.
+For any of these versions or higher, HBCK2 'recoverUnknown' option can be used as a much simpler solution.
+```
+
+### Usage
+
+This tool requires the master logs path as parameter. Assuming classpath is properly set,
+can be run as follows:
+
+```
+$ hbase org.apache.hbase.RegionsOnUnknownServersRecoverer PATH_TO_MASTER_LOGS [dryRun]
+```
+
+The `dryRun` optional parameter will just parse the logs and print the list of unknown servers,
+without invoking `hbck2 scheduleRecoveries` command.
+
+
+### Implementation Details
+
+_RegionsOnUnknownServersRecoverer_ parses master log file searching for specific messages mentioning
+ "unknown servers". Once "unknown servers" are found, it then uses `HBCK2.scheduleRecoveries` to
+ submit SCPs for each of these "unknown servers". 
