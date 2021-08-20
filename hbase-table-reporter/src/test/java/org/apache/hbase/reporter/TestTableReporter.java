@@ -17,17 +17,17 @@
  */
 package org.apache.hbase.reporter;
 
+import static org.apache.hadoop.hbase.shaded.junit.framework.TestCase.assertEquals;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellBuilderFactory;
 import org.apache.hadoop.hbase.CellBuilderType;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.apache.hadoop.hbase.shaded.junit.framework.TestCase.assertEquals;
 
 public class TestTableReporter {
   private static final byte [] CF = Bytes.toBytes("cf");
@@ -56,7 +56,8 @@ public class TestTableReporter {
     final int columns = 3;
     final int versions = 2;
     for (int i = 0; i < rows; i++) {
-      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i), columns, versions)), sketches);
+      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i),
+              columns, versions)), sketches);
     }
     sketches.print();
     // Just check the column counts. Should be 2.
@@ -72,12 +73,14 @@ public class TestTableReporter {
     final int columns = 3;
     final int versions = 2;
     for (int i = 0; i < rows; i++) {
-      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i), columns, versions)), sketches);
+      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i),
+              columns, versions)), sketches);
     }
     sketches.print();
     TableReporter.Sketches sketches2 = new TableReporter.Sketches();
     for (int i = 0; i < rows; i++) {
-      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i), columns, versions)), sketches2);
+      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i),
+              columns, versions)), sketches2);
     }
     sketches2.print();
     TableReporter.AccumlatingSketch accumlator = new TableReporter.AccumlatingSketch();

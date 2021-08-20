@@ -66,6 +66,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String VERSION = "version";
   private static final String SET_REGION_STATE = "setRegionState";
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
+  private static final String RECOVER_UNKNOWN = "recoverUnknown";
   private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
   private static final String REPORT_UNDELETED_REGIONS_IN_META =
           "reportUndeletedRegionsInMeta";
@@ -78,7 +79,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
               put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
               put(BYPASS, Arrays.asList("bypassProcedure"));
               put(SCHEDULE_RECOVERIES, Arrays.asList("scheduleServerCrashProcedure",
-                      "scheduleServerCrashProcedures")); }});
+                      "scheduleServerCrashProcedures"));
+              put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
+            }});
 
   private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
     "addFsRegionsMissingInMeta";
@@ -382,6 +385,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return hbck.scheduleServerCrashProcedure(serverNames);
   }
 
+  List<Long> recoverUnknown(Hbck hbck) throws IOException {
+    return hbck.scheduleSCPsForUnknownServers();
+  }
+
   private HBaseProtos.ServerName parseServerName(String serverName) {
     ServerName sn = ServerName.parseServerName(serverName);
     return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).
@@ -429,6 +436,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     usageSetTableState(writer);
     writer.println();
     usageScheduleRecoveries(writer);
+    writer.println();
+    usageRecoverUnknown(writer);
     writer.println();
     usageUnassigns(writer);
     writer.println();
@@ -678,6 +687,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Command support added in hbase versions 2.0.3, 2.1.2, 2.2.0 or newer.");
   }
 
+  private static void usageRecoverUnknown(PrintWriter writer) {
+    writer.println(" " + RECOVER_UNKNOWN);
+    writer.println("   Schedule ServerCrashProcedure(SCP) for RegionServers that are reported");
+    writer.println("   as unknown.");
+    writer.println("   Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if");
+    writer.println("   no procedure created (see master logs for why not).");
+    writer.println("   Command support added in hbase versions 2.2.7, 2.3.5, 2.4.3,");
+    writer.println("     2.5.0 or newer.");
+  }
+
   private static void usageUnassigns(PrintWriter writer) {
     writer.println(" " + UNASSIGNS + " <ENCODED_REGIONNAME>...");
     writer.println("   Options:");
@@ -910,6 +929,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
+        }
+        break;
+
+      case RECOVER_UNKNOWN:
+        if (commands.length > 1) {
+          showErrorMessage(command + " doesn't take any arguments");
+          return EXIT_FAILURE;
+        }
+        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+          checkFunctionSupported(connection, command);
+          System.out.println(toString(recoverUnknown(hbck)));
         }
         break;
 
