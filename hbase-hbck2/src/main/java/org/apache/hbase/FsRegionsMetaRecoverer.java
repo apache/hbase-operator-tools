@@ -17,26 +17,37 @@
  */
 package org.apache.hbase;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
-import org.apache.hadoop.hbase.util.FSUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
+import org.apache.hadoop.hbase.util.FSUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class implements the inner works required for checking and recovering regions that wrongly
@@ -87,30 +98,29 @@ public class FsRegionsMetaRecoverer implements Closeable {
     return HBCKMetaTableAccessor.getUndeletedRegions(this.conn);
   }
 
-  public Map<String, Integer> removeUndeletedRegion(Map<String, List<byte[]>> reportMap) throws IOException {
+  public Map<String, Integer>
+      removeUndeletedRegion(Map<String, List<byte[]>> reportMap) throws IOException {
     Table table = conn.getTable(TableName.META_TABLE_NAME);
     Map<String, Integer> map = new HashMap<>();
+    List<Delete> list = new ArrayList<>();
     for (Map.Entry<String, List<byte[]>> entry : reportMap.entrySet()) {
-      List<Delete> list = new ArrayList<>();
-      for (byte[] bytes : entry.getValue()) {
-        Delete delete = new Delete(bytes);
-        list.add(delete);
-      }
-      map.put(entry.getKey(), list.size());
+      entry.getValue().forEach(e -> list.add(new Delete(e)));
+      map.put(entry.getKey(), new Integer(list.size()));
       table.delete(list);
+      list.clear();
     }
     table.close();
     return map;
   }
 
-  void deleteRegions(TableName tableName,List<byte[]> rowkeys) throws IOException {
+  public void deleteRegions(TableName tableName,List<byte[]> rows) throws IOException {
     Table table = conn.getTable(tableName);
-      List<Delete> list=new ArrayList<>();
-      for (byte[] bytes : rowkeys) {
-        Delete delete=new Delete(bytes);
-        list.add(delete);
-      }
-      table.delete(list);
+    List<Delete> list=new ArrayList<>();
+    for (byte[] bytes : rows) {
+      Delete delete=new Delete(bytes);
+      list.add(delete);
+    }
+    table.delete(list);
     table.close();
   }
 

@@ -17,29 +17,52 @@
  */
 package org.apache.hbase;
 
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.CommonFSUtils;
-import org.apache.hadoop.hbase.util.Threads;
-import org.junit.*;
-import org.junit.rules.TestName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-import static org.apache.hadoop.hbase.HConstants.TABLE_FAMILY;
-import static org.apache.hadoop.hbase.HConstants.TABLE_STATE_QUALIFIER;
-import static org.junit.Assert.*;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.ClusterConnection;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Hbck;
+import org.apache.hadoop.hbase.client.RegionInfo;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.TableState;
+import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.CommonFSUtils;
+import org.apache.hadoop.hbase.util.Threads;
+
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tests commands. For command-line parsing, see adjacent test.
@@ -49,6 +72,8 @@ public class TestHBCK2 {
   private static final Logger LOG = LoggerFactory.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
+  private static final TableName DELETED_TABLE_NAME = TableName.
+    valueOf(TestHBCK2.class.getSimpleName() + "-DELETED");
   private static final TableName REGION_STATES_TABLE_NAME = TableName.
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
   private final static String ASSIGNS = "assigns";
@@ -599,20 +624,17 @@ public class TestHBCK2 {
     try {
       HBCKMetaTableAccessor.MetaScanner<byte[]> scanner =
         new HBCKMetaTableAccessor.MetaScanner<>();
-      List<byte[]> rowkeys = scanner.scanMeta(TEST_UTIL.getConnection(),
-        scan -> scan.addColumn(TABLE_FAMILY, TABLE_STATE_QUALIFIER),
-          r -> {
-            byte[] bytes = r.getRow();
-            String row=Bytes.toString(bytes);
-            String tableName = row.split(",")[0];
-            if(tableName.equals(TABLE_NAME.getNameAsString())){
-              return bytes;
-            }
-            return null;
-          });
+      List<byte[]> rows = scanner.scanMeta(TEST_UTIL.getConnection(),
+        scan -> scan.addColumn(HConstants.TABLE_FAMILY,HConstants.TABLE_STATE_QUALIFIER),
+        r -> {
+          byte[] bytes = r.getRow();
+          String row=Bytes.toString(bytes);
+          String tableName = row.split(",")[0];
+          return tableName.equals(DELETED_TABLE_NAME.getNameAsString()) ? bytes : null;
+        });
       try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
         new FsRegionsMetaRecoverer(TEST_UTIL.getConfiguration())) {
-        fsRegionsMetaRecoverer.deleteRegions(TableName.META_TABLE_NAME,rowkeys);
+        fsRegionsMetaRecoverer.deleteRegions(TableName.META_TABLE_NAME, rows);
       }
     } catch (IOException e) {
       fail(e.getMessage());
@@ -626,10 +648,11 @@ public class TestHBCK2 {
 
   private void testReportUndeletedRegionsInMeta(int undeletedRegions,
     int expectedUndeletedRegions, String... namespaceOrTable) throws Exception {
+    createTestTable(5, DELETED_TABLE_NAME.getNameAsString());
     List<RegionInfo> regions = HBCKMetaTableAccessor
-      .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+      .getTableRegions(TEST_UTIL.getConnection(), DELETED_TABLE_NAME);
     regions.subList(0, undeletedRegions).forEach(r -> {
-      deleteRegionDir(TABLE_NAME, r.getEncodedName());
+      deleteRegionDir(DELETED_TABLE_NAME, r.getEncodedName());
     });
     deleteTableFamilyRegion();
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
@@ -643,16 +666,15 @@ public class TestHBCK2 {
     //validates initial execute message
     assertTrue(result.contains(expectedResult));
     //validates our test table region is reported as extra
-    expectedResult = "\t" + TABLE_NAME.getNameAsString() + "->\n\t\t"
-      + TABLE_NAME.getNameAsString();
+    expectedResult = "\t" + DELETED_TABLE_NAME.getNameAsString() + "->\n\t\t"
+      + DELETED_TABLE_NAME.getNameAsString();
     assertTrue(result.contains(expectedResult));
     //validates remove region with --fix
     result = testFormatUndeleteRegionsInMeta("-f");
     expectedResult = "\n\tRegions that had relate to the not found table '"
-      + TABLE_NAME.getNameAsString() + "' and got removed from Meta: "
+      + DELETED_TABLE_NAME.getNameAsString() + "' and got removed from Meta: "
       + resultingExtraRegions;
     assertTrue(result.contains(expectedResult));
-    createTestTable(5, TABLE_NAME.getNameAsString());
   }
 
   private String testFormatUndeleteRegionsInMeta(String options) throws IOException {
