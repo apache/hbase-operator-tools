@@ -314,6 +314,7 @@ public class HBaseFsck extends Configured implements Closeable {
   // limit checking/fixes to listed tables, if empty attempt to check/fix all
   // hbase:meta are always checked
   private Set<TableName> tablesIncluded = new HashSet<>();
+  private Set<Path> tableDirs = new HashSet<>();
   private TableName cleanReplicationBarrierTable;
   private int maxMerge = DEFAULT_MAX_MERGE; // maximum number of overlapping regions to merge
   // maximum number of overlapping regions to sideline
@@ -1261,8 +1262,8 @@ public class HBaseFsck extends Configured implements Closeable {
   // is also wonky because it is about in FSUtils but it takes an Interface from HBCK to do
   // reporting (to print a '.' every so often). Its just wrong reaching across packages this way,
   // especially when no relation.
-  private static Map<String, Path> getTableStoreFilePathMap(final FileSystem fs,
-        final Path hbaseRootDir, PathFilter sfFilter, ExecutorService executor)
+  private Map<String, Path> getTableStoreFilePathMap(final FileSystem fs, final Path hbaseRootDir,
+      PathFilter sfFilter, ExecutorService executor)
       throws IOException, InterruptedException {
     ConcurrentHashMap<String, Path> map = new ConcurrentHashMap<>(1024, 0.75f, 32);
 
@@ -1270,7 +1271,7 @@ public class HBaseFsck extends Configured implements Closeable {
     // it was borrowed from it.
 
     // only include the directory paths to tables
-    for (Path tableDir : FSUtils.getTableDirs(fs, hbaseRootDir)) {
+    for (Path tableDir : tableDirs) {
       getTableStoreFilePathMap(map, fs, hbaseRootDir, CommonFSUtils.getTableName(tableDir),
           sfFilter, executor);
     }
@@ -2168,13 +2169,18 @@ public class HBaseFsck extends Configured implements Closeable {
     // List all tables from HDFS
     List<FileStatus> tableDirs = Lists.newArrayList();
 
-    List<Path> paths = FSUtils.getTableDirs(fs, rootDir);
-    for (Path path : paths) {
-      TableName tableName = CommonFSUtils.getTableName(path);
-      if ((!checkMetaOnly && isTableIncluded(tableName)) ||
-          tableName.equals(TableName.META_TABLE_NAME)) {
-        tableDirs.add(fs.getFileStatus(path));
+    if (!checkMetaOnly) {
+      for (Path tableDir : this.tableDirs) {
+        try {
+          fs.getFileStatus(tableDir);
+        } catch (IOException ioe) {
+          LOG.warn("Failed to get Table directory for included table: {}",
+              CommonFSUtils.getTableName(tableDir), ioe);
+        }
       }
+    } else {
+      tableDirs.add(fs.getFileStatus(
+          CommonFSUtils.getTableDir(rootDir, TableName.META_TABLE_NAME)));
     }
 
     // Verify that version file exists
@@ -2998,14 +3004,24 @@ public class HBaseFsck extends Configured implements Closeable {
    * regions reported for the table, but table dir is there in hdfs
    */
   private void loadTableInfosForTablesWithNoRegion() throws IOException {
-    Map<String, TableDescriptor> allTables = new FSTableDescriptors(getConf()).getAll();
-    for (TableDescriptor htd : allTables.values()) {
+    Map<String, TableDescriptor> tables;
+    FSTableDescriptors tableDescriptors = new FSTableDescriptors(getConf());
+    if (!tablesIncluded.isEmpty()) {
+      tables = new HashMap<>();
+      for (TableName tableName: getIncludedTables()) {
+        tables.put(tableName.getNameWithNamespaceInclAsString(), tableDescriptors.get(tableName));
+      }
+    } else {
+      tables = tableDescriptors.getAll();
+    }
+
+    for (TableDescriptor htd : tables.values()) {
       if (checkMetaOnly && !htd.isMetaTable()) {
         continue;
       }
 
       TableName tableName = htd.getTableName();
-      if (isTableIncluded(tableName) && !tablesInfo.containsKey(tableName)) {
+      if (!tablesInfo.containsKey(tableName)) {
         TableInfo tableInfo = new TableInfo(tableName);
         tableInfo.htds.add(htd);
         tablesInfo.put(htd.getTableName(), tableInfo);
@@ -5431,21 +5447,21 @@ public class HBaseFsck extends Configured implements Closeable {
     }
 
     try {
+      Collection<TableName> tables = getIncludedTables();
+      Path rootdir = CommonFSUtils.getRootDir(getConf());
+      if (tables.isEmpty()) {
+        tableDirs.addAll(FSUtils.getTableDirs(rootFs, rootdir));
+      } else {
+        tableDirs.add(CommonFSUtils.getTableDir(rootdir, TableName.META_TABLE_NAME));
+        for (TableName table : tables) {
+          tableDirs.add(CommonFSUtils.getTableDir(rootdir, table));
+        }
+      }
       // if corrupt file mode is on, first fix them since they may be opened later
       if (cld.checkCorruptHFiles || cld.sidelineCorruptHFiles) {
         LOG.info("Checking all hfiles for corruption");
         HFileCorruptionChecker hfcc = createHFileCorruptionChecker(cld.sidelineCorruptHFiles);
         setHFileCorruptionChecker(hfcc); // so we can get result
-        Collection<TableName> tables = getIncludedTables();
-        Collection<Path> tableDirs = new ArrayList<>();
-        Path rootdir = CommonFSUtils.getRootDir(getConf());
-        if (tables.size() > 0) {
-          for (TableName t : tables) {
-            tableDirs.add(CommonFSUtils.getTableDir(rootdir, t));
-          }
-        } else {
-          tableDirs = FSUtils.getTableDirs(rootFs, rootdir);
-        }
         hfcc.checkTables(tableDirs);
         hfcc.report(errors);
       }
