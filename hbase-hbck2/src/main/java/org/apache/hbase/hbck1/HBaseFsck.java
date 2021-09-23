@@ -2172,7 +2172,7 @@ public class HBaseFsck extends Configured implements Closeable {
     if (!checkMetaOnly) {
       for (Path tableDir : this.tableDirs) {
         try {
-          fs.getFileStatus(tableDir);
+          tableDirs.add(fs.getFileStatus(tableDir));
         } catch (IOException ioe) {
           LOG.warn("Failed to get Table directory for included table: {}",
               CommonFSUtils.getTableName(tableDir), ioe);
