@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -89,6 +91,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final Logger LOG = LoggerFactory.getLogger(HBCK2.class);
   private static final int EXIT_SUCCESS = 0;
   static final int EXIT_FAILURE = 1;
+  /** The delimiter for meta columns for replicaIds &gt; 0 */
+  private static final char META_REPLICA_ID_DELIMITER = '_';
+
   // Commands
   private static final String SET_TABLE_STATE = "setTableState";
   private static final String ASSIGNS = "assigns";
@@ -167,6 +172,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
+  public static byte[] getRegionStateColumn(int replicaId) {
+    try {
+      return replicaId == 0 ? HConstants.STATE_QUALIFIER
+              : (HConstants.STATE_QUALIFIER_STR + META_REPLICA_ID_DELIMITER
+              + String.format(RegionInfo.REPLICA_ID_FORMAT,
+              replicaId)).getBytes(StandardCharsets.UTF_8.name());
+    } catch (UnsupportedEncodingException e) {
+      // should never happen!
+      throw new IllegalArgumentException("UTF8 decoding is not supported", e);
+    }
+  }
+
   TableState setTableState(Hbck hbck, TableName tableName, TableState.State state)
       throws IOException {
     return hbck.setTableStateInMeta(new TableState(tableName, state));
@@ -175,6 +192,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   int setRegionState(ClusterConnection connection, String region,
         RegionState.State newState)
       throws IOException {
+    return setRegionState(connection, region, 0, newState);
+  }
+
+  int setRegionState(ClusterConnection connection, String region, int replicaId,
+                     RegionState.State newState)
+          throws IOException {
     if (newState == null) {
       throw new IllegalArgumentException("State can't be null.");
     }
@@ -186,19 +209,27 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     Result result = table.getScanner(scan).next();
     if (result != null) {
       byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
-        HConstants.STATE_QUALIFIER);
+              getRegionStateColumn(replicaId));
       if (currentStateValue == null) {
         System.out.println("WARN: Region state info on meta was NULL");
       } else {
         currentState = RegionState.State.valueOf(
-            org.apache.hadoop.hbase.util.Bytes.toString(currentStateValue));
+                org.apache.hadoop.hbase.util.Bytes.toString(currentStateValue));
       }
       Put put = new Put(result.getRow());
-      put.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER,
-        org.apache.hadoop.hbase.util.Bytes.toBytes(newState.name()));
+      put.addColumn(HConstants.CATALOG_FAMILY, getRegionStateColumn(replicaId),
+              org.apache.hadoop.hbase.util.Bytes.toBytes(newState.name()));
       table.put(put);
-      System.out.println("Changed region " + region + " STATE from "
-        + currentState + " to " + newState);
+
+      if (replicaId == 0) {
+        System.out.println("Changed region " + region + " STATE from "
+                + currentState + " to " + newState);
+      } else {
+        System.out.println("Changed STATE for replica reigon " + replicaId +
+                " of primary region " + region +
+                "from " + currentState + " to " + newState);
+      }
+
       return EXIT_SUCCESS;
     } else {
       System.out.println("ERROR: Could not find region " + region + " in meta.");
@@ -626,6 +657,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageSetRegionState(PrintWriter writer) {
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
+    writer.println("   To set the replica region's state, it needs the primary region's ");
+    writer.println("   encoded regionname and replica id. The command will be ");
+    writer.println(" " + SET_REGION_STATE + " <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>");
     writer.println("   Possible region states:");
     writer.println("    OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,");
     writer.println("    FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW,");
@@ -875,9 +909,23 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         RegionState.State state = RegionState.State.valueOf(commands[2]);
+
+        int replicaId = 0;
+        String region = commands[1];
+        int separatorIndex = commands[1].indexOf(",");
+        if (separatorIndex > 0) {
+          region = commands[1].substring(0, separatorIndex);
+          replicaId = Integer.getInteger(commands[1].substring(separatorIndex + 1));
+        }
+
+        if (replicaId > 0) {
+          System.out.println("Change state for replica reigon " + replicaId  +
+                  " for primary region " + region);
+        }
+
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
-          return setRegionState(connection, commands[1], state);
+          return setRegionState(connection, region, replicaId, state);
         }
 
       case FILESYSTEM:

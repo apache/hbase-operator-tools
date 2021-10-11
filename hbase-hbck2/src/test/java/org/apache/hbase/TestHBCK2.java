@@ -187,6 +187,30 @@ public class TestHBCK2 {
   }
 
   @Test
+  public void testSetReplicaRegionState() throws IOException, InterruptedException {
+    TEST_UTIL.createTable(REGION_STATES_TABLE_NAME, Bytes.toBytes("family1"));
+    try {
+      Admin admin = TEST_UTIL.getConnection().getAdmin();
+      TEST_UTIL.setReplicas(admin, REGION_STATES_TABLE_NAME, 2);
+      List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
+      assertEquals(regions.size(), 2);
+      assertEquals(regions.get(0).getReplicaId(), 0);
+      assertEquals(regions.get(1).getReplicaId(), 1);
+      RegionInfo primaryRegionInfo = regions.get(0);
+      int replicaId = regions.get(1).getReplicaId();
+      assertEquals(RegionState.State.OPEN, getCurrentRegionState(regions.get(0), replicaId));
+      String primaryRegion = primaryRegionInfo.getEncodedName();
+      try (ClusterConnection connection = this.hbck2.connect()) {
+        this.hbck2.setRegionState(connection, primaryRegion, regions.get(1).getReplicaId(),
+                RegionState.State.CLOSING);
+      }
+      assertEquals(RegionState.State.CLOSING, getCurrentRegionState(primaryRegionInfo, replicaId));
+    } finally {
+      TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test
   public void testSetRegionStateInvalidRegion() throws IOException {
     try (ClusterConnection connection = this.hbck2.connect()) {
       assertEquals(HBCK2.EXIT_FAILURE, this.hbck2.setRegionState(connection, "NO_REGION",
@@ -388,6 +412,19 @@ public class TestHBCK2 {
     return currentStateValue != null ?
       RegionState.State.valueOf(Bytes.toString(currentStateValue))
       : null;
+  }
+
+  private RegionState.State getCurrentRegionState(RegionInfo primary, int replicaId)
+          throws IOException {
+    Table metaTable = TEST_UTIL.getConnection().getTable(TableName.valueOf("hbase:meta"));
+    Get get = new Get(primary.getRegionName());
+    get.addColumn(HConstants.CATALOG_FAMILY, HBCK2.getRegionStateColumn(replicaId));
+    Result result = metaTable.get(get);
+    byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
+            HBCK2.getRegionStateColumn(replicaId));
+    return currentStateValue != null ?
+            RegionState.State.valueOf(Bytes.toString(currentStateValue))
+            : null;
   }
 
   private void waitOnPids(List<Long> pids) {
