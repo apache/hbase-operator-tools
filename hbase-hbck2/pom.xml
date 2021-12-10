@@ -32,7 +32,7 @@
   <description>HBCK for HBase 2+</description>
   <properties>
     <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
-    <log4j2.version>2.11.1</log4j2.version>
+    <log4j2.version>2.15.0</log4j2.version>
   </properties>
 
   <build>
