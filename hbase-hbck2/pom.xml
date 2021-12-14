@@ -30,10 +30,6 @@
   <artifactId>hbase-hbck2</artifactId>
   <name>Apache HBase - HBCK2</name>
   <description>HBCK for HBase 2+</description>
-  <properties>
-    <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
-    <log4j2.version>2.15.0</log4j2.version>
-  </properties>
 
   <build>
     <resources>
@@ -166,7 +162,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.12</version>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
     <!--This is Log4j2!-->
