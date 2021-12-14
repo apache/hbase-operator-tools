@@ -107,6 +107,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String RECOVER_UNKNOWN = "recoverUnknown";
   private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
   private static final String FIX_META = "fixMeta";
+  private static final String REGIONINFO_MISMATCH = "regionInfoMismatch";
   // TODO update this map in case of the name of a method changes in Hbck interface
   //  in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
   //  does not equals to the method name in Hbck interface.
@@ -422,6 +423,23 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return hbck.scheduleSCPsForUnknownServers();
   }
 
+  /**
+   * Runs the RegionInfoMismatchTool using CLI options.
+   */
+  void regionInfoMismatch(String[] args) throws Exception {
+    // CLI Options
+    Options options = new Options();
+    Option dryRunOption = Option.builder("f").longOpt("fix").hasArg(false).build();
+    options.addOption(dryRunOption);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine = parser.parse(options, args, false);
+    final boolean fix = commandLine.hasOption(dryRunOption.getOpt());
+    try (ClusterConnection connection = connect()) {
+      new RegionInfoMismatchTool(connection).run(fix);
+    }
+  }
+
   private HBaseProtos.ServerName parseServerName(String serverName) {
     ServerName sn = ServerName.parseServerName(serverName);
     return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).
@@ -471,6 +489,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     usageRecoverUnknown(writer);
     writer.println();
     usageUnassigns(writer);
+    writer.println();
+    usageRegioninfoMismatch(writer);
     writer.println();
     writer.close();
     return sw.toString();
@@ -726,6 +746,27 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
     writer.println("   hbase:meta tool. See the HBCK2 README for how to use.");
+  }
+
+  private static void usageRegioninfoMismatch(PrintWriter writer) {
+    writer.println(" " + REGIONINFO_MISMATCH);
+    writer.println("   Options:");
+    writer.println("   -f,--fix Update hbase:meta with the corrections");
+    writer.println("   It is recommended to first run this utility without the fix");
+    writer.println("   option to ensure that the utility is generating the correct");
+    writer.println("   serialized RegionInfo data structures. Inspect the output to");
+    writer.println("   confirm that the hbase:meta rowkey matches the new RegionInfo.");
+    writer.println();
+    writer.println("   This tool will read hbase:meta and report any regions whose rowkey");
+    writer.println("   and cell value differ in their encoded region name. HBASE-23328 ");
+    writer.println("   illustrates a problem for read-replica enabled tables in which ");
+    writer.println("   the encoded region name (the MD5 hash) does not match between ");
+    writer.println("   the rowkey and the value. This problem is generally harmless ");
+    writer.println("   for normal operation, but can break other HBCK2 tools.");
+    writer.println();
+    writer.println("   Run this command to determine if any regions are affected by ");
+    writer.println("   this bug and use the -f/--fix option to then correct any");
+    writer.println("   affected regions.");
   }
 
   static void showErrorMessage(String error) {
@@ -1032,6 +1073,20 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         MissingTableDescriptorGenerator tableInfoGenerator =
           new MissingTableDescriptorGenerator(getConf());
         tableInfoGenerator.generateTableDescriptorFileIfMissing(commands[1].trim());
+        break;
+
+      case REGIONINFO_MISMATCH:
+        // `commands` includes the `regionInfoMismatch` argument.
+        if (commands.length > 2) {
+          showErrorMessage(command + " takes one optional argument, got more than one.");
+          return EXIT_FAILURE;
+        }
+        try {
+          regionInfoMismatch(commands);
+        } catch (Exception e) {
+          e.printStackTrace();
+          return EXIT_FAILURE;
+        }
         break;
 
       default:
