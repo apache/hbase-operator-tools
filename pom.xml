@@ -129,9 +129,12 @@
     <java.min.version>${compileSource}</java.min.version>
     <maven.min.version>3.3.3</maven.min.version>
     <hbase.version>2.4.4</hbase.version>
+    <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
+    <log4j2.version>2.16.0</log4j2.version>
     <surefire.provider>surefire-junit47</surefire.provider>
     <test.output.tofile>true</test.output.tofile>
     <checkstyle.version>8.18</checkstyle.version>
+    <junit.version>4.12</junit.version>
     <maven.checkstyle.version>3.0.0</maven.checkstyle.version>
     <hbase.checkstyle.version>2.2.0</hbase.checkstyle.version>
     <enforcer.version>3.0.0-M2</enforcer.version>
