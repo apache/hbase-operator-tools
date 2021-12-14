@@ -20,6 +20,58 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
+# HBASE  hbase-operator-tools-1.2.0 Release Notes
+
+These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.
+
+
+---
+
+* [HBASE-26571](https://issues.apache.org/jira/browse/HBASE-26571) | *Major* | **[hbase-operator-tools] Upgrade to log4j 2.16.0**
+
+Upgrade log4j to 2.16.0.
+
+---
+
+* [HBASE-26561](https://issues.apache.org/jira/browse/HBASE-26561) | *Major* | **[hbase-operator-tools] Upgrade log4j2 to 2.15.0 to address CVE-2021-44228**
+
+Upgrade log4j2 to 2.15.0 for addressing CVE-2021-44228.
+
+
+---
+
+* [HBASE-26338](https://issues.apache.org/jira/browse/HBASE-26338) | *Major* | **hbck2 setRegionState cannot set replica region state**
+
+To set the replica region's state, it needs the primary region's
+encoded regionname and replica id, the command will be "setRegionState <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>".
+
+
+---
+
+* [HBASE-25874](https://issues.apache.org/jira/browse/HBASE-25874) | *Major* | **[hbase-operator-tools]Add tool for identifying "unknown servers" from master logs, then submit SCPs for each of those.**
+
+RegionsOnUnknownServersRecoverer parses the master log to identify unknown servers with regions assigned with, in meta table. This condition may happen in the event of recovering previously destroyed clusters, where new Master/RS names completely differ from the previous ones currently stored in meta table (see HBASE-24286).
+
+NOTE: This tool is useful for clusters runing hbase versions lower than 2.2.7, 2.3.5 and 2.4.7.
+For any of these versions or higher, HBCK2 'recoverUnknown' option can be used as a much simpler solution.
+
+This tool requires the master logs path as parameter. Assuming classpath is properly set, can be run as follows:
+
+$ hbase org.apache.hbase.RegionsOnUnknownServersRecoverer PATH_TO_MASTER_LOGS [dryRun]
+
+The dryRun optional parameter will just parse the logs and print the list of unknown servers, without invoking hbck2 scheduleRecoveries command.
+
+RegionsOnUnknownServersRecoverer parses master log file searching for specific messages mentioning "unknown servers". Once "unknown servers" are found, it then uses HBCK2.scheduleRecoveries to submit SCPs for each of these "unknown servers".
+
+
+---
+
+* [HBASE-26338](https://issues.apache.org/jira/browse/HBASE-26338) | *Major* | **hbck2 setRegionState cannot set replica region state**
+
+To set the replica region's state, it needs the primary region's
+encoded regionname and replica id, the command will be "setRegionState <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>".
+
+
 # HBASE  hbase-operator-tools-1.1.0 Release Notes
 
 These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.
