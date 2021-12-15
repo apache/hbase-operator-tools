@@ -20,6 +20,53 @@
 # Be careful doing manual edits in this file. Do not change format
 # of release header or remove the below marker. This file is generated.
 # DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
+## Release hbase-operator-tools-1.2.0 - Unreleased (as of 2021-12-14)
+
+### NEW FEATURES:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-25874](https://issues.apache.org/jira/browse/HBASE-25874) | [hbase-operator-tools]Add tool for identifying "unknown servers" from master logs, then submit SCPs for each of those. |  Major |  |
+
+
+### IMPROVEMENTS:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-26257](https://issues.apache.org/jira/browse/HBASE-26257) | Improve Performance of HBCK when specifying a subset of tables |  Major | hbase-operator-tools,hbck2 |
+
+
+### BUG FIXES:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-26338](https://issues.apache.org/jira/browse/HBASE-26338) | hbck2 setRegionState cannot set replica region state |  Major | hbck2 |
+| [HBASE-26072](https://issues.apache.org/jira/browse/HBASE-26072) | Upgrade hbase version in hbase-operator-tools to 2.4.4 |  Trivial | hbase-operator-tools |
+| [HBASE-26054](https://issues.apache.org/jira/browse/HBASE-26054) | Fix hbase-operator-tools build with HBase 2.4.4 |  Minor | hbase-operator-tools |
+| [HBASE-25965](https://issues.apache.org/jira/browse/HBASE-25965) | Move delete of WAL directory out of LOG.info and avoid left over directory |  Minor | hbase-operator-tools |
+| [HBASE-25921](https://issues.apache.org/jira/browse/HBASE-25921) | Fix Wrong FileSystem when running `filesystem` on non-HDFS storage |  Major | hbase-operator-tools |
+| [HBASE-25885](https://issues.apache.org/jira/browse/HBASE-25885) | [hbase-operator-tools] Extra checks on RegionsMerger to avoid submitting merge requests for regions with merge qualifiers |  Major | hbase-operator-tools |
+
+
+### SUB-TASKS:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-26571](https://issues.apache.org/jira/browse/HBASE-26571) | [hbase-operator-tools] Upgrade to log4j 2.16.0 |  Major | hbase-operator-tools |
+| [HBASE-25659](https://issues.apache.org/jira/browse/HBASE-25659) | [hbck2] Add hbase-operator-tools command for scheduleSCPsForUnknownServers |  Major | hbase-operator-tools |
+HBASE-26571
+
+
+
+### OTHER:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-26561](https://issues.apache.org/jira/browse/HBASE-26561) | [hbase-operator-tools] Upgrade log4j2 to 2.15.0 to address CVE-2021-44228 |  Major | hbase-operator-tools,logging,security |
+| [HBASE-25794](https://issues.apache.org/jira/browse/HBASE-25794) | Fix checkstyle violations in hbase-table-reporter module |  Trivial | hbase-operator-tools |
+| [HBASE-25577](https://issues.apache.org/jira/browse/HBASE-25577) | HBase operator tools pom should include nexus staging repo management |  Major | hbase-operator-tools,community |
+
+
 ## Release hbase-operator-tools-1.1.0 - Unreleased (as of 2021-02-13)
 
 
