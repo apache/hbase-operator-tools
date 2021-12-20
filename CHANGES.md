@@ -54,7 +54,6 @@
 |:---- |:---- | :--- |:---- |
 | [HBASE-26571](https://issues.apache.org/jira/browse/HBASE-26571) | [hbase-operator-tools] Upgrade to log4j 2.16.0 |  Major | hbase-operator-tools |
 | [HBASE-25659](https://issues.apache.org/jira/browse/HBASE-25659) | [hbck2] Add hbase-operator-tools command for scheduleSCPsForUnknownServers |  Major | hbase-operator-tools |
-HBASE-26571
 
 
 
@@ -62,6 +61,7 @@ HBASE-26571
 
 | JIRA | Summary | Priority | Component |
 |:---- |:---- | :--- |:---- |
+| [HBASE-26608](https://issues.apache.org/jira/browse/HBASE-26608) | [hbase-operator-tools] Upgrade log4j2 to 2.17.0 |  Major | hbase-operator-tools, logging, security |
 | [HBASE-26561](https://issues.apache.org/jira/browse/HBASE-26561) | [hbase-operator-tools] Upgrade log4j2 to 2.15.0 to address CVE-2021-44228 |  Major | hbase-operator-tools,logging,security |
 | [HBASE-25794](https://issues.apache.org/jira/browse/HBASE-25794) | Fix checkstyle violations in hbase-table-reporter module |  Trivial | hbase-operator-tools |
 | [HBASE-25577](https://issues.apache.org/jira/browse/HBASE-25577) | HBase operator tools pom should include nexus staging repo management |  Major | hbase-operator-tools,community |

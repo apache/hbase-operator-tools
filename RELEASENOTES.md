@@ -24,6 +24,11 @@
 
 These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.
 
+---
+
+* [HBASE-26608](https://issues.apache.org/jira/browse/HBASE-26608) | *Major* | ** [hbase-operator-tools] Upgrade log4j2 to 2.17.0**
+
+Upgrade log4j2 to 2.17.0 to address CVE-2021-45105.
 
 ---
 
