@@ -148,11 +148,11 @@ public class RegionInfoMismatchTool {
         }
         // Third component of a region name is just a literal numeric (not a binary-encoded long)
         long regionId = Long.parseLong(Bytes.toString(regionNameParts[2]));
-        // HBASE-24500: We cannot use newBuilder(RegionInfo) because it will copy the NAME and encodedName
-        // from the original RegionInfo instead of re-computing it. Copy all of the fields by hand
-        // which will force the new RegionInfo to recompute the NAME/encodedName fields.
+        // HBASE-24500: We cannot use newBuilder(RegionInfo) because it will copy the NAME and
+        // encodedName from the original RegionInfo instead of re-computing it. Copy all of the
+        // fields by hand which will force the new RegionInfo to recompute the NAME/encodedName
+        // fields.
         RegionInfo correctedRegionInfo = RegionInfoBuilder.newBuilder(wrongRegionInfo.getTable())
-            // regionId shouldn't need to be re-set
             .setRegionId(regionId)
             .setStartKey(wrongRegionInfo.getStartKey())
             .setEndKey(wrongRegionInfo.getEndKey())
