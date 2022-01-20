@@ -264,6 +264,40 @@ public final class HBCKMetaTableAccessor {
       });
   }
 
+
+  /**
+   * List all undeleted regions currently in META.
+   * Undeleted regions means table not exist on hbase, but regions still in META.
+   * @param conn a valid, open connection.
+   * @return a Map of all dirty metadata in META.
+   * @throws IOException on any issues related with scanning meta table
+   */
+  public static Map<String, List<byte[]>> getUndeletedRegions(Connection conn)
+          throws IOException {
+    final Map<String, List<byte[]>> undeletedTableRegions = new HashMap<>();
+    final Map<String, TableName> tableNameMap = new HashMap<>();
+    List<TableName> tables = getTables(conn);
+    tables.forEach(tableName -> tableNameMap.put(tableName.getNameAsString(), tableName));
+    Table metaTable = conn.getTable(TableName.META_TABLE_NAME);
+    Scan scan = new Scan();
+    ResultScanner resultScanner = metaTable.getScanner(scan);
+    for (Result result : resultScanner) {
+      byte[] rowBytes = result.getRow();
+      String row = Bytes.toString(rowBytes);
+      String tableName = row.split(",")[0];
+      if (!tableNameMap.containsKey(tableName)) {
+        if (undeletedTableRegions.containsKey(tableName)) {
+          undeletedTableRegions.get(tableName).add(rowBytes);
+        } else {
+          List<byte[]> list = new ArrayList<>();
+          list.add(rowBytes);
+          undeletedTableRegions.put(tableName, list);
+        }
+      }
+    }
+    return undeletedTableRegions;
+  }
+
   /**
    * Scans all "table:state" cell values existing in meta and returns as a map of
    * <code>TableName</code> as key and <code>TableState</code> as the value.

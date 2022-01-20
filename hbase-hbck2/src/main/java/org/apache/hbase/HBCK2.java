@@ -63,6 +63,7 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -106,6 +107,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String SCHEDULE_RECOVERIES = "scheduleRecoveries";
   private static final String RECOVER_UNKNOWN = "recoverUnknown";
   private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
+  private static final String REPORT_UNDELETED_REGIONS_IN_META =
+          "reportUndeletedRegionsInMeta";
   private static final String FIX_META = "fixMeta";
   private static final String REGIONINFO_MISMATCH = "regionInfoMismatch";
   // TODO update this map in case of the name of a method changes in Hbck interface
@@ -305,6 +308,35 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return result;
   }
 
+  Map<TableName, List<String>> reportUndeletedRegionsInMeta(String[] args)
+    throws Exception {
+    Options options = new Options();
+    Option fixOption = Option.builder("f").longOpt("fix").build();
+    options.addOption(fixOption);
+    // Parse command-line.
+    CommandLineParser parser = new DefaultParser();
+    CommandLine commandLine;
+    commandLine = parser.parse(options, args, false);
+    boolean fix = commandLine.hasOption(fixOption.getOpt());
+    Map<TableName, List<String>> result = new HashMap<>();
+    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+      new FsRegionsMetaRecoverer(this.conf)) {
+      Map<String, List<byte[]>> reportMap =
+        fsRegionsMetaRecoverer.reportUndeletedRegions();
+      reportMap.forEach((key, value) ->
+        result.put(TableName.valueOf(key),
+          value.stream().map(Bytes::toString).collect(Collectors.toList())));
+      if (fix) {
+        Map<String, Integer> map =
+          fsRegionsMetaRecoverer.removeUndeletedRegion(reportMap);
+        System.out.println(formatRemovedRegionsMessage(map));
+      }
+    } catch (IOException e) {
+      throw e;
+    }
+    return result;
+  }
+
   private List<String> formatNameSpaceTableParam(String... nameSpaceOrTable) {
     return nameSpaceOrTable != null ? Arrays.asList(nameSpaceOrTable) : null;
   }
@@ -468,6 +500,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageBypass(writer);
     writer.println();
+    usageReportUndeletedRegionsInMeta(writer);
+    writer.println();
     usageExtraRegionsInMeta(writer);
     writer.println();
     usageFilesystem(writer);
@@ -616,6 +650,23 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Looks for undeleted replication queues and deletes them if passed the");
     writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
     writer.println("   purge if '--fix'.");
+  }
+
+  private static void usageReportUndeletedRegionsInMeta(PrintWriter writer){
+    writer.println(" " + REPORT_UNDELETED_REGIONS_IN_META + " [OPTIONS]");
+    writer.println("   Options:");
+    writer.println("    -f, --fix    fix meta by removing all undeleted regions found. ");
+    writer.println("   Reports regions present on hbase:meta, but related tables have been ");
+    writer.println("   deleted on hbase. Needs hbase:meta to be online. ");
+    writer.println("   An example triggering undeleted regions report ");
+    writer.println("     $ HBCK2 " + REPORT_UNDELETED_REGIONS_IN_META);
+    writer.println("   Returns list of undeleted regions for each not found table");
+    writer.println("   If master log continues to print 'TableNotFoundException', or master ");
+    writer.println("   ui report RITs for those table not found regions, or hbck.jsp web page ");
+    writer.println("   report regions but related tables not existing, remove these undeleted ");
+    writer.println("   regions with '--fix' option. ");
+    writer.println("   You should switch active master after remove undeleted regions, then ");
+    writer.println("   those abnormal regions info will disappear. ");
   }
 
   private static void usageExtraRegionsInMeta(PrintWriter writer) {
@@ -1064,6 +1115,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
         break;
+      case REPORT_UNDELETED_REGIONS_IN_META:
+        try {
+          Map<TableName, List<String>> report =
+            reportUndeletedRegionsInMeta(purgeFirst(commands));
+          System.out.println(formatUndeletedRegionReport(report));
+        }catch (Exception e) {
+          return EXIT_FAILURE;
+        }
+        break;
 
       case GENERATE_TABLE_INFO:
         if(commands.length != 2) {
@@ -1090,6 +1150,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         break;
 
       default:
+        System.out.println("REPORT_UNDELETED_REGIONS_IN_META2");
         showErrorMessage("Unsupported command: " + command);
         return EXIT_FAILURE;
     }
@@ -1108,6 +1169,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private String formatExtraRegionsReport(Map<TableName,List<String>> report) {
     String message = "Regions in Meta but having no equivalent dir, for each table:\n\t";
+    return formatReportMessage(message, (HashMap)report, s -> s);
+  }
+
+  private String formatUndeletedRegionReport(Map<TableName,List<String>> report) {
+    String message = "Regions in Meta but having no valid table, for each table:\n\t";
     return formatReportMessage(message, (HashMap)report, s -> s);
   }
 
@@ -1166,6 +1232,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         .append("ERROR: \n\t")
         .append("There were following errors on at least one table thread:\n");
       executionErrors.forEach(e -> finalText.append(e.getMessage()).append("\n"));
+    }
+    return finalText.toString();
+  }
+
+  private String formatRemovedRegionsMessage(Map<String, Integer> map) {
+    final StringBuilder finalText = new StringBuilder();
+    for (Map.Entry<String, Integer> entry : map.entrySet()) {
+      finalText.append("\n\tRegions that had relate to the not found table '")
+        .append(entry.getKey()).append("' and got removed from Meta: ")
+        .append(entry.getValue()).append("\n");
     }
     return finalText.toString();
   }

@@ -72,10 +72,14 @@ public class TestHBCK2 {
   private static final Logger LOG = LoggerFactory.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
+  private static final TableName DELETED_TABLE_NAME = TableName.
+    valueOf(TestHBCK2.class.getSimpleName() + "-DELETED");
   private static final TableName REGION_STATES_TABLE_NAME = TableName.
     valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
   private final static String ASSIGNS = "assigns";
   private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
+  private static final String REPORT_UNDELETED_REGIONS_IN_META =
+          "reportUndeletedRegionsInMeta";
 
   @Rule
   public TestName testName = new TestName();
@@ -344,6 +348,12 @@ public class TestHBCK2 {
 
   private TableName createTestTable(int totalRegions) throws IOException {
     TableName tableName = TableName.valueOf(testName.getMethodName());
+    TEST_UTIL.createMultiRegionTable(tableName, Bytes.toBytes("family1"), totalRegions);
+    return tableName;
+  }
+
+  private TableName createTestTable(int totalRegions, String name) throws IOException {
+    TableName tableName = TableName.valueOf(name);
     TEST_UTIL.createMultiRegionTable(tableName, Bytes.toBytes("family1"), totalRegions);
     return tableName;
   }
@@ -645,6 +655,71 @@ public class TestHBCK2 {
     long resultingExtraRegions = report.keySet().stream().mapToLong(nsTbl ->
       report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalExtraRegions, resultingExtraRegions);
+  }
+
+  private void deleteTableFamilyRegion() {
+    try {
+      HBCKMetaTableAccessor.MetaScanner<byte[]> scanner =
+        new HBCKMetaTableAccessor.MetaScanner<>();
+      List<byte[]> rows = scanner.scanMeta(TEST_UTIL.getConnection(),
+        scan -> scan.addColumn(HConstants.TABLE_FAMILY,HConstants.TABLE_STATE_QUALIFIER),
+        r -> {
+          byte[] bytes = r.getRow();
+          String row=Bytes.toString(bytes);
+          String tableName = row.split(",")[0];
+          return tableName.equals(DELETED_TABLE_NAME.getNameAsString()) ? bytes : null;
+        });
+      try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
+        new FsRegionsMetaRecoverer(TEST_UTIL.getConfiguration())) {
+        fsRegionsMetaRecoverer.deleteRegions(TableName.META_TABLE_NAME, rows);
+      }
+    } catch (IOException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testReportUndeletedRegionsInMeta() throws Exception {
+    testReportUndeletedRegionsInMeta(5,5);
+  }
+
+  private void testReportUndeletedRegionsInMeta(int undeletedRegions,
+    int expectedUndeletedRegions, String... namespaceOrTable) throws Exception {
+    createTestTable(5, DELETED_TABLE_NAME.getNameAsString());
+    List<RegionInfo> regions = HBCKMetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), DELETED_TABLE_NAME);
+    regions.subList(0, undeletedRegions).forEach(r -> {
+      deleteRegionDir(DELETED_TABLE_NAME, r.getEncodedName());
+    });
+    deleteTableFamilyRegion();
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    final Map<TableName, List<String>> report =
+      hbck.reportUndeletedRegionsInMeta(namespaceOrTable);
+    long resultingExtraRegions = report.keySet().stream().mapToLong(nsTbl ->
+      report.get(nsTbl).size()).sum();
+    assertEquals(expectedUndeletedRegions, resultingExtraRegions);
+    String expectedResult = "Regions in Meta but having no valid table, for each table:\n";
+    String result = testFormatUndeleteRegionsInMeta(null);
+    //validates initial execute message
+    assertTrue(result.contains(expectedResult));
+    //validates our test table region is reported as extra
+    expectedResult = "\t" + DELETED_TABLE_NAME.getNameAsString() + "->\n\t\t"
+      + DELETED_TABLE_NAME.getNameAsString();
+    assertTrue(result.contains(expectedResult));
+    //validates remove region with --fix
+    result = testFormatUndeleteRegionsInMeta("-f");
+    expectedResult = "\n\tRegions that had relate to the not found table '"
+      + DELETED_TABLE_NAME.getNameAsString() + "' and got removed from Meta: "
+      + resultingExtraRegions;
+    assertTrue(result.contains(expectedResult));
+  }
+
+  private String testFormatUndeleteRegionsInMeta(String options) throws IOException {
+    if (options == null) {
+      return testRunWithArgs(new String[]{REPORT_UNDELETED_REGIONS_IN_META});
+    } else {
+      return testRunWithArgs(new String[]{REPORT_UNDELETED_REGIONS_IN_META, options});
+    }
   }
 
 }
