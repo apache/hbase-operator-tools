@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -64,6 +65,14 @@ public class TestHBCKCommandLineParsing {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
     hbck.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
+  }
+
+  @Test (expected=FileNotFoundException.class)
+  public void testInputFileOption() throws IOException {
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    // The 'x' below should cause the io exception for file not found.
+    // The Options should all be good.
+    hbck.run(new String[]{"--inputFile", "bypass", "--override", "x"});
   }
 
   @Test (expected=IllegalArgumentException.class)

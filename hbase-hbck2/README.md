@@ -93,6 +93,7 @@ Options:
  -d,--debug                                       run with debug output
  -i, --inputfiles                                 take one or more files to read the args from
  -h,--help                                        output this help message
+ -i,--inputFiles                                  take one or more encoded region names
  -p,--hbase.zookeeper.property.clientPort <arg>   port of hbase ensemble
  -q,--hbase.zookeeper.quorum <arg>                hbase ensemble
  -s,--skip                                        skip hbase version check
@@ -104,7 +105,6 @@ Command:
  addFsRegionsMissingInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
    Options:
     -d,--force_disable aborts fix for table if disable fails.
-    -i,--inputFiles  take one or more encoded region names
    To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_
    'OfflineMetaRepair' against an hbase-2.x cluster. Needs hbase:meta
@@ -133,7 +133,6 @@ Command:
  assigns [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...
    Options:
     -o,--override  override ownership by another procedure
-    -i,--inputFiles  take one or more encoded region names
    A 'raw' assign that can be used even during Master initialization (if
    the -skip flag is specified). Skirts Coprocessors. Pass one or more
    encoded region names. 1588230740 is the hard-coded name for the
@@ -149,21 +148,20 @@ Command:
     -o,--override   override if procedure is running/stuck
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
     -w,--lockWait   milliseconds to wait before giving up; default=1
-    -i, --inputFile   take one or more files to read the args from
-   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
+  Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
    of bypassed procedure will also be skipped to the finish. Entities will
    be left in an inconsistent state and will require manual fixup. May
    need Master restart to clear locks still held. Bypass fails if
    procedure has children. Add 'recursive' if all you have is a parent pid
    to finish parent and children. This is SLOW, and dangerous so use
-   selectively. Does not always work.If -i or --inputFiles is specified, pass one or more input file names.
+   selectively. Does not always work.
+   If -i or --inputFiles is specified, pass one or more input file names.
    Each file contains PID's, one per line. For example:
      $ HBCK2 -i bypass fileName1 fileName2
 
  extraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
    Options:
     -f, --fix    fix meta by removing all extra regions found.
-    -i, --inputFile   take one or more files to read the args from
    Reports regions present on hbase:meta, but with no related
    directories on the file system. Needs hbase:meta to be online.
    For each table name passed as parameter, performs diff
@@ -190,13 +188,12 @@ Command:
  filesystem [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    sideline corrupt hfiles, bad links, and references.
-    -i, --inputFile   take one or more files to read the args from
    Report on corrupt hfiles, references, broken links, and integrity.
    Pass '--fix' to sideline corrupt files and links. '--fix' does NOT
    fix integrity issues; i.e. 'holes' or 'orphan' regions. Pass one or
    more tablenames to narrow checkup. Default checks all tables and
    restores 'hbase.version' if missing. Interacts with the filesystem
-   only! Modified regions need to be reopened to pick-up changes. 
+   only! Modified regions need to be reopened to pick-up changes.
    If -i or --inputFiles is specified, pass one or more input file names.
    Each file contains <TABLENAME>, one per line. For example:
      $ HBCK2 -i extraRegionsInMeta fileName1 fileName2
@@ -239,7 +236,6 @@ Command:
  replication [OPTIONS] [<TABLENAME>...]
    Options:
     -f, --fix    fix any replication issues found.
-    -i, --inputFile   take one or more files to read the args from
    Looks for undeleted replication queues and deletes them if passed the
    '--fix' option. Pass a table name to check for replication barrier and
    purge if '--fix'. If -i or --inputFiles is specified, pass one or more input file names.
@@ -247,8 +243,7 @@ Command:
      $ HBCK2 -i replication fileName1 fileName2
 
  reportMissingRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
-    -i, --inputFile   take one or more files to read the args from
-   To be used when regions missing from hbase:meta but directories
+    To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_
    'OfflineMetaRepair' against an hbase-2.x cluster. This is a CHECK only
    method, designed for reporting purposes and doesn't perform any
@@ -320,7 +315,6 @@ Command:
  unassigns <ENCODED_REGIONNAME>...
    Options:
     -o,--override  override ownership by another procedure
-    -i, --inputFile   take one or more files to read the args from
    A 'raw' unassign that can be used even during Master initialization
    (if the -skip flag is specified). Skirts Coprocessors. Pass one or
    more encoded region names. 1588230740 is the hard-coded name for the
