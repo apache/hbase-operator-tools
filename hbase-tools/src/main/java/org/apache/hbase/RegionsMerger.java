@@ -43,6 +43,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -90,7 +91,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     Path basePath = new Path(conf.get(HConstants.HBASE_DIR));
     basePath = new Path(basePath, "data");
     Path tablePath = new Path(basePath, table.getNamespaceAsString());
-    return new Path(tablePath, table.getNameAsString());
+    return new Path(tablePath, table.getQualifierAsString());
   }
 
   private long sumSizeInFS(Path parentPath) throws IOException {
@@ -114,6 +115,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       new SubstringComparator(tblName+","));
     SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY,
       STATE_QUALIFIER, CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
+    colFilter.setFilterIfMissing(true);
     Scan scan = new Scan();
     FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
     filter.addFilter(rowFilter);
@@ -158,6 +160,20 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     }
   }
 
+  private boolean hasPreviousMergeRef(Connection conn, RegionInfo region) throws Exception {
+    Table meta = conn.getTable(TableName.META_TABLE_NAME);
+    Get get = new Get(region.getRegionName());
+    get.addFamily(HConstants.CATALOG_FAMILY);
+    Result r = meta.get(get);
+    boolean result = HBCKMetaTableAccessor.getMergeRegions(r.rawCells()) != null;
+    if(result){
+      LOG.warn("Region {} has an existing merge qualifier and can't be merged until for now. \n "
+        + "RegionsMerger will skip this region until merge qualifier is cleaned away. \n "
+        + "Consider major compact this region.", region.getEncodedName());
+    }
+    return result;
+  }
+
   public void mergeRegions(String tblName, int targetRegions) throws Exception {
     TableName table = TableName.valueOf(tblName);
     Path tableDir = getTablePath(table);
@@ -179,14 +195,23 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
         for (RegionInfo current : regions) {
           if (!current.isSplit()) {
             if (previous != null && canMerge(tableDir, previous, current, regionsMerging.values())) {
-              Future f = admin.mergeRegionsAsync(current.getEncodedNameAsBytes(),
+              //Before submitting a merge request, we need to check if any of the region candidates
+              //still have merge references from previous cycle
+              boolean hasMergeRef =
+                hasPreviousMergeRef(conn, previous) || hasPreviousMergeRef(conn, current);
+              if(!hasMergeRef) {
+                Future f = admin.mergeRegionsAsync(current.getEncodedNameAsBytes(),
                   previous.getEncodedNameAsBytes(), true);
-              Pair<RegionInfo, RegionInfo> regionPair = new Pair<>(previous, current);
-              regionsMerging.put(f,regionPair);
-              previous = null;
-              if ((regionSize - regionsMerging.size()) <= targetRegions) {
-                break;
+                Pair<RegionInfo, RegionInfo> regionPair = new Pair<>(previous, current);
+                regionsMerging.put(f, regionPair);
+                if ((regionSize - regionsMerging.size()) <= targetRegions) {
+                  break;
+                }
+              } else {
+                LOG.info("Skipping merge of candidates {} and {} because of existing merge "
+                  + "qualifiers.", previous.getEncodedName(), current.getEncodedName());
               }
+              previous = null;
             } else {
               previous = current;
             }

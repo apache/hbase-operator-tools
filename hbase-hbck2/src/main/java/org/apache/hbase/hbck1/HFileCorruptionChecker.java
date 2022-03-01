@@ -41,10 +41,12 @@ import org.apache.hadoop.hbase.io.hfile.CacheConfig;
 import org.apache.hadoop.hbase.io.hfile.CorruptHFileException;
 import org.apache.hadoop.hbase.io.hfile.HFile;
 import org.apache.hadoop.hbase.mob.MobUtils;
+import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hadoop.hbase.util.FSUtils.FamilyDirFilter;
 import org.apache.hadoop.hbase.util.FSUtils.HFileFilter;
 import org.apache.hadoop.hbase.util.FSUtils.RegionDirFilter;
+import org.apache.hbase.HBCKFsUtils;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.slf4j.Logger;
@@ -83,7 +85,7 @@ public class HFileCorruptionChecker {
   public HFileCorruptionChecker(Configuration conf, ExecutorService executor,
       boolean quarantine) throws IOException {
     this.conf = conf;
-    this.fs = FileSystem.get(conf);
+    this.fs = HBCKFsUtils.getRootDirFileSystem(conf);
     this.cacheConf = CacheConfig.DISABLED;
     this.executor = executor;
     this.inQuarantineMode = quarantine;
@@ -144,7 +146,7 @@ public class HFileCorruptionChecker {
     Path tableDir = regionDir.getParent();
 
     // build up the corrupted dirs structure
-    Path corruptBaseDir = new Path(FSUtils.getRootDir(conf), HConstants.CORRUPT_DIR_NAME);
+    Path corruptBaseDir = new Path(CommonFSUtils.getRootDir(conf), HConstants.CORRUPT_DIR_NAME);
     if (conf.get("hbase.hfile.quarantine.dir") != null) {
       LOG.warn("hbase.hfile.quarantine.dir is deprecated. Default to " + corruptBaseDir);
     }
@@ -418,7 +420,7 @@ public class HFileCorruptionChecker {
    * @return An instance of MobRegionDirChecker.
    */
   private MobRegionDirChecker createMobRegionDirChecker(Path tableDir) {
-    TableName tableName = FSUtils.getTableName(tableDir);
+    TableName tableName = CommonFSUtils.getTableName(tableDir);
     Path mobDir = MobUtils.getMobRegionPath(conf, tableName);
     return new MobRegionDirChecker(mobDir);
   }

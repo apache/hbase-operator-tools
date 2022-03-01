@@ -38,7 +38,7 @@
   </parent>
   <groupId>org.apache.hbase.operator.tools</groupId>
   <artifactId>hbase-operator-tools</artifactId>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>1.3.0-SNAPSHOT</version>
   <name>Apache HBase Operator Tools</name>
   <packaging>pom</packaging>
   <description>
@@ -128,14 +128,18 @@
     <compileSource>1.8</compileSource>
     <java.min.version>${compileSource}</java.min.version>
     <maven.min.version>3.3.3</maven.min.version>
-    <hbase.version>2.1.6</hbase.version>
+    <hbase.version>2.4.4</hbase.version>
+    <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
+    <log4j2.version>2.17.1</log4j2.version>
     <surefire.provider>surefire-junit47</surefire.provider>
     <test.output.tofile>true</test.output.tofile>
     <checkstyle.version>8.18</checkstyle.version>
+    <junit.version>4.12</junit.version>
     <maven.checkstyle.version>3.0.0</maven.checkstyle.version>
     <hbase.checkstyle.version>2.2.0</hbase.checkstyle.version>
     <enforcer.version>3.0.0-M2</enforcer.version>
     <extra.enforcer.version>1.0-beta-9</extra.enforcer.version>
+    <findbugs-annotations.version>1.3.9-1</findbugs-annotations.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -439,6 +443,28 @@
                   </ignoreClasses>
                 </enforceBytecodeVersion>
               </rules>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!-- this profile should match the name of the release profile in the root asf pom -->
+    <profile>
+      <id>apache-release</id>
+      <build>
+        <plugins>
+          <!-- This should insert itself in place of the normal deploy plugin and then
+               handle either closing or dropping the staging repository for us depending
+               on if the build succeeds.
+            -->
+          <plugin>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <version>1.6.8</version>
+            <extensions>true</extensions>
+            <configuration>
+              <nexusUrl>https://repository.apache.org/</nexusUrl>
+              <serverId>apache.releases.https</serverId>
             </configuration>
           </plugin>
         </plugins>

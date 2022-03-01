@@ -18,7 +18,6 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
@@ -29,12 +28,17 @@ import org.apache.hadoop.hbase.client.Hbck;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
 
-public class TestSchedulingRecoveries {
+public class TestRecoverUnknown {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private HBCK2 hbck2;
+
+  @Rule
+  public TestName name = new TestName();
 
   @BeforeClass
   public static void beforeClass() throws Exception {
@@ -52,14 +56,11 @@ public class TestSchedulingRecoveries {
   }
 
   @Test
-  public void testSchedulingSCPWithTwoGoodHosts() throws IOException {
-    String sn1 = TEST_UTIL.getHBaseCluster().getRegionServer(0).toString();
-    String sn2 = TEST_UTIL.getHBaseCluster().getRegionServer(1).toString();
+  public void testKnownServersNotRecovered() throws IOException {
     try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
-      List<Long> pids = this.hbck2.scheduleRecoveries(hbck, new String[]{sn1, sn2});
-      assertEquals(2, pids.size());
-      assertTrue(pids.get(0) > 0);
-      assertTrue(pids.get(1) > 0);
+      List<Long> pids = this.hbck2.recoverUnknown(hbck);
+      assertEquals(0, pids.size());
     }
   }
+
 }

@@ -25,7 +25,7 @@
     <parent>
         <artifactId>hbase-operator-tools</artifactId>
         <groupId>org.apache.hbase.operator.tools</groupId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.3.0-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
 
@@ -33,22 +33,23 @@
     <artifactId>hbase-tools</artifactId>
     <name>Apache HBase - HBase Tools</name>
     <description>Utility Maintenance tools for HBase 2+</description>
-    <properties>
-        <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
-        <log4j2.version>2.11.1</log4j2.version>
-    </properties>
 
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.12</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
             <version>${log4j2.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hbase.operator.tools</groupId>
+            <artifactId>hbase-hbck2</artifactId>
         </dependency>
 
         <!--We want to use the shaded client but for testing, we need to rely on hbase-server.
