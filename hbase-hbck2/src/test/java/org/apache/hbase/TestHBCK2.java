@@ -77,6 +77,8 @@ public class TestHBCK2 {
   private final static String ASSIGNS = "assigns";
   private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
   private final static String UNASSIGNS = "unassigns";
+  private final static String SET_REGION_STATE = "setRegionState";
+  private final static String SET_TABLE_STATE = "setTableState";
 
   @Rule
   public TestName testName = new TestName();
@@ -121,6 +123,25 @@ public class TestHBCK2 {
       assertTrue("Found=" + state.getState(), state.isEnabled());
       // Restore the state.
       state = this.hbck2.setTableState(hbck, TABLE_NAME, state.getState());
+      assertTrue("Found=" + state.getState(), state.isDisabled());
+
+      // Test the new method with arg list
+      String[] args = new String[]{TABLE_NAME.getNameAsString(), "DISABLED"};
+      state = this.hbck2.setTableState(hbck, args);
+      assertTrue("Found=" + state.getState(), state.isEnabled());
+    }
+  }
+
+  @Test
+  public void testSetTableStateWithInputFiles() throws IOException {
+    File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForSetTableTest");
+    writeStringsToAFile(testFile, new String[]{TABLE_NAME.getNameAsString() + " DISABLED" });
+    String result = testRunWithArgs(new String[]{"-i", SET_TABLE_STATE, testFile.toString()});
+    assertTrue(result.contains("tableName=TestHBCK2, state=ENABLED"));
+
+    // Restore the state.
+    try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
+      TableState state = this.hbck2.setTableState(hbck, TABLE_NAME, TableState.State.ENABLED);
       assertTrue("Found=" + state.getState(), state.isDisabled());
     }
   }
@@ -188,6 +209,49 @@ public class TestHBCK2 {
         this.hbck2.setRegionState(connection, region, RegionState.State.CLOSING);
       }
       assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
+    } finally {
+      TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test
+  public void testSetRegionStateWithArgsList() throws IOException {
+    TEST_UTIL.createTable(REGION_STATES_TABLE_NAME, Bytes.toBytes("family1"));
+    try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
+      List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
+      RegionInfo info = regions.get(0);
+      assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
+      String region = info.getEncodedName();
+      String[] args = new String[]{region, "0", "CLOSING"};
+      try (ClusterConnection connection = this.hbck2.connect()) {
+        this.hbck2.setRegionState(connection, args);
+      }
+      assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
+    } finally {
+      TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test
+  public void testSetRegionStateInputFiles() throws IOException {
+    TEST_UTIL.createTable(REGION_STATES_TABLE_NAME, Bytes.toBytes("family1"));
+    try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
+      List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
+      String[] input = new String[regions.size()];
+      for (int i = 0; i < regions.size(); i++) {
+        RegionInfo info = regions.get(i);
+        assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
+        String region = info.getEncodedName();
+        input[i] = region + " CLOSING";
+      }
+
+      File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForSetRegionStateTest");
+      writeStringsToAFile(testFile, input);
+      testRunWithArgs(new String[]{"-i", SET_REGION_STATE, testFile.toString()});
+
+      for (RegionInfo info : regions) {
+        assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
+      }
     } finally {
       TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
     }

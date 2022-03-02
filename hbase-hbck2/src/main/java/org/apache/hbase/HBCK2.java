@@ -191,6 +191,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return hbck.setTableStateInMeta(new TableState(tableName, state));
   }
 
+  TableState setTableState(Hbck hbck, String[] args)
+          throws IOException {
+    if (args == null || args.length < 2) {
+      showErrorMessage(SET_TABLE_STATE +
+              " takes tablename and state arguments: e.g. user ENABLED, you entered: " +
+              Arrays.toString(args));
+      return null;
+    }
+    return setTableState(hbck, TableName.valueOf(args[0]),
+            TableState.State.valueOf(args[1]));
+  }
+
   int setRegionState(ClusterConnection connection, String region,
         RegionState.State newState)
       throws IOException {
@@ -237,6 +249,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       System.out.println("ERROR: Could not find region " + region + " in meta.");
     }
     return EXIT_FAILURE;
+  }
+
+  int setRegionState(ClusterConnection connection, String[] args) throws IOException {
+    if (args == null || args.length < 3) {
+      return EXIT_FAILURE;
+    }
+    RegionState.State state = RegionState.State.valueOf(args[2]);
+    int replicaId = Integer.valueOf(args[1]);
+    return setRegionState(connection, args[0], replicaId, state);
   }
 
   Map<TableName,List<Path>> reportTablesWithMissingRegionsInMeta(String... nameSpaceOrTable)
@@ -359,12 +380,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   /**
-   * @return Read arguments from a list of input files
+   * @return Read arguments from args or a list of input files
    */
   private List<String> getFromArgsOrFiles(List<String> args) throws IOException {
     if (!getFromFile || args == null) {
       return args;
     }
+    return getFromFiles(args);
+  }
+
+  /**
+   * @return Read arguments from a list of input files
+   */
+  private List<String> getFromFiles(List<String> args) throws IOException {
     List<String> argList = new ArrayList<>();
     for (String filePath : args) {
       try (InputStream fileStream = new FileInputStream(filePath)){
@@ -704,9 +732,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static void usageSetRegionState(PrintWriter writer) {
     writer.println(" " + SET_REGION_STATE + " <ENCODED_REGIONNAME> <STATE>");
     writer.println("   To set the replica region's state, it needs the primary region's ");
-    writer.println("   encoded regionname and replica id. The command will be ");
-    writer.println(" " + SET_REGION_STATE + " <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>");
-    writer.println("   Possible region states:");
+    writer.println("   encoded regionname and replica id. The states will be ");
     writer.println("    OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,");
     writer.println("    FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW,");
     writer.println("    MERGING_NEW, ABNORMALLY_CLOSED");
@@ -723,6 +749,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("     $ HBCK2 " + SET_REGION_STATE +
             " de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
+    writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
+    writer.println("   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.);" +
+            "For example:");
+    writer.println("     $ HBCK2 -i " + SET_REGION_STATE + " fileName1 fileName2");
   }
 
   private static void usageSetTableState(PrintWriter writer) {
@@ -736,6 +766,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example making table name 'user' ENABLED:");
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
+    writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
+    writer.println("   Each file contains <TABLENAME> <STATE>, one pair per line.);" +
+            "For example:");
+    writer.println("     $ HBCK2 -i " + SET_TABLE_STATE + " fileName1 fileName2");
   }
 
   private static void usageScheduleRecoveries(PrintWriter writer) {
@@ -931,17 +965,32 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       // Case handlers all have same format. Check first that the server supports
       // the feature FIRST, then move to process the command.
       case SET_TABLE_STATE:
-        if (commands.length < 3) {
-          showErrorMessage(command + " takes tablename and state arguments: e.g. user ENABLED");
-          return EXIT_FAILURE;
+        if (getFromFile){
+          if (commands.length < 2) {
+            showErrorMessage(command + " takes a list of file names");
+            return EXIT_FAILURE;
+          }
+          List<String> argList = getFromFiles(Arrays.asList(purgeFirst(commands)));
+          try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+            checkFunctionSupported(connection, command);
+            for (String line : argList) {
+              String[] args = line.split("\\s+");
+              System.out.println(setTableState(hbck, args));
+            }
+          }
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          System.out.println(setTableState(hbck, TableName.valueOf(commands[1]),
-              TableState.State.valueOf(commands[2])));
+        else {
+          if (commands.length < 3) {
+            showErrorMessage(SET_TABLE_STATE +
+                    " takes tablename and state arguments: e.g. user ENABLED");
+            return EXIT_FAILURE;
+          }
+          try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+            checkFunctionSupported(connection, command);
+            System.out.println(setTableState(hbck, purgeFirst(commands)));
+          }
         }
         break;
-
       case ASSIGNS:
         if (commands.length < 2) {
           showErrorMessage(command + " takes one or more encoded region names");
@@ -983,31 +1032,29 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         break;
 
       case SET_REGION_STATE:
-        if (commands.length < 3) {
-          showErrorMessage(command + " takes region encoded name and state arguments: e.g. "
-              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
-          return EXIT_FAILURE;
+        if (getFromFile) {
+          if (commands.length < 2) {
+            showErrorMessage(command + " takes a list of file names");
+            return EXIT_FAILURE;
+          }
+          List<String> argList = getFromFiles(Arrays.asList(purgeFirst(commands)));
+          try (ClusterConnection connection = connect()) {
+            checkHBCKSupport(connection, command);
+            for (String line : argList) {
+              String[] args = formatSetRegionStateCommand(line.split("\\s+"));
+              if (setRegionState(connection, args) == EXIT_FAILURE) {
+                showErrorMessage(command + " failed to set " + args);
+              }
+            }
+          }
+          break;
+        } else {
+          String[] args = formatSetRegionStateCommand(purgeFirst(commands));
+          try (ClusterConnection connection = connect()) {
+            checkHBCKSupport(connection, command);
+            return setRegionState(connection, args);
+          }
         }
-        RegionState.State state = RegionState.State.valueOf(commands[2]);
-
-        int replicaId = 0;
-        String region = commands[1];
-        int separatorIndex = commands[1].indexOf(",");
-        if (separatorIndex > 0) {
-          region = commands[1].substring(0, separatorIndex);
-          replicaId = Integer.getInteger(commands[1].substring(separatorIndex + 1));
-        }
-
-        if (replicaId > 0) {
-          System.out.println("Change state for replica reigon " + replicaId  +
-                  " for primary region " + region);
-        }
-
-        try (ClusterConnection connection = connect()) {
-          checkHBCKSupport(connection, command);
-          return setRegionState(connection, region, replicaId, state);
-        }
-
       case FILESYSTEM:
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
@@ -1228,6 +1275,31 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     String [] result = new String [size];
     System.arraycopy(args, 1, result, 0, size);
     return result;
+  }
+
+  /**
+   * @return arguements for SET_REGION_STATE command
+   */
+  private String[] formatSetRegionStateCommand(String[] commands) {
+    if (commands.length < 2) {
+      showErrorMessage("setRegionState takes region encoded name and state arguments: e.g. "
+              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+      return null;
+    }
+    Integer replicaId = 0;
+    String region = commands[0];
+    int separatorIndex = commands[0].indexOf(",");
+    if (separatorIndex > 0) {
+      region = commands[0].substring(0, separatorIndex);
+      replicaId = Integer.getInteger(commands[0].substring(separatorIndex + 1));
+    }
+
+    if (replicaId > 0) {
+      System.out.println("Change state for replica reigon " + replicaId +
+              " for primary region " + region);
+    }
+    RegionState.State state = RegionState.State.valueOf(commands[1]);
+    return new String[]{region, replicaId.toString(), state.name()};
   }
 
   HBCK2(Configuration conf) {

@@ -288,6 +288,10 @@ Command:
    setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:
      $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING
    Returns "0" if region state changed and "1" otherwise.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.
+   For example:
+     $ HBCK2 -i setRegionState fileName1 fileName2
 
  setTableState <TABLENAME> <STATE>
    Possible table states: ENABLED, DISABLED, DISABLING, ENABLING
@@ -298,6 +302,10 @@ Command:
    An example making table name 'user' ENABLED:
      $ HBCK2 setTableState users ENABLED
    Returns whatever the previous table state was.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <TABLENAME> <STATE>, one pair per line.
+   For example:
+     $ HBCK2 -i setTableState fileName1 fileName2
 
  scheduleRecoveries <SERVERNAME>...
     -i, --inputFile   take one or more files to read the args from
