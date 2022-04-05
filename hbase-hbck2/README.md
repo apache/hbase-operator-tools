@@ -148,7 +148,7 @@ Command:
     -o,--override   override if procedure is running/stuck
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
     -w,--lockWait   milliseconds to wait before giving up; default=1
-  Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
+   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
    of bypassed procedure will also be skipped to the finish. Entities will
    be left in an inconsistent state and will require manual fixup. May
    need Master restart to clear locks still held. Bypass fails if
@@ -243,7 +243,7 @@ Command:
      $ HBCK2 -i replication fileName1 fileName2
 
  reportMissingRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
-    To be used when regions missing from hbase:meta but directories
+   To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_
    'OfflineMetaRepair' against an hbase-2.x cluster. This is a CHECK only
    method, designed for reporting purposes and doesn't perform any
