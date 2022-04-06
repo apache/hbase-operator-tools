@@ -21,20 +21,42 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
-
 /**
  * Does command-line parsing tests. No clusters.
  * @see TestHBCK2 for cluster-tests.
  */
 public class TestHBCKCommandLineParsing {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
+  /**
+   * A 'connected' hbck2 instance.
+   */
+  private HBCK2 hbck2;
+
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    TEST_UTIL.startMiniCluster(3);
+  }
+
+  @AfterClass
+  public static void afterClass() throws Exception {
+    TEST_UTIL.shutdownMiniCluster();
+  }
+
+  @Before
+  public void before() throws Exception {
+    this.hbck2 = new HBCK2(TEST_UTIL.getConfiguration());
+  }
 
   @Test
   public void testHelp() throws IOException {
@@ -61,16 +83,21 @@ public class TestHBCKCommandLineParsing {
 
   @Test (expected=NumberFormatException.class)
   public void testCommandWithOptions() throws IOException {
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
-    hbck.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
+    this.hbck2.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
+  }
+
+  @Test (expected=FileNotFoundException.class)
+  public void testInputFileOption() throws IOException {
+    // The 'x' below should cause the io exception for file not found.
+    // The Options should all be good.
+    this.hbck2.run(new String[]{"bypass", "--override", "--inputFile", "x"});
   }
 
   @Test (expected=IllegalArgumentException.class)
   public void testSetRegionStateCommandInvalidState() throws IOException {
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    // The 'x' below should cause the IllegalArgumentException. The Options should all be good.
-    hbck.run(new String[]{"setRegionState", "region_encoded", "INVALID_STATE"});
+    // The 'INVALID_STATE' below should cause the IllegalArgumentException.
+    this.hbck2.run(new String[]{"setRegionState", "region_encoded", "INVALID_STATE"});
   }
 
   @Test
@@ -90,11 +117,10 @@ public class TestHBCKCommandLineParsing {
     PrintStream stream = new PrintStream(os);
     PrintStream oldOut = System.out;
     System.setOut(stream);
-    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     if (option != null) {
-      hbck.run(new String[] { option });
+      this.hbck2.run(new String[] { option });
     } else {
-      hbck.run(null);
+      this.hbck2.run(null);
     }
     stream.close();
     os.close();
