@@ -718,7 +718,7 @@ public class TestHBCK2 {
     regions.subList(0, extraRegions).forEach(r -> deleteRegionDir(tableName, r.getEncodedName()));
     int remaining = totalRegions - extraRegions;
     assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{"-f",
-            "default:" + tableName.getNameAsString()}).get(tableName).size());
+      "default:" + tableName.getNameAsString()}).get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
             HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
   }
