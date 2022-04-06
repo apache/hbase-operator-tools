@@ -159,7 +159,7 @@ Command:
    selectively. Does not always work.
    If -i or --inputFiles is specified, pass one or more input file names.
    Each file contains PID's, one per line. For example:
-     $ HBCK2 bypass -i fileName1 fileName2   
+     $ HBCK2 bypass -i fileName1 fileName2
 
  extraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...
    Options:

@@ -247,8 +247,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       List<String> inputList = getFromArgsOrFiles(stringArrayToList(argList), true);
       for (String line : inputList) {
         String[] params = formatSetRegionStateCommand(line.split("\\s+"));
-        if (setRegionState(connection, params) == EXIT_FAILURE) {
-          showErrorMessage( "setRegionState failed to set " + args);
+        if (setRegionStateByArgs(connection, params) == EXIT_FAILURE) {
+          showErrorMessage("setRegionState failed to set " + args);
         }
       }
       return EXIT_SUCCESS;

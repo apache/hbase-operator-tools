@@ -224,7 +224,7 @@ public class TestHBCK2 {
       String region = info.getEncodedName();
       String[] args = new String[]{region, "0", "CLOSING"};
       try (ClusterConnection connection = this.hbck2.connect()) {
-        this.hbck2.setRegionState(connection, args);
+        this.hbck2.setRegionStateByArgs(connection, args);
       }
       assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
     } finally {
@@ -471,7 +471,7 @@ public class TestHBCK2 {
   }
 
   private void testReportMissingRegionsInMeta(int missingRegionsInTestTbl,
-                                              int expectedTotalMissingRegions, String... namespaceOrTable) throws Exception {
+          int expectedTotalMissingRegions, String... namespaceOrTable) throws Exception {
     List<RegionInfo> regions = HBCKMetaTableAccessor
             .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
     Connection connection = TEST_UTIL.getConnection();
@@ -717,16 +717,14 @@ public class TestHBCK2 {
             .getTableRegions(TEST_UTIL.getConnection(), tableName);
     regions.subList(0, extraRegions).forEach(r -> deleteRegionDir(tableName, r.getEncodedName()));
     int remaining = totalRegions - extraRegions;
-    assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]
-            {"-f",
-                    "default:" + tableName.getNameAsString()
-            }).get(tableName).size());
+    assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{"-f",
+            "default:" + tableName.getNameAsString()}).get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
             HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
   }
 
   private void testReportExtraRegionsInMeta(int extraRegionsInTestTbl,
-                                            int expectedTotalExtraRegions, String... namespaceOrTable) throws Exception {
+          int expectedTotalExtraRegions, String... namespaceOrTable) throws Exception {
     List<RegionInfo> regions = HBCKMetaTableAccessor
             .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
     regions.subList(0, extraRegionsInTestTbl).forEach(r -> deleteRegionDir(TABLE_NAME,
