@@ -195,25 +195,25 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     String[] argList = commandLine.getArgs();
     if(!commandLine.hasOption(inputFile.getOpt())) {
-      setTableStateByArgs(hbck, argList);
+      System.out.println(setTableStateByArgs(hbck, argList));
     } else {
       List<String> inputList = getFromArgsOrFiles(stringArrayToList(argList), true);
       for (String line : inputList) {
         String[] params = line.split("\\s+");
-        setTableStateByArgs(hbck, params);
+        System.out.println(setTableStateByArgs(hbck, params));
       }
     }
   }
 
-  void setTableStateByArgs(Hbck hbck, String[] args) throws IOException {
+  TableState setTableStateByArgs(Hbck hbck, String[] args) throws IOException {
     if (args == null || args.length < 2) {
       showErrorMessage(SET_TABLE_STATE +
               " takes tablename and state arguments: e.g. user ENABLED, you entered: " +
               Arrays.toString(args));
-      return;
+      return null;
     }
-    System.out.println(setTableState(hbck, TableName.valueOf(args[0]),
-            TableState.State.valueOf(args[1])));
+    return setTableState(hbck, TableName.valueOf(args[0]),
+            TableState.State.valueOf(args[1]));
   }
 
   TableState setTableState(Hbck hbck, TableName tableName, TableState.State state)
@@ -239,12 +239,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     if (argList == null) {
       return EXIT_FAILURE;
     }
+
     if(!commandLine.hasOption(inputFile.getOpt())) {
-      return setRegionStateByArgs(connection, argList);
+      String[] params = formatSetRegionStateCommand(argList);
+      return setRegionStateByArgs(connection, params);
     } else {
       List<String> inputList = getFromArgsOrFiles(stringArrayToList(argList), true);
       for (String line : inputList) {
-        String[] params = line.split("\\s+");
+        String[] params = formatSetRegionStateCommand(line.split("\\s+"));
         if (setRegionState(connection, params) == EXIT_FAILURE) {
           showErrorMessage( "setRegionState failed to set " + args);
         }
@@ -1278,6 +1280,31 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     String [] result = new String [size];
     System.arraycopy(args, 1, result, 0, size);
     return result;
+  }
+
+  /**
+   * @return arguements for SET_REGION_STATE command
+   */
+  private String[] formatSetRegionStateCommand(String[] commands) {
+    if (commands.length < 2) {
+      showErrorMessage("setRegionState takes region encoded name and state arguments: e.g. "
+              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+      return null;
+    }
+    RegionState.State state = RegionState.State.valueOf(commands[1]);
+    Integer replicaId = 0;
+    String region = commands[0];
+    int separatorIndex = commands[0].indexOf(",");
+    if (separatorIndex > 0) {
+      region = commands[0].substring(0, separatorIndex);
+      replicaId = Integer.getInteger(commands[0].substring(separatorIndex + 1));
+    }
+    if (replicaId > 0) {
+      System.out.println("Change state for replica reigon " + replicaId +
+              " for primary region " + region);
+    }
+
+    return new String[]{region, replicaId.toString(), state.name()};
   }
 
   HBCK2(Configuration conf) {
