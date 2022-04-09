@@ -19,6 +19,7 @@ package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -737,4 +738,14 @@ public class TestHBCK2 {
     assertEquals(expectedTotalExtraRegions, resultingExtraRegions);
   }
 
+  @Test
+  public void testByPassWithInputFiles() throws IOException {
+    File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForSetRegionStateTest");
+    writeStringsToAFile(testFile, new String[]{"100568", "200568"});
+    List<Boolean> result = this.hbck2.bypass(new String[]{"-i", testFile.toString()});
+    assertNotNull(result);
+    for (boolean rs : result) {
+      assertFalse(rs);
+    }
+  }
 }

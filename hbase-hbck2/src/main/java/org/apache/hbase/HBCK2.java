@@ -248,7 +248,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       for (String line : inputList) {
         String[] params = formatSetRegionStateCommand(line.split("\\s+"));
         if (setRegionStateByArgs(connection, params) == EXIT_FAILURE) {
-          showErrorMessage("setRegionState failed to set " + args);
+          showErrorMessage("setRegionState failed to set " + Arrays.toString(args));
         }
       }
       return EXIT_SUCCESS;
@@ -260,7 +260,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return EXIT_FAILURE;
     }
     RegionState.State state = RegionState.State.valueOf(args[2]);
-    int replicaId = Integer.valueOf(args[1]);
+    int replicaId = Integer.parseInt(args[1]);
     return setRegionState(connection, args[0], replicaId, state);
   }
 
@@ -330,16 +330,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     options.addOption(fixOption);
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(inputFile);
-
+    Map<TableName, List<String>> result = new HashMap<>();
     // Parse command-line.
     CommandLine commandLine = getCommandLine(args, options);
     if (commandLine == null) {
-      return null;
+      return result;
     }
     boolean fix = commandLine.hasOption(fixOption.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
 
-    Map<TableName, List<String>> result = new HashMap<>();
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
       new FsRegionsMetaRecoverer(this.conf)) {
       List<String> namespacesTables =
@@ -429,7 +428,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   /**
    * @return List of results OR null if failed to run.
    */
-  private List<Boolean> bypass(String[] args) throws IOException {
+  List<Boolean> bypass(String[] args) throws IOException {
     // Bypass has two options....
     Options options = new Options();
     // See usage for 'help' on these options.
@@ -454,7 +453,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean recursiveFlag = commandLine.hasOption(recursive.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
 
-    String[] pidStrs =getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag)
+    String[] pidStrs = getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag)
             .toArray(new String[0]);
     if (pidStrs == null || pidStrs.length <= 0) {
       showErrorMessage("No pids supplied.");
@@ -470,8 +469,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   List<Long> scheduleRecoveries(Hbck hbck, String[] args) throws IOException {
     List<HBaseProtos.ServerName> serverNames = new ArrayList<>();
-    for (String serverName: getInputList(args)) {
-      serverNames.add(parseServerName(serverName));
+    List<String> inputList = getInputList(args);
+    if (inputList != null) {
+      for (String serverName : inputList) {
+        serverNames.add(parseServerName(serverName));
+      }
     }
     return hbck.scheduleServerCrashProcedure(serverNames);
   }
