@@ -383,12 +383,12 @@ public class TestHBCK2 {
   }
 
   private List<Long> getPidsFromResult(String result) {
-    Scanner scanner = new Scanner(result).useDelimiter("[\\D]+");
     List<Long> pids = new ArrayList<>();
-    while (scanner.hasNext()) {
-      pids.add(scanner.nextLong());
+    try (Scanner scanner = new Scanner(result).useDelimiter("[\\D]+")) {
+      while (scanner.hasNext()) {
+        pids.add(scanner.nextLong());
+      }
     }
-    scanner.close();
     return pids;
   }
 
@@ -744,6 +744,7 @@ public class TestHBCK2 {
     writeStringsToAFile(testFile, new String[]{"100568", "200568"});
     List<Boolean> result = this.hbck2.bypass(new String[]{"-i", testFile.toString()});
     assertNotNull(result);
+    assertEquals(result.size(), 2);
     for (boolean rs : result) {
       assertFalse(rs);
     }
