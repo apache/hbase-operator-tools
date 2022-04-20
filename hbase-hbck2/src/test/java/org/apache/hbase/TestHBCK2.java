@@ -188,11 +188,25 @@ public class TestHBCK2 {
           assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
         }
 
-        // test input files
+        // Test input files
         unassigns(regions, regionStrsArray);
         File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForAssignsTest");
         writeStringsToAFile(testFile, regionStrsArray);
         String result = testRunWithArgs(new String[]{ASSIGNS, "-i", testFile.toString()});
+        validateRegionEndState(getPidsFromResult(result), regions, true);
+
+        // Test multiple input files
+        unassigns(regions, regionStrsArray);
+        List<String> params = new ArrayList<>();
+        params.add(ASSIGNS);
+        params.add("-i");
+        for (String regionStr : regionStrsArray) {
+          File tempTestFile = new File(TEST_UTIL.getDataTestDir().toString(),
+                  "inputForAssignsTest-" + regionStr);
+          writeStringsToAFile(tempTestFile, new String[]{regionStr});
+          params.add(tempTestFile.toString());
+        }
+        result = testRunWithArgs(params.toArray(new String[]{}));
         validateRegionEndState(getPidsFromResult(result), regions, true);
       }
     }
