@@ -100,9 +100,10 @@ Options:
  -z,--zookeeper.znode.parent <arg>                parent znode of hbase
                                                   ensemble
 Command:
- addFsRegionsMissingInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+ addFsRegionsMissingInMeta <NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...
    Options:
     -d,--force_disable aborts fix for table if disable fails.
+    -i,--inputFiles  take one or more input files of namespace of table names
    To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_
    'OfflineMetaRepair' against an hbase-2.x cluster. Needs hbase:meta
@@ -121,6 +122,10 @@ Command:
    namespace 'n2':
      $ HBCK2 addFsRegionsMissingInMeta default:tbl_1 n1:tbl_2 n2
    Returns HBCK2  an 'assigns' command with all re-inserted regions.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line. For example:
+    For example:
+     $ HBCK2 addFsRegionsMissingInMeta -i fileName1 fileName2
    SEE ALSO: reportMissingRegionsInMeta
    SEE ALSO: fixMeta
 
@@ -138,11 +143,13 @@ Command:
    If -i or --inputFiles is specified, pass one or more input file names.
    Each file contains encoded region names, one per line. For example:
      $ HBCK2 assigns -i fileName1 fileName2
+
  bypass [OPTIONS] <PID>...
    Options:
     -o,--override   override if procedure is running/stuck
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
     -w,--lockWait   milliseconds to wait before giving up; default=1
+    -i,--inputFiles  take one or more input files of PIDs
    Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
    of bypassed procedure will also be skipped to the finish. Entities will
    be left in an inconsistent state and will require manual fixup. May
@@ -150,10 +157,14 @@ Command:
    procedure has children. Add 'recursive' if all you have is a parent pid
    to finish parent and children. This is SLOW, and dangerous so use
    selectively. Does not always work.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains PID's, one per line. For example:
+     $ HBCK2 bypass -i fileName1 fileName2
 
- extraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+ extraRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...
    Options:
     -f, --fix    fix meta by removing all extra regions found.
+    -i,--inputFiles  take one or more input files of namespace or table names
    Reports regions present on hbase:meta, but with no related
    directories on the file system. Needs hbase:meta to be online.
    For each table name passed as parameter, performs diff
@@ -173,16 +184,23 @@ Command:
      $ HBCK2 extraRegionsInMeta default:table_1 ns1
    Returns list of extra regions for each table passed as parameter, or
    for each table on namespaces specified as parameter.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line. For example:
+     $ HBCK2 extraRegionsInMeta -i fileName1 fileName2
 
- filesystem [OPTIONS] [<TABLENAME>...]
+ filesystem [OPTIONS] [<TABLENAME>...|-i <INPUT_FILE>...]
    Options:
     -f, --fix    sideline corrupt hfiles, bad links, and references.
+    -i,--inputFiles  take one or more input files of table names
    Report on corrupt hfiles, references, broken links, and integrity.
    Pass '--fix' to sideline corrupt files and links. '--fix' does NOT
    fix integrity issues; i.e. 'holes' or 'orphan' regions. Pass one or
    more tablenames to narrow checkup. Default checks all tables and
    restores 'hbase.version' if missing. Interacts with the filesystem
    only! Modified regions need to be reopened to pick-up changes.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <TABLENAME>, one per line. For example:
+     $ HBCK2 extraRegionsInMeta -i fileName1 fileName2
 
  fixMeta
    Do a server-side fix of bad or inconsistent state in hbase:meta.
@@ -220,14 +238,20 @@ Command:
    ServerCrashProcedures to stuck, you might need to fix these still
    after you generated the missing table info files.
 
- replication [OPTIONS] [<TABLENAME>...]
+ replication [OPTIONS] [<TABLENAME>...|-i <INPUT_FILE>...]
    Options:
     -f, --fix    fix any replication issues found.
+    -i,--inputFiles  take one or more input files of table names
    Looks for undeleted replication queues and deletes them if passed the
    '--fix' option. Pass a table name to check for replication barrier and
    purge if '--fix'.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <TABLENAME>, one per line. For example:
+     $ HBCK2 replication -i fileName1 fileName2
 
- reportMissingRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...
+ reportMissingRegionsInMeta <NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...
+   Options:
+    -i,--inputFiles  take one or more input files of namespace or table names
    To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_
    'OfflineMetaRepair' against an hbase-2.x cluster. This is a CHECK only
@@ -252,9 +276,14 @@ Command:
      $ HBCK2 reportMissingRegionsInMeta default:table_1 ns1
    Returns list of missing regions for each table passed as parameter, or
    for each table on namespaces specified as parameter.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line. For example:
+     $ HBCK2 reportMissingRegionsInMeta -i fileName1 fileName2
 
- setRegionState <ENCODED_REGIONNAME> <STATE>
-   Possible region states:
+ setRegionState [<ENCODED_REGIONNAME> <STATE>|-i <INPUT_FILE>...]
+    Options:
+     -i,--inputFiles  take one or more input files of encoded region names and states
+  Possible region states:
     OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,
     FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW,
     MERGING_NEW, ABNORMALLY_CLOSED
@@ -270,8 +299,14 @@ Command:
    setting region 'de00010733901a05f5a2a3a382e27dd4' to CLOSING:
      $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING
    Returns "0" if region state changed and "1" otherwise.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.
+   For example:
+     $ HBCK2 setRegionState -i fileName1 fileName2
 
- setTableState <TABLENAME> <STATE>
+ setTableState [<TABLENAME> <STATE>|-i <INPUT_FILE>...]
+   Options:
+     -i,--inputFiles  take one or more input files of table names and states
    Possible table states: ENABLED, DISABLED, DISABLING, ENABLING
    To read current table state, in the hbase shell run:
      hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'
@@ -280,8 +315,14 @@ Command:
    An example making table name 'user' ENABLED:
      $ HBCK2 setTableState users ENABLED
    Returns whatever the previous table state was.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <TABLENAME> <STATE>, one pair per line.
+   For example:
+     $ HBCK2 setTableState -i fileName1 fileName2
 
- scheduleRecoveries <SERVERNAME>...
+ scheduleRecoveries <SERVERNAME>...|-i <INPUT_FILE>...
+  Options:
+     -i,--inputFiles  take one or more input files of server names
    Schedule ServerCrashProcedure(SCP) for list of RegionServers. Format
    server name as '<HOSTNAME>,<PORT>,<STARTCODE>' (See HBase UI/logs).
    Example using RegionServer 'a.example.org,29100,1540348649479':
@@ -289,10 +330,14 @@ Command:
    Returns the pid(s) of the created ServerCrashProcedure(s) or -1 if
    no procedure created (see master logs for why not).
    Command support added in hbase versions 2.0.3, 2.1.2, 2.2.0 or newer.
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <SERVERNAME>, one per line. For example:
+     $ HBCK2 scheduleRecoveries -i fileName1 fileName2
 
- unassigns <ENCODED_REGIONNAME>...
+ unassigns <ENCODED_REGIONNAME>...|-i <INPUT_FILE>...
    Options:
     -o,--override  override ownership by another procedure
+     -i,--inputFiles  take one or more input files of encoded names
    A 'raw' unassign that can be used even during Master initialization
    (if the -skip flag is specified). Skirts Coprocessors. Pass one or
    more encoded region names. 1588230740 is the hard-coded name for the
@@ -300,7 +345,9 @@ Command:
    of what a userspace encoded region name looks like. For example:
      $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.
-
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains encoded region names, one per line. For example:
+     $ HBCK2 unassigns fileName1 -i fileName2
    SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline
    hbase:meta tool. See the HBCK2 README for how to use.
 ```
