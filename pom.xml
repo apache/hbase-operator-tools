@@ -140,6 +140,9 @@
     <enforcer.version>3.0.0-M2</enforcer.version>
     <extra.enforcer.version>1.0-beta-9</extra.enforcer.version>
     <findbugs-annotations.version>1.3.9-1</findbugs-annotations.version>
+    <!--code coverage properties-->
+    <clover-maven-plugin.version>4.4.1</clover-maven-plugin.version>
+    <sonar-maven-plugin.version>3.9.1.2184</sonar-maven-plugin.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -468,6 +471,97 @@
             </configuration>
           </plugin>
         </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>clover</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+        <property>
+          <name>clover</name>
+        </property>
+      </activation>
+      <properties>
+        <cloverDatabase>${project.build.directory}/clover/code-coverage.db</cloverDatabase>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.openclover</groupId>
+            <artifactId>clover-maven-plugin</artifactId>
+            <configuration>
+              <cloverDatabase>${cloverDatabase}</cloverDatabase>
+              <cloverMergeDatabase>${cloverDatabase}</cloverMergeDatabase>
+              <outputDirectory>${project.build.directory}/clover</outputDirectory>
+              <targetPercentage>50%</targetPercentage>
+              <alwaysReport>true</alwaysReport>
+              <generateHistorical>false</generateHistorical>
+              <generateHtml>true</generateHtml>
+              <generateXml>true</generateXml>
+              <includesTestSourceRoots>true</includesTestSourceRoots>
+              <includesAllSourceRoots>false</includesAllSourceRoots>
+              <includes>
+                <include>**/org/apache/**/*.java</include>
+              </includes>
+              <excludes>
+                <exclude>**/src/main/assembly/**/*</exclude>
+                <exclude>hbase-operator-tools-assembly/**/*</exclude>
+              </excludes>
+            </configuration>
+            <executions>
+              <execution>
+                <id>clover-setup</id>
+                <goals>
+                  <goal>setup</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.openclover</groupId>
+              <artifactId>clover-maven-plugin</artifactId>
+              <version>${clover-maven-plugin.version}</version>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
+    <profile>
+      <id>sonar</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+        <property>
+          <name>sonar</name>
+        </property>
+      </activation>
+      <properties>
+        <sonar.core.codeCoveragePlugin>clover</sonar.core.codeCoveragePlugin>
+        <sonar.clover.version>${clover-maven-plugin.version}</sonar.clover.version>
+        <sonar.clover.reportPath>${project.build.directory}/clover/clover.xml</sonar.clover.reportPath>
+        <sonar.surefire.reportsPath>${project.build.directory}/surefire-reports</sonar.surefire.reportsPath>
+        <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
+        <sonar.exclusions>hbase-operator-tools-assembly/**/*,**/pom.xml</sonar.exclusions>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.sonarsource.scanner.maven</groupId>
+            <artifactId>sonar-maven-plugin</artifactId>
+          </plugin>
+        </plugins>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.sonarsource.scanner.maven</groupId>
+              <artifactId>sonar-maven-plugin</artifactId>
+              <version>${sonar-maven-plugin.version}</version>
+            </plugin>
+          </plugins>
+        </pluginManagement>
       </build>
     </profile>
   </profiles>
