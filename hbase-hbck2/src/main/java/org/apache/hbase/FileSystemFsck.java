@@ -20,6 +20,7 @@ package org.apache.hbase;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
@@ -30,12 +31,6 @@ import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.FSUtils;
 import org.apache.hbase.hbck1.HBaseFsck;
 import org.apache.hbase.hbck1.HFileCorruptionChecker;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
 /**
  * Checks and repairs for hbase filesystem.
@@ -57,20 +52,7 @@ public class FileSystemFsck implements Closeable {
     // Nothing to do.
   }
 
-  int fsck(String[] args) throws IOException {
-    Options options = new Options();
-    Option fixOption = Option.builder("f").longOpt("fix").build();
-    options.addOption(fixOption);
-    // Parse command-line.
-    CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine;
-    try {
-      commandLine = parser.parse(options, args, false);
-    } catch(ParseException e) {
-      HBCK2.showErrorMessage(e.getMessage());
-      return -1;
-    }
-    boolean fix = commandLine.hasOption(fixOption.getOpt());
+  int fsck(List<String> tables, boolean fix) throws IOException {
     // Before we start make sure of the version file.
     if (fix && !HBaseFsck.versionFileExists(this.fs, this.rootDir)) {
       HBaseFsck.versionFileCreate(this.configuration, this.fs, this.rootDir);
@@ -80,7 +62,6 @@ public class FileSystemFsck implements Closeable {
       // Check hfiles.
       HFileCorruptionChecker hfcc = hbaseFsck.createHFileCorruptionChecker(fix);
       hbaseFsck.setHFileCorruptionChecker(hfcc);
-      Collection<String> tables = commandLine.getArgList();
       Collection<Path> tableDirs = tables.isEmpty()?
           FSUtils.getTableDirs(this.fs, this.rootDir):
           tables.stream().map(t -> CommonFSUtils.getTableDir(this.rootDir, TableName.valueOf(t))).
