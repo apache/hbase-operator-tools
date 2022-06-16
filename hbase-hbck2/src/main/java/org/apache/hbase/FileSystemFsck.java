@@ -61,6 +61,8 @@ public class FileSystemFsck implements Closeable {
     Options options = new Options();
     Option fixOption = Option.builder("f").longOpt("fix").build();
     options.addOption(fixOption);
+    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
+    options.addOption(inputFile);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
@@ -70,17 +72,19 @@ public class FileSystemFsck implements Closeable {
       HBCK2.showErrorMessage(e.getMessage());
       return -1;
     }
-    boolean fix = commandLine.hasOption(fixOption.getOpt());
+    boolean fixFlag = commandLine.hasOption(fixOption.getOpt());
+    boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
+
     // Before we start make sure of the version file.
-    if (fix && !HBaseFsck.versionFileExists(this.fs, this.rootDir)) {
+    if (fixFlag && !HBaseFsck.versionFileExists(this.fs, this.rootDir)) {
       HBaseFsck.versionFileCreate(this.configuration, this.fs, this.rootDir);
     }
     // Iterate over list of tablenames or encoded region names passed.
     try (HBaseFsck hbaseFsck = new HBaseFsck(this.configuration)) {
       // Check hfiles.
-      HFileCorruptionChecker hfcc = hbaseFsck.createHFileCorruptionChecker(fix);
+      HFileCorruptionChecker hfcc = hbaseFsck.createHFileCorruptionChecker(fixFlag);
       hbaseFsck.setHFileCorruptionChecker(hfcc);
-      Collection<String> tables = commandLine.getArgList();
+      Collection<String> tables = HBCK2.getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
       Collection<Path> tableDirs = tables.isEmpty()?
           FSUtils.getTableDirs(this.fs, this.rootDir):
           tables.stream().map(t -> CommonFSUtils.getTableDir(this.rootDir, TableName.valueOf(t))).
@@ -88,18 +92,18 @@ public class FileSystemFsck implements Closeable {
       hfcc.checkTables(tableDirs);
       hfcc.report(hbaseFsck.getErrors());
       // Now check links.
-      hbaseFsck.setFixReferenceFiles(fix);
-      hbaseFsck.setFixHFileLinks(fix);
+      hbaseFsck.setFixReferenceFiles(fixFlag);
+      hbaseFsck.setFixHFileLinks(fixFlag);
       hbaseFsck.setCheckHdfs(true);
       /*
       The below are too radical for hbck2. They are filesystem changes only.
       Need to connect them to hbase:meta and master; master should repair
       holes and overlaps and adopt regions.
 
-      hbaseFsck.setFixHdfsOrphans(fix);
-      hbaseFsck.setFixHdfsHoles(fix);
-      hbaseFsck.setFixHdfsOverlaps(fix);
-      hbaseFsck.setFixTableOrphans(fix);
+      hbaseFsck.setFixHdfsOrphans(fixFlag);
+      hbaseFsck.setFixHdfsHoles(fixFlag);
+      hbaseFsck.setFixHdfsOverlaps(fixFlag);
+      hbaseFsck.setFixTableOrphans(fixFlag);
       */
       hbaseFsck.offlineHbck();
     } catch (ClassNotFoundException | InterruptedException e) {

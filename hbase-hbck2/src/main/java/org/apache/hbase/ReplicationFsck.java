@@ -50,6 +50,8 @@ public class ReplicationFsck implements Closeable {
     Options options = new Options();
     Option fixOption = Option.builder("f").longOpt("fix").build();
     options.addOption(fixOption);
+    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
+    options.addOption(inputFile);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
@@ -59,15 +61,17 @@ public class ReplicationFsck implements Closeable {
       HBCK2.showErrorMessage(e.getMessage());
       return -1;
     }
-    boolean fix = commandLine.hasOption(fixOption.getOpt());
+    boolean fixFlag = commandLine.hasOption(fixOption.getOpt());
+    boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
+
     try (HBaseFsck hbaseFsck = new HBaseFsck(this.configuration)) {
-      hbaseFsck.setFixReplication(fix);
+      hbaseFsck.setFixReplication(fixFlag);
       hbaseFsck.checkAndFixReplication();
-      Collection<String> tables = commandLine.getArgList();
+      Collection<String> tables = HBCK2.getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
       if (tables != null && !tables.isEmpty()) {
         // Below needs connection to be up; uses admin.
         hbaseFsck.connect();
-        hbaseFsck.setCleanReplicationBarrier(fix);
+        hbaseFsck.setCleanReplicationBarrier(fixFlag);
         for (String table: tables) {
           hbaseFsck.setCleanReplicationBarrierTable(table);
           hbaseFsck.cleanReplicationBarrier();

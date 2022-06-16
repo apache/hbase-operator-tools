@@ -1070,8 +1070,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
           try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
-            return fsfsck.fsck(getInputList(purgeFirst(commands))
-                    .toArray(new String[0])) != 0? EXIT_FAILURE : EXIT_SUCCESS;
+            return fsfsck.fsck(purgeFirst(commands)) != 0? EXIT_FAILURE : EXIT_SUCCESS;
           }
         }
 
@@ -1079,8 +1078,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command, "2.1.1", "2.2.0", "3.0.0");
           try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
-            return replicationFsck.fsck(getInputList(purgeFirst(commands))
-                    .toArray(new String[0])) != 0? EXIT_FAILURE : EXIT_SUCCESS;
+            return replicationFsck.fsck(purgeFirst(commands)) != 0? EXIT_FAILURE : EXIT_SUCCESS;
           }
         }
 
@@ -1363,7 +1361,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   /**
    * @return Read arguments from args or a list of input files
    */
-  private List<String> getFromArgsOrFiles(List<String> args, boolean getFromFile)
+  public static List<String> getFromArgsOrFiles(List<String> args, boolean getFromFile)
           throws IOException {
     if (!getFromFile || args == null) {
       return args;
@@ -1374,7 +1372,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   /**
    * @return Read arguments from a list of input files
    */
-  private List<String> getFromFiles(List<String> args) throws IOException {
+  private static List<String> getFromFiles(List<String> args) throws IOException {
     List<String> argList = new ArrayList<>();
     for (String filePath : args) {
       try (InputStream fileStream = new FileInputStream(filePath)){
