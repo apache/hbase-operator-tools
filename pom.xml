@@ -133,7 +133,7 @@
     <log4j2.version>2.17.1</log4j2.version>
     <surefire.provider>surefire-junit47</surefire.provider>
     <test.output.tofile>true</test.output.tofile>
-    <checkstyle.version>8.18</checkstyle.version>
+    <checkstyle.version>8.29</checkstyle.version>
     <junit.version>4.12</junit.version>
     <maven.checkstyle.version>3.0.0</maven.checkstyle.version>
     <hbase.checkstyle.version>2.2.0</hbase.checkstyle.version>
