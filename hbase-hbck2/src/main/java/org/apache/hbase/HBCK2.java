@@ -313,7 +313,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
         new FsRegionsMetaRecoverer(this.conf)) {
       report = fsRegionsMetaRecoverer.reportTablesMissingRegions(
-        (getInputList(args, null)));
+        (getInputList(args)));
     } catch (IOException e) {
       LOG.error("Error reporting missing regions: ", e);
       throw e;
@@ -385,7 +385,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
       new FsRegionsMetaRecoverer(this.conf)) {
       return fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(
-        getInputList(nameSpaceOrTable, null));
+        getInputList(nameSpaceOrTable));
     } catch (IOException e) {
       LOG.error("Error adding missing regions: ", e);
       throw e;
@@ -470,7 +470,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   List<Long> scheduleRecoveries(Hbck hbck, String[] args) throws IOException {
     List<HBaseProtos.ServerName> serverNames = new ArrayList<>();
-    List<String> inputList = getInputList(args, null);
+    List<String> inputList = getInputList(args);
     if (inputList != null) {
       for (String serverName : inputList) {
         serverNames.add(parseServerName(serverName));
@@ -1334,8 +1334,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
    * @param args Array of arguments
    * @return the list of input from arguments or parsed from input files
    */
-  private List<String> getInputList(String[] args, Options options) throws IOException {
-    CommandLine commandLine = parseCommandWithInputList(args, options);
+  private List<String> getInputList(String[] args) throws IOException {
+    CommandLine commandLine = parseCommandWithInputList(args, null);
     if (commandLine == null) {
       return null;
     }
