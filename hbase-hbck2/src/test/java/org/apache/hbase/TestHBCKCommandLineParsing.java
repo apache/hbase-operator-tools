@@ -204,7 +204,8 @@ public class TestHBCKCommandLineParsing {
     try {
       input = createInputFile();
       String output =
-        retrieveOptionOutput(new String[] { "replication", "--fix", "--inputFiles", input.getPath() });
+        retrieveOptionOutput(new String[] { "replication", "--fix", "--inputFiles",
+          input.getPath() });
       assertTrue(
         output.indexOf("ERROR: No replication barrier(s) on table: table\n") >= 0);
       assertTrue(output.indexOf("ERROR: Unrecognized option: --fix") < 0);
@@ -323,7 +324,8 @@ public class TestHBCKCommandLineParsing {
     try {
       input = createInputFile();
       String output =
-        retrieveOptionOutput(new String[] { "filesystem", "--fix", "--inputFiles", input.getPath() });
+        retrieveOptionOutput(new String[] { "filesystem", "--fix", "--inputFiles",
+          input.getPath() });
       assertTrue(output.indexOf("ERROR: Unrecognized option: --fix") < 0);
       assertTrue(output.indexOf("ERROR: Unrecognized option: --inoutFiles") < 0);
     } finally {

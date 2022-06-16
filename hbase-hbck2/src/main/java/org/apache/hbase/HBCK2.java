@@ -1355,8 +1355,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return getCommandLine(args, options);
   }
 
-  private Pair<CommandLine,List<String>> parseAndGetCommandLineWithInputOption(String[] args, Options options)
-    throws IOException {
+  private Pair<CommandLine,List<String>> parseAndGetCommandLineWithInputOption(String[] args,
+    Options options) throws IOException {
     CommandLine commandLine = parseCommandWithInputList(args, options);
     List<String> params = getFromArgsOrFiles(commandLine.getArgList(),
       commandLine.hasOption("i"));

@@ -44,7 +44,7 @@ public class ReplicationFsck implements Closeable {
     try (HBaseFsck hbaseFsck = new HBaseFsck(this.configuration)) {
       hbaseFsck.setFixReplication(fix);
       hbaseFsck.checkAndFixReplication();
-      if (tables != null && !tables.isEmpty() ) {
+      if (tables != null && !tables.isEmpty()) {
         // Below needs connection to be up; uses admin.
         hbaseFsck.connect();
         hbaseFsck.setCleanReplicationBarrier(fix);
