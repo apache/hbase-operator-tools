@@ -18,12 +18,17 @@
 package org.apache.hbase;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.Properties;
 
@@ -65,7 +70,7 @@ public class TestHBCKCommandLineParsing {
     assertTrue(output, output.startsWith("usage: HBCK2"));
 
     // Passing -h/--help does the same
-    output = retrieveOptionOutput("-h");
+    output = retrieveOptionOutput(new String[]{"-h"});
     assertTrue(output, output.startsWith("usage: HBCK2"));
   }
 
@@ -75,7 +80,7 @@ public class TestHBCKCommandLineParsing {
     String[] cmds = new String[]{"setTableState", "bypass", "scheduleRecoveries"};
     String output;
     for(String cmd: cmds){
-      output = retrieveOptionOutput(cmd);
+      output = retrieveOptionOutput(new String[]{cmd});
       assertTrue(output, output.startsWith("ERROR: "));
       assertTrue(output, output.contains("FOR USAGE, use the -h or --help option"));
     }
@@ -108,17 +113,259 @@ public class TestHBCKCommandLineParsing {
     properties.load(inputStream);
     String expectedVersionOutput = properties.getProperty("version");
     // Get hbck version option output.
-    String actualVersionOutput = retrieveOptionOutput("-v").trim();
+    String actualVersionOutput = retrieveOptionOutput(new String[]{"-v"}).trim();
     assertEquals(expectedVersionOutput, actualVersionOutput);
   }
 
-  private String retrieveOptionOutput(String option) throws IOException {
+  @Test
+  public void testReplicationNoOption() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"replication"});
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+  }
+
+  @Test
+  public void testReplicationFixShortOption() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"replication",  "-f"});
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+  }
+
+  @Test
+  public void testReplicationFixShortOptionTable() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"replication",  "-f", "table"});
+    assertTrue(
+      output.contains("ERROR: No replication barrier(s) on table: table\n"));
+    assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+  }
+
+  @Test
+  public void testReplicationFixShortOptionInputFile() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "replication", "-f", "-i", input.getPath() });
+      assertTrue(
+        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+      assertFalse(output.contains("ERROR: Unrecognized option: -i"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testReplicationFixLongOption() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"replication",  "--fix"});
+    assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+  }
+
+  @Test
+  public void testReplicationFixLongOptionTable() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"replication",  "--fix", "table"});
+    assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+  }
+
+  @Test
+  public void testReplicationFixLongOptionInputFile() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "replication", "--fix", "-i", input.getPath() });
+      assertTrue(
+        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+      assertFalse(output.contains("ERROR: Unrecognized option: -i"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testReplicationFixShortOptionInputFileLong() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "replication", "-f", "--inputFiles", input.getPath() });
+      assertTrue(
+        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testReplicationFixLongOptionInputFileLong() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "replication", "--fix", "--inputFiles",
+          input.getPath() });
+      assertTrue(
+        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+      assertFalse(output.contains("ERROR: Unrecognized option: --inoutFiles"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testReplicationInputFileLong() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "replication", "--inputFiles", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
+
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testReplicationInputFile() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "replication", "-i", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: -i"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  private File createInputFile() throws Exception {
+    File f = new File("input");
+    try(BufferedWriter writer = new BufferedWriter(
+      new OutputStreamWriter(new FileOutputStream(f)))) {
+      writer.write("table");
+      writer.flush();
+    }
+    return f;
+  }
+
+  @Test
+  public void testFilesystemFixShortOption() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"filesystem",  "-f"});
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+  }
+
+  @Test
+  public void testFilesystemFixShortOptionTable() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"filesystem",  "-f", "table"});
+    assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+  }
+
+  @Test
+  public void testFilesystemFixShortOptionInputFile() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "filesystem", "-f", "-i", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+      assertFalse(output.contains("ERROR: Unrecognized option: -i"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testFilesystemFixLongOption() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"filesystem",  "--fix"});
+    assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+  }
+
+  @Test
+  public void testFilesystemFixLongOptionTable() throws IOException {
+    String output = retrieveOptionOutput(new String[]{"filesystem",  "--fix", "table"});
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+  }
+
+  @Test
+  public void testFilesystemFixLongOptionInputFile() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "filesystem", "--fix", "-i", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+      assertFalse(output.contains("ERROR: Unrecognized option: -i"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testFilesystemFixShortOptionInputFileLong() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "filesystem", "-f", "--inputFiles", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: -f"));
+      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testFilesystemFixLongOptionInputFileLong() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "filesystem", "--fix", "--inputFiles",
+          input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
+      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testFilesystemInputFileLong() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "filesystem", "--inputFiles", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  @Test
+  public void testFilesystemInputFile() throws Exception {
+    File input = null;
+    try {
+      input = createInputFile();
+      String output =
+        retrieveOptionOutput(new String[] { "filesystem", "-i", input.getPath() });
+      assertFalse(output.contains("ERROR: Unrecognized option: -i"));
+    } finally {
+      input.delete();
+    }
+  }
+
+  private String retrieveOptionOutput(String[] options) throws IOException {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
     PrintStream stream = new PrintStream(os);
     PrintStream oldOut = System.out;
     System.setOut(stream);
-    if (option != null) {
-      this.hbck2.run(new String[] { option });
+    if (options != null) {
+      this.hbck2.run(options);
     } else {
       this.hbck2.run(null);
     }

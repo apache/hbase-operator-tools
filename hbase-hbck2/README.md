@@ -102,7 +102,6 @@ Options:
 Command:
  addFsRegionsMissingInMeta <NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...
    Options:
-    -d,--force_disable aborts fix for table if disable fails.
     -i,--inputFiles  take one or more input files of namespace of table names
    To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_

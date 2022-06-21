@@ -19,17 +19,11 @@ package org.apache.hbase;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collection;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hbase.hbck1.HBaseFsck;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
-import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
 /**
  * Checks and repairs for hbase replication.
@@ -37,7 +31,7 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 public class ReplicationFsck implements Closeable {
   private final Configuration configuration;
 
-  ReplicationFsck(Configuration conf) throws IOException {
+  ReplicationFsck(Configuration conf) {
     this.configuration = conf;
   }
 
@@ -46,24 +40,10 @@ public class ReplicationFsck implements Closeable {
     // Nothing to do.
   }
 
-  int fsck(String[] args) throws IOException {
-    Options options = new Options();
-    Option fixOption = Option.builder("f").longOpt("fix").build();
-    options.addOption(fixOption);
-    // Parse command-line.
-    CommandLineParser parser = new DefaultParser();
-    CommandLine commandLine;
-    try {
-      commandLine = parser.parse(options, args, false);
-    } catch(ParseException e) {
-      HBCK2.showErrorMessage(e.getMessage());
-      return -1;
-    }
-    boolean fix = commandLine.hasOption(fixOption.getOpt());
+  int fsck(List<String> tables, boolean fix) throws IOException {
     try (HBaseFsck hbaseFsck = new HBaseFsck(this.configuration)) {
       hbaseFsck.setFixReplication(fix);
       hbaseFsck.checkAndFixReplication();
-      Collection<String> tables = commandLine.getArgList();
       if (tables != null && !tables.isEmpty()) {
         // Below needs connection to be up; uses admin.
         hbaseFsck.connect();

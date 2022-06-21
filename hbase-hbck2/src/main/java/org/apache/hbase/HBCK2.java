@@ -64,6 +64,7 @@ import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 
+import org.apache.hadoop.hbase.util.Pair;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
@@ -559,7 +560,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [<NAMESPACE|"
         + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
     writer.println("   Options:");
-    writer.println("    -d,--force_disable aborts fix for table if disable fails.");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
     writer.println("   To be used when regions missing from hbase:meta but directories");
     writer.println("   are present still in HDFS. Can happen if user has run _hbck1_");
@@ -1070,8 +1070,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command);
           try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
-            return fsfsck.fsck(getInputList(purgeFirst(commands))
-                    .toArray(new String[0])) != 0? EXIT_FAILURE : EXIT_SUCCESS;
+            Pair<CommandLine, List<String>> pair =
+              parseCommandWithFixAndInputOptions(purgeFirst(commands));
+            return fsfsck.fsck(pair.getSecond(),
+              pair.getFirst().hasOption("f"))!= 0? EXIT_FAILURE : EXIT_SUCCESS;
           }
         }
 
@@ -1079,8 +1081,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         try (ClusterConnection connection = connect()) {
           checkHBCKSupport(connection, command, "2.1.1", "2.2.0", "3.0.0");
           try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
-            return replicationFsck.fsck(getInputList(purgeFirst(commands))
-                    .toArray(new String[0])) != 0? EXIT_FAILURE : EXIT_SUCCESS;
+            Pair<CommandLine, List<String>> pair =
+              parseCommandWithFixAndInputOptions(purgeFirst(commands));
+            return replicationFsck.fsck(pair.getSecond(),
+              pair.getFirst().hasOption("f")) != 0? EXIT_FAILURE : EXIT_SUCCESS;
           }
         }
 
@@ -1331,18 +1335,43 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
    * @return the list of input from arguments or parsed from input files
    */
   private List<String> getInputList(String[] args) throws IOException {
-    if (args == null) {
-      return null;
-    }
-    Options options = new Options();
-    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
-    options.addOption(inputFile);
-    CommandLine commandLine = getCommandLine(args, options);
+    CommandLine commandLine = parseCommandWithInputList(args, null);
     if (commandLine == null) {
       return null;
     }
     return getFromArgsOrFiles(commandLine.getArgList(),
-            commandLine.hasOption(inputFile.getOpt()));
+            commandLine.hasOption("i"));
+  }
+
+  private CommandLine parseCommandWithInputList(String[] args, Options options) {
+    if (args == null) {
+      return null;
+    }
+    if (options == null) {
+      options = new Options();
+    }
+    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
+    options.addOption(inputFile);
+    return getCommandLine(args, options);
+  }
+
+  private Pair<CommandLine,List<String>> parseAndGetCommandLineWithInputOption(String[] args,
+    Options options) throws IOException {
+    CommandLine commandLine = parseCommandWithInputList(args, options);
+    List<String> params = getFromArgsOrFiles(commandLine.getArgList(),
+      commandLine.hasOption("i"));
+    return Pair.newPair(commandLine, params);
+  }
+
+  private Pair<CommandLine,List<String>> parseCommandWithFixAndInputOptions(String[] args)
+    throws IOException {
+    Options options = new Options();
+    Option fixOption = Option.builder("f").longOpt("fix").build();
+    options.addOption(fixOption);
+    CommandLine commandLine = parseCommandWithInputList(args, options);
+    List<String> params = getFromArgsOrFiles(commandLine.getArgList(),
+      commandLine.hasOption("i"));
+    return Pair.newPair(commandLine, params);
   }
 
   /**
