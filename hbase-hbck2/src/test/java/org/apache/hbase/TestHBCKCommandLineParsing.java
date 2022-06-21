@@ -120,13 +120,13 @@ public class TestHBCKCommandLineParsing {
   @Test
   public void testReplicationNoOption() throws IOException {
     String output = retrieveOptionOutput(new String[]{"replication"});
-    assertTrue(output.indexOf("ERROR: Unrecognized option: -f") < 0);
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
 
   @Test
   public void testReplicationFixShortOption() throws IOException {
     String output = retrieveOptionOutput(new String[]{"replication",  "-f"});
-    assertTrue(output.indexOf("ERROR: Unrecognized option: -f") < 0);
+    assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
 
   @Test
