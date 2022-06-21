@@ -340,7 +340,7 @@ public class TestHBCKCommandLineParsing {
       input = createInputFile();
       String output =
         retrieveOptionOutput(new String[] { "filesystem", "--inputFiles", input.getPath() });
-      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles") );
+      assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
     } finally {
       input.delete();
     }
