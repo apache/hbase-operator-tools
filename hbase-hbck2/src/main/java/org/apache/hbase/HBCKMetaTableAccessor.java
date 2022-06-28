@@ -128,11 +128,42 @@ public final class HBCKMetaTableAccessor {
    * @throws IOException if it's not able to delete the regionInfo
    */
   public static void deleteRegionInfo(Connection connection, RegionInfo regionInfo)
-      throws IOException {
+    throws IOException {
     Delete delete = new Delete(regionInfo.getRegionName());
     delete.addFamily(HConstants.CATALOG_FAMILY, HConstants.LATEST_TIMESTAMP);
     deleteFromMetaTable(connection, delete);
     LOG.info("Deleted {}", regionInfo.getRegionNameAsString());
+  }
+
+  /**
+   * Delete the passed <code>RegionInfo</code> from the <code>hbase:meta</code> table.
+   *
+   * @param connection connection we're using
+   * @param regionInfo the regionInfo to delete from the meta table
+   * @throws IOException if it's not able to delete the regionInfo
+   */
+  public static void deleteRegionInfoColumn(Connection connection, RegionInfo regionInfo)
+    throws IOException {
+    Delete delete = new Delete(regionInfo.getRegionName());
+    delete.addColumn(HConstants.CATALOG_FAMILY, HConstants.REGIONINFO_QUALIFIER,
+      HConstants.LATEST_TIMESTAMP);
+    deleteFromMetaTable(connection, delete);
+    LOG.info("Deleted regioninfo for {}", regionInfo.getRegionNameAsString());
+  }
+
+  /**
+   * Delete the passed <code>HBCKMetaEntry</code> from the <code>hbase:meta</code> table.
+   *
+   * @param connection connection we're using
+   * @param region the region to be deleted from the meta table
+   * @throws IOException if it's not able to delete the regionInfo
+   */
+  public static void deleteRegion(Connection connection, HBCKMetaEntry region)
+    throws IOException {
+    Delete delete = new Delete(region.getRegionName());
+    delete.addFamily(HConstants.CATALOG_FAMILY, HConstants.LATEST_TIMESTAMP);
+    deleteFromMetaTable(connection, delete);
+    LOG.info("Deleted {}", region.getEncodedRegionName());
   }
 
   // Private helper methods
@@ -187,11 +218,49 @@ public final class HBCKMetaTableAccessor {
    * Returns all regions in meta for the given table.
    * @param conn a valid, open connection.
    * @param table the table to list regions in meta.
-   * @return a list of <code>RegionInfo</code> for all table regions present in meta.
+   * @return a list of <code>HBCKMetaEntry</code> with encoded region names, and the meta row key
+   * for all table regions present in meta.
+   * @throws IOException on any issues related with scanning meta table
+   */
+  public static List<HBCKMetaEntry> getTableRegionsAsMetaEntries(final Connection conn, final TableName table)
+      throws IOException {
+    final MetaScanner<HBCKMetaEntry> scanner = new MetaScanner<>();
+    final String startRow = Bytes.toString(table.getName()) + ",,";
+    final String stopRow = Bytes.toString(table.getName()) + " ,,";
+    return scanner.scanMeta(conn,
+      scan -> {
+        scan.withStartRow(Bytes.toBytes(startRow));
+        scan.withStopRow(Bytes.toBytes(stopRow));
+      },
+      r -> {
+        if (r.getRow() != null) {
+          boolean encodedNameOffset = false;
+          StringBuilder encodedNameBuilder = new StringBuilder();
+          for(int i=0; i<r.getRow().length; i++){
+            if (r.getRow()[i]=='.'){
+              encodedNameOffset = !encodedNameOffset;
+              continue;
+            }
+            if(encodedNameOffset){
+              encodedNameBuilder.append((char)r.getRow()[i]);
+            }
+          }
+          return new HBCKMetaEntry(r.getRow(), encodedNameBuilder.toString());
+        }
+        return null;
+      });
+  }
+
+  /**
+   * Returns all regions in meta for the given table.
+   * @param conn a valid, open connection.
+   * @param table the table to list regions in meta.
+   * @return a list of <code>String</code> of encoded region names,
+   * for all table regions present in meta.
    * @throws IOException on any issues related with scanning meta table
    */
   public static List<RegionInfo> getTableRegions(final Connection conn, final TableName table)
-      throws IOException {
+    throws IOException {
     final MetaScanner<RegionInfo> scanner = new MetaScanner<>();
     final String startRow = Bytes.toString(table.getName()) + ",,";
     final String stopRow = Bytes.toString(table.getName()) + " ,,";
@@ -205,9 +274,9 @@ public final class HBCKMetaTableAccessor {
         if(cell != null) {
           RegionInfo info = RegionInfo
             .parseFromOrNull(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
-          return info;
+        return info;
         }
-        return null;
+       return null;
       });
   }
 
