@@ -219,11 +219,11 @@ public final class HBCKMetaTableAccessor {
    * @param conn a valid, open connection.
    * @param table the table to list regions in meta.
    * @return a list of <code>HBCKMetaEntry</code> with encoded region names, and the meta row key
-   * for all table regions present in meta.
+   *  for all table regions present in meta.
    * @throws IOException on any issues related with scanning meta table
-   */
-  public static List<HBCKMetaEntry> getTableRegionsAsMetaEntries(final Connection conn, final TableName table)
-      throws IOException {
+   * */
+  public static List<HBCKMetaEntry> getTableRegionsAsMetaEntries(final Connection conn,
+      final TableName table) throws IOException {
     final MetaScanner<HBCKMetaEntry> scanner = new MetaScanner<>();
     final String startRow = Bytes.toString(table.getName()) + ",,";
     final String stopRow = Bytes.toString(table.getName()) + " ,,";
@@ -256,7 +256,7 @@ public final class HBCKMetaTableAccessor {
    * @param conn a valid, open connection.
    * @param table the table to list regions in meta.
    * @return a list of <code>String</code> of encoded region names,
-   * for all table regions present in meta.
+   *  for all table regions present in meta.
    * @throws IOException on any issues related with scanning meta table
    */
   public static List<RegionInfo> getTableRegions(final Connection conn, final TableName table)
@@ -274,9 +274,9 @@ public final class HBCKMetaTableAccessor {
         if(cell != null) {
           RegionInfo info = RegionInfo
             .parseFromOrNull(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
-        return info;
+          return info;
         }
-       return null;
+        return null;
       });
   }
 
