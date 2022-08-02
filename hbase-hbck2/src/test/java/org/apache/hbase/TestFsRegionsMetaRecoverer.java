@@ -210,10 +210,10 @@ public class TestFsRegionsMetaRecoverer {
   @Test
   public void testFindExtraRegionsInMETAOneExtra() throws  Exception {
     RegionInfo info = createRegionInMeta(Mockito.mock(ResultScanner.class));
-    List<RegionInfo> missingRegions = fixer.findExtraRegionsInMETA("test-tbl");
+    List<HBCKMetaEntry> missingRegions = fixer.findExtraRegionsInMETA("test-tbl");
     assertEquals("Should had returned 1 extra region",
       1, missingRegions.size());
-    assertEquals(info.getEncodedName(),missingRegions.get(0).getEncodedName());
+    assertEquals(info.getEncodedName(),missingRegions.get(0).getEncodedRegionName());
   }
 
   @Test
@@ -243,7 +243,7 @@ public class TestFsRegionsMetaRecoverer {
     cells.add(createCellForTableState(TableName.valueOf("test-tbl")));
     Result result = Result.create(cells);
     Mockito.when(mockedRS.next()).thenReturn(result,(Result)null);
-    Map<TableName, List<RegionInfo>> report = fixer.reportTablesExtraRegions(null);
+    Map<TableName, List<HBCKMetaEntry>> report = fixer.reportTablesExtraRegions(null);
     assertEquals("Should had returned 1 extra region.",
       1,report.size());
   }

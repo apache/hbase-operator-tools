@@ -86,25 +86,25 @@ public class FsRegionsMetaRecoverer implements Closeable {
     return missingChecker.reportTablesRegions(namespacesOrTables, this::findMissingRegionsInMETA);
   }
 
-  public Map<TableName,List<RegionInfo>>
+  public Map<TableName,List<HBCKMetaEntry>>
       reportTablesExtraRegions(final List<String> namespacesOrTables) throws IOException {
-    InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
+    InternalMetaChecker<HBCKMetaEntry> extraChecker = new InternalMetaChecker<>();
     return extraChecker.reportTablesRegions(namespacesOrTables, this::findExtraRegionsInMETA);
   }
 
   List<Path> findMissingRegionsInMETA(String table) throws IOException {
     InternalMetaChecker<Path> missingChecker = new InternalMetaChecker<>();
     return missingChecker.checkRegionsInMETA(table, (regions, dirs) -> {
-      ListUtils<Path, RegionInfo> utils = new ListUtils<>();
-      return utils.complement(dirs, regions, d -> d.getName(), r -> r.getEncodedName());
+      ListUtils<Path, HBCKMetaEntry> utils = new ListUtils<>();
+      return utils.complement(dirs, regions, d -> d.getName(), r -> r.getEncodedRegionName());
     });
   }
 
-  List<RegionInfo> findExtraRegionsInMETA(String table) throws IOException {
-    InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
+  List<HBCKMetaEntry> findExtraRegionsInMETA(String table) throws IOException {
+    InternalMetaChecker<HBCKMetaEntry> extraChecker = new InternalMetaChecker<>();
     return extraChecker.checkRegionsInMETA(table, (regions,dirs) -> {
-      ListUtils<RegionInfo, Path> utils = new ListUtils<>();
-      return utils.complement(regions, dirs, r -> r.getEncodedName(), d -> d.getName());
+      ListUtils<HBCKMetaEntry, Path> utils = new ListUtils<>();
+      return utils.complement(regions, dirs, r -> r.getEncodedRegionName(), d -> d.getName());
     });
   }
 
@@ -132,18 +132,18 @@ public class FsRegionsMetaRecoverer implements Closeable {
   public List<Future<List<String>>> removeExtraRegionsFromMetaForTables(
     List<String> nameSpaceOrTable) throws IOException {
     if(nameSpaceOrTable.size()>0) {
-      InternalMetaChecker<RegionInfo> extraChecker = new InternalMetaChecker<>();
+      InternalMetaChecker<HBCKMetaEntry> extraChecker = new InternalMetaChecker<>();
       return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions,
         this::deleteAllRegions, nameSpaceOrTable);
     }
     return null;
   }
 
-  private List<String> deleteAllRegions(List<RegionInfo> regions) throws IOException {
+  private List<String> deleteAllRegions(List<HBCKMetaEntry> regions) throws IOException {
     List<String> resulting = new ArrayList<>();
-    for(RegionInfo r : regions){
-      HBCKMetaTableAccessor.deleteRegionInfo(conn, r);
-      resulting.add(r.getEncodedName());
+    for(HBCKMetaEntry r : regions){
+      HBCKMetaTableAccessor.deleteRegion(conn, r);
+      resulting.add(r.getEncodedRegionName());
     }
     return resulting;
   }
@@ -156,11 +156,11 @@ public class FsRegionsMetaRecoverer implements Closeable {
   private class InternalMetaChecker<T> {
 
     List<T> checkRegionsInMETA(String table,
-        CheckingFunction<List<RegionInfo>, List<Path>, T> checkingFunction) throws IOException {
+        CheckingFunction<List<HBCKMetaEntry>, List<Path>, T> checkingFunction) throws IOException {
       final List<Path> regionsDirs = getTableRegionsDirs(table);
       TableName tableName = TableName.valueOf(table);
-      List<RegionInfo> regions = HBCKMetaTableAccessor.
-        getTableRegions(FsRegionsMetaRecoverer.this.conn, tableName);
+      List<HBCKMetaEntry> regions = HBCKMetaTableAccessor.
+        getTableRegionsAsMetaEntries(FsRegionsMetaRecoverer.this.conn, tableName);
       return checkingFunction.check(regions, regionsDirs);
     }
 

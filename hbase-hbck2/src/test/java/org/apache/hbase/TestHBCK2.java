@@ -696,6 +696,20 @@ public class TestHBCK2 {
     }
   }
 
+  @Test
+  public void testRemoveExtraRegionWithoutInfo() throws Exception {
+    TableName tableName = createTestTable(5);
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    List<RegionInfo> regions = HBCKMetaTableAccessor
+      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    deleteRegionDir(tableName, regions.get(0).getEncodedName());
+    HBCKMetaTableAccessor.deleteRegionInfoColumn(TEST_UTIL.getConnection(), regions.get(0));
+    assertEquals(1, hbck.extraRegionsInMeta(new String[]{"-f",
+      "default:" + tableName.getNameAsString()}).get(tableName).size());
+    assertEquals("Table regions should had been removed from META.", 4,
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName).size());
+  }
+
   private String testFormatExtraRegionsInMetaReport() throws IOException {
     return testRunWithArgs(new String[]{EXTRA_REGIONS_IN_META});
   }
@@ -735,7 +749,7 @@ public class TestHBCK2 {
     assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{"-f",
       "default:" + tableName.getNameAsString()}).get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
-            HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+            HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName).size());
   }
 
   private void testReportExtraRegionsInMeta(int extraRegionsInTestTbl,

@@ -87,7 +87,7 @@ public class HBCKActions {
       System.out.println(String.format("Current Regions of the table " + tn.getNameAsString()
           + " in Meta before deletion of the region are: " + ris));
       RegionInfo ri = ris.get(ris.size() / 2);
-      System.out.println("Deleting Region " + ri.getRegionNameAsString());
+      System.out.println("Deleting Region " + ri);
       byte[] key = HBCKMetaTableAccessor.getMetaKeyForRegion(ri);
 
       Delete delete = new Delete(key);

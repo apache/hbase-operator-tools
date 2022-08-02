@@ -344,12 +344,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       new FsRegionsMetaRecoverer(this.conf)) {
       List<String> namespacesTables =
               getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
-      Map<TableName, List<RegionInfo>> reportMap =
+      Map<TableName, List<HBCKMetaEntry>> reportMap =
         fsRegionsMetaRecoverer.reportTablesExtraRegions(namespacesTables);
       final List<String> toFix = new ArrayList<>();
       reportMap.entrySet().forEach(e -> {
         result.put(e.getKey(),
-          e.getValue().stream().map(r->r.getEncodedName()).collect(Collectors.toList()));
+          e.getValue().stream().map(r->r.getEncodedRegionName()).collect(Collectors.toList()));
         if(fix && e.getValue().size()>0){
           toFix.add(e.getKey().getNameWithNamespaceInclAsString());
         }
