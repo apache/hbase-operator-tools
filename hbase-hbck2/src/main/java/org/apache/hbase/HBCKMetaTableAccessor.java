@@ -219,7 +219,7 @@ public final class HBCKMetaTableAccessor {
    * @param conn a valid, open connection.
    * @param table the table to list regions in meta.
    * @return a list of <code>HBCKMetaEntry</code> with encoded region names, and the meta row key
-   * for all table regions present in meta.
+   *   for all table regions present in meta.
    * @throws IOException on any issues related with scanning meta table
    * */
   public static List<HBCKMetaEntry> getTableRegionsAsMetaEntries(final Connection conn,
@@ -256,7 +256,7 @@ public final class HBCKMetaTableAccessor {
    * @param conn a valid, open connection.
    * @param table the table to list regions in meta.
    * @return a list of <code>String</code> of encoded region names,
-   * for all table regions present in meta.
+   *   for all table regions present in meta.
    * @throws IOException on any issues related with scanning meta table
    */
   public static List<RegionInfo> getTableRegions(final Connection conn, final TableName table)

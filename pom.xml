@@ -133,10 +133,10 @@
     <log4j2.version>2.17.1</log4j2.version>
     <surefire.provider>surefire-junit47</surefire.provider>
     <test.output.tofile>true</test.output.tofile>
-    <checkstyle.version>8.18</checkstyle.version>
+    <checkstyle.version>8.45.1</checkstyle.version>
     <junit.version>4.12</junit.version>
-    <maven.checkstyle.version>3.0.0</maven.checkstyle.version>
-    <hbase.checkstyle.version>2.2.0</hbase.checkstyle.version>
+    <maven.checkstyle.version>3.2.1</maven.checkstyle.version>
+    <hbase.checkstyle.version>2.5.0</hbase.checkstyle.version>
     <enforcer.version>3.0.0-M2</enforcer.version>
     <extra.enforcer.version>1.0-beta-9</extra.enforcer.version>
     <findbugs-annotations.version>1.3.9-1</findbugs-annotations.version>
