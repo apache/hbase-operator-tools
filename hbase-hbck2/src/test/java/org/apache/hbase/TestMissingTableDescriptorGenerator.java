@@ -21,6 +21,8 @@ import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -42,7 +44,11 @@ public class TestMissingTableDescriptorGenerator {
 
   private static final HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final String TABLE_NAME_AS_STRING = "test-1";
+  private static final String TABLE_NAME_2_AS_STRING = "test-2";
+  private static final String TABLE_NAME_3_AS_STRING = "test-3";
   private static final TableName TABLE_NAME = TableName.valueOf(TABLE_NAME_AS_STRING);
+  private static final TableName TABLE_NAME_2 = TableName.valueOf(TABLE_NAME_2_AS_STRING);
+  private static final TableName TABLE_NAME_3 = TableName.valueOf(TABLE_NAME_3_AS_STRING);
   private static final byte[] FAMILY_A = Bytes.toBytes("familyA");
   private static final byte[] FAMILY_B = Bytes.toBytes("familyB");
   private static final List<ColumnFamilyDescriptor> COLUMN_FAMILIES = asList(
@@ -53,6 +59,16 @@ public class TestMissingTableDescriptorGenerator {
     TableDescriptorBuilder.newBuilder(TABLE_NAME)
       .setColumnFamilies(COLUMN_FAMILIES)
       .build();
+
+  private static final TableDescriptor TABLE_INFO_2_WITH_DEFAULT_PARAMS =
+      TableDescriptorBuilder.newBuilder(TABLE_NAME_2)
+          .setColumnFamilies(COLUMN_FAMILIES)
+          .build();
+
+  private static final TableDescriptor TABLE_INFO_3_WITH_DEFAULT_PARAMS =
+      TableDescriptorBuilder.newBuilder(TABLE_NAME_3)
+          .setColumnFamilies(COLUMN_FAMILIES)
+          .build();
 
   private static final TableDescriptor TABLE_INFO_WITH_CUSTOM_MAX_FILE_SIZE =
     TableDescriptorBuilder.newBuilder(TABLE_NAME)
@@ -90,27 +106,10 @@ public class TestMissingTableDescriptorGenerator {
     // remove the .tableinfo file
     tableDescriptorUtil.deleteTableDescriptorIfExists(TABLE_NAME);
 
-    // regenerate the .tableinfo file
-    missingTableDescriptorGenerator.generateTableDescriptorFileIfMissing(TABLE_NAME_AS_STRING);
+    List<String> tableNames = new ArrayList<>();
+    tableNames.add(TABLE_NAME_AS_STRING);
+    generateAndVerifyTableDescriptor(tableNames, CUSTOM_MAX_FILE_SIZE);
 
-    // verify table info file content (as the table descriptor should be restored based on the
-    // cache in HBase Master, we expect the maxFileSize to be set to the non-default value)
-    TableDescriptor descriptor =
-      HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, TABLE_NAME);
-    assertEquals(TABLE_NAME.getNameAsString(), descriptor.getTableName().getNameAsString());
-    assertTrue(descriptor.hasColumnFamily(FAMILY_A));
-    assertTrue(descriptor.hasColumnFamily(FAMILY_B));
-    assertEquals(CUSTOM_MAX_FILE_SIZE, descriptor.getMaxFileSize());
-
-    // restart the cluster (the table descriptor cache should be reinitialized in the HBase Master)
-    TEST_UTIL.shutdownMiniHBaseCluster();
-    Thread.sleep(2000);
-    TEST_UTIL.restartHBaseCluster(1);
-
-    // verify the table is working
-    try(Table table = TEST_UTIL.getConnection().getTable(TABLE_NAME)) {
-      TEST_UTIL.loadRandomRows(table, FAMILY_A, 10, 10);
-    }
   }
 
   @Test
@@ -129,27 +128,60 @@ public class TestMissingTableDescriptorGenerator {
     Thread.sleep(2000);
     TEST_UTIL.restartHBaseCluster(1);
 
+    List<String> tableNames = new ArrayList<>();
+    tableNames.add(TABLE_NAME_AS_STRING);
+
     // regenerate the .tableinfo file
-    missingTableDescriptorGenerator.generateTableDescriptorFileIfMissing(TABLE_NAME_AS_STRING);
-
-    // verify table info file content (as the table descriptor should be restored based on the
-    // file system, we expect the maxFileSize to be set to the default value)
-    TableDescriptor descriptor =
-      HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, TABLE_NAME);
-    assertEquals(TABLE_NAME.getNameAsString(), descriptor.getTableName().getNameAsString());
-    assertTrue(descriptor.hasColumnFamily(FAMILY_A));
-    assertTrue(descriptor.hasColumnFamily(FAMILY_B));
-    assertEquals(TABLE_INFO_WITH_DEFAULT_PARAMS.getMaxFileSize(), descriptor.getMaxFileSize());
-
-    // restart the cluster again
-    TEST_UTIL.shutdownMiniHBaseCluster();
-    Thread.sleep(2000);
-    TEST_UTIL.restartHBaseCluster(1);
-
-    // verify the table is working
-    try(Table table = TEST_UTIL.getConnection().getTable(TABLE_NAME)) {
-      TEST_UTIL.loadRandomRows(table, FAMILY_A, 10, 10);
-    }
+    generateAndVerifyTableDescriptor(tableNames, TABLE_INFO_WITH_DEFAULT_PARAMS.getMaxFileSize());
   }
 
+  @Test
+  public void testTableinfoGeneratedWhenNoTableSpecified() throws Exception {
+    TEST_UTIL.createTable(TABLE_INFO_WITH_DEFAULT_PARAMS, null);
+    TEST_UTIL.createTable(TABLE_INFO_2_WITH_DEFAULT_PARAMS, null);
+    TEST_UTIL.createTable(TABLE_INFO_3_WITH_DEFAULT_PARAMS, null);
+
+    // remove the .tableinfo files
+    tableDescriptorUtil.deleteTableDescriptorIfExists(TABLE_NAME);
+    tableDescriptorUtil.deleteTableDescriptorIfExists(TABLE_NAME_2);
+    tableDescriptorUtil.deleteTableDescriptorIfExists(TABLE_NAME_3);
+
+    List<String> tableNames = new ArrayList<>();
+    // pass empty list and check if all the tables repaired
+    generateAndVerifyTableDescriptor(tableNames, TABLE_INFO_WITH_DEFAULT_PARAMS.getMaxFileSize());
+
+  }
+
+  private void generateAndVerifyTableDescriptor(List<String> tableNames, long customMaxFileSize)
+      throws IOException, InterruptedException {
+    // regenerate the .tableinfo file
+    missingTableDescriptorGenerator
+        .generateTableDescriptorFileIfMissing(TEST_UTIL.getAdmin(), tableNames);
+
+    // list all the tables
+    TableName[] tables = TEST_UTIL.getAdmin().listTableNames();
+
+    // verify .tableinfo for all tables
+    for (TableName table : tables) {
+      // verify table info file content (as the table descriptor should be restored based on the
+      // cache in HBase Master, we expect the maxFileSize to be set to the non-default value)
+      TableDescriptor descriptor =
+          HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, table);
+      assertEquals(table.getNameAsString(), descriptor.getTableName().getNameAsString());
+      assertTrue(descriptor.hasColumnFamily(FAMILY_A));
+      assertTrue(descriptor.hasColumnFamily(FAMILY_B));
+      assertEquals(customMaxFileSize, descriptor.getMaxFileSize());
+
+      // restart the cluster (the table descriptor cache should be reinitialized in the HBase
+      // Master)
+      TEST_UTIL.shutdownMiniHBaseCluster();
+      Thread.sleep(2000);
+      TEST_UTIL.restartHBaseCluster(1);
+
+      // verify the table is working
+      try (Table htable = TEST_UTIL.getConnection().getTable(table)) {
+        TEST_UTIL.loadRandomRows(htable, FAMILY_A, 10, 10);
+      }
+    }
+  }
 }

@@ -18,6 +18,7 @@
 package org.apache.hbase;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -103,6 +104,20 @@ public class MissingTableDescriptorGenerator {
                 tableName, e);
     }
 
+  }
+
+  public void generateTableDescriptorFileIfMissing(Admin admin, List<String> tableNamesAsString)
+      throws IOException {
+    // if the list is empty, need to check for all tables
+    if (tableNamesAsString.isEmpty()) {
+      List<TableName> tableNameList = Arrays.asList(admin.listTableNames());
+      for (TableName tableName : tableNameList) {
+        tableNamesAsString.add(tableName.getNameAsString());
+      }
+    }
+    for (String table : tableNamesAsString) {
+      generateTableDescriptorFileIfMissing(table);
+    }
   }
 
   private void assertTableFolderIsPresent(TableName tableName) {
