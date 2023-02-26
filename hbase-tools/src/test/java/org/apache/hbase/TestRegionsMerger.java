@@ -77,8 +77,10 @@ public class TestRegionsMerger {
   public void testMergeRegionsCanMergeToTarget() throws Exception {
     final int originalCount = TEST_UTIL.countRows(table);
     TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
-    // hbase-2.3 and hbase-2.1 merge's work differently; 2.3 won't merge if a merge candidate is a parent.
-    // The below used to merge until only 3 regions. Made it less aggressive. Originally there are 15 regions.
+    // hbase-2.3 and hbase-2.1 merge's work differently; 2.3 won't merge if a merge candidate
+    // is a parent.
+    // The below used to merge until only 3 regions. Made it less aggressive. Originally there
+    // are 15 regions.
     // Merge till 10.
     final int target = 10;
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, target);
@@ -92,7 +94,8 @@ public class TestRegionsMerger {
     try {
       TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
       TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
-      Table tableWithNamespace = TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
+      Table tableWithNamespace =
+          TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
       final int originalCount = TEST_UTIL.countRows(tableWithNamespace);
       final int target = 10;
       List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME_WITH_NAMESPACE, target);

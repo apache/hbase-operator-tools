@@ -189,12 +189,14 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
         LOG.info("Iteration: {}", counter);
         RegionInfo previous = null;
         int regionSize = regions.size();
-        LOG.info("Attempting to merge {} regions to reach the target {} ...", regionSize, targetRegions);
+        LOG.info("Attempting to merge {} regions to reach the target {} ...", regionSize,
+            targetRegions);
         //to request merge, regions must be OPEN, though
         regions = getOpenRegions(conn, table);
         for (RegionInfo current : regions) {
           if (!current.isSplit()) {
-            if (previous != null && canMerge(tableDir, previous, current, regionsMerging.values())) {
+            if (previous != null &&
+                canMerge(tableDir, previous, current,regionsMerging.values())) {
               //Before submitting a merge request, we need to check if any of the region candidates
               //still have merge references from previous cycle
               boolean hasMergeRef =
