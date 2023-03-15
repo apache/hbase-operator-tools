@@ -21,6 +21,7 @@ FROM maven:3.8-jdk-8
 
 # hadolint ignore=DL3008
 RUN apt-get -q update && apt-get -q install --no-install-recommends -y \
+       binutils \
        git \
        rsync \
        shellcheck \
