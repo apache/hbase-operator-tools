@@ -15,12 +15,13 @@
 # limitations under the License.
 
 # Dockerfile for hbase-operator-tools pre-commit build.
-# https://builds.apache.org/job/PreCommit-HBASE-OPERATOR-TOOLS-Build
+# https://ci-hbase.apache.org/job/HBase-Operator-Tools-PreCommit/
 
-FROM maven:3.6-jdk-8
+FROM maven:3.8-jdk-8
 
 # hadolint ignore=DL3008
 RUN apt-get -q update && apt-get -q install --no-install-recommends -y \
+       binutils \
        git \
        rsync \
        shellcheck \
