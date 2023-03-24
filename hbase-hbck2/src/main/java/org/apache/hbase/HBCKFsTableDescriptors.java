@@ -211,12 +211,12 @@ public class HBCKFsTableDescriptors  {
   }
 
   /**
-   * Regex to eat up sequenceid suffix on a .tableinfo file.
+   * Regex to eat up sequenceid suffix and file size suffix on a .tableinfo file.
    * Use regex because may encounter oldstyle .tableinfos where there is no
-   * sequenceid on the end.
+   * sequenceid nor filesize at the end.
    */
-  private static final Pattern TABLEINFO_FILE_REGEX =
-    Pattern.compile(TABLEINFO_FILE_PREFIX + "(\\.([0-9]{" + WIDTH_OF_SEQUENCE_ID + "}))?$");
+  private static final Pattern TABLEINFO_FILE_REGEX = Pattern.compile(
+      TABLEINFO_FILE_PREFIX + "(\\.([0-9]{" + WIDTH_OF_SEQUENCE_ID + "}))?" + "(\\.([0-9]+))?$");
 
   /**
    * @param p Path to a <code>.tableinfo</code> file.
@@ -439,7 +439,6 @@ public class HBCKFsTableDescriptors  {
     Path p = writeTableDescriptor(fs, htd, tableDir, status);
     return p != null;
   }
-
 }
 
 
