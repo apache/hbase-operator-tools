@@ -36,6 +36,7 @@ import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.security.AccessControlException;
 import org.apache.yetus.audience.InterfaceAudience;
 
 import org.slf4j.Logger;
@@ -369,6 +370,11 @@ public class HBCKFsTableDescriptors  {
         }
         LOG.debug("Wrote into " + tableInfoDirPath);
       } catch (IOException ioe) {
+        // fail-fast and get out of retry loop as user does not have privilege to write to hdfs
+        // hence, no point in retrying
+        if(ioe instanceof AccessControlException){
+          throw ioe;
+        }
         // Presume clash of names or something; go around again.
         LOG.debug("Failed write and/or rename; retrying", ioe);
         if (!HBCKFsUtils.deleteDirectory(fs, tempPath)) {
