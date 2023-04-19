@@ -398,7 +398,7 @@ a section on how you 'fix' found problems.
 ## Finding Problems
 
 While _hbck1_ performed analysis reporting your cluster GOOD or BAD, _HBCK2_
-is less presumptious. In hbase-2.x, the operator figures what needs fixing and
+is less presumptuous. In hbase-2.x, the operator figures what needs fixing and
 then uses tooling including _HBCK2_ to do fixup. The operator may have to go
 a few rounds of back and forth running _HBCK2_ then checking cluster state.
 
@@ -538,7 +538,7 @@ be addressed after the hbase:meta has been put in order. If hbase:meta
 is out of whack, the Master cannot make proper placements when adopting orphan
 filesystem data or making region assignments.
 
-Other general principals to keep in mind include a Region can not be assigned if
+Other general principles to keep in mind include a Region can not be assigned if
 it is in _CLOSING_ state (or the inverse, unassigned if in _OPENING_ state) without
 first transitioning via _CLOSED_: Regions must always move from _CLOSED_, to _OPENING_,
 to _OPEN_, and then to _CLOSING_, _CLOSED_.
@@ -559,7 +559,7 @@ _HBCK2_ usage output.
 
 What follows is a mix of notes and prescription that comes of experience running hbase-2.x so far.
 The root issues that brought on states described below has been fixed in later versions of hbase
-so upgrade if you can so as to avoid secenarios described.
+so upgrade if you can so as to avoid scenarios described.
 
 ### Assigning/Unassigning
 
@@ -582,10 +582,10 @@ The Master is unable to continue startup because there is no Procedure to assign
 _hbase:meta_ (or _hbase:namespace_). To inject one, use the _HBCK2_ tool:
 
 ```
-HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 assigns -skip 1588230740
+HBASE_CLASSPATH_PREFIX=./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase org.apache.hbase.HBCK2 -skip assigns 1588230740
 ```
 ...where 1588230740 is the encoded name of the _hbase:meta_ Region. Pass the '-skip' option to
-stop HBCK2 doing a verstion check against the remote master. If the remote master is not up,
+stop HBCK2 doing a version check against the remote master. If the remote master is not up,
 the version check will prompt a 'Master is initializing response' or 'PleaseHoldException'
 and drop the assign attempt. The '-skip' command punts on version check and will land the
 scheduled assign.
@@ -601,7 +601,7 @@ prints out a helpful message that looks like the following:
 
 To schedule an assign for the hbase:namespace table noted in the above log line, you would do:
 ```
- $ ${HBASE_HOME}/bin/hbase --config /etc/hbase-conf hbck -j ./hbase-hbck2-1.0.0-SNAPSHOT.jar hbase -skip assigns 9559cf72b8e81e1291c626a8e781a6ae
+ $ ${HBASE_HOME}/bin/hbase --config /etc/hbase-conf hbck -j ./hbase-hbck2-1.0.0-SNAPSHOT.jar -skip assigns 9559cf72b8e81e1291c626a8e781a6ae
 ```
 ... passing the encoded name for the namespace region (the encoded name will differ per deploy).
 
