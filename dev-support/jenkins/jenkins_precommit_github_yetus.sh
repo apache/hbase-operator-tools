@@ -111,6 +111,8 @@ YETUS_ARGS+=("--tests-filter=test4tests")
 # Dockerfile since we don't want to use the auto-pulled version.
 YETUS_ARGS+=("--docker")
 YETUS_ARGS+=("--dockerfile=${DOCKERFILE}")
+# enabled docker-in-docker so that we can build container images
+YETUS_ARGS+=("--dockerind=true")
 YETUS_ARGS+=("--mvn-custom-repos")
 YETUS_ARGS+=("--java-home=${SET_JAVA_HOME}")
 # effectively treat dev-support as a custom maven module

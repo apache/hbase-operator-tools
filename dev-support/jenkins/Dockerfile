@@ -20,16 +20,29 @@
 FROM hadolint/hadolint:latest-debian as hadolint
 
 FROM maven:3.8-jdk-8
-
-# hadolint ignore=DL3008
-RUN apt-get -q update && apt-get -q install --no-install-recommends -y \
-       binutils \
-       git \
-       rsync \
-       shellcheck \
-       wget && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=SC1091
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && echo \
+        "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+        "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+        tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get -q update \
+    && apt-get -q install --no-install-recommends -y \
+        binutils=* \
+        ca-certificates=* \
+        curl=* \
+        docker-buildx-plugin=* \
+        docker-ce-cli=* \
+        git=* \
+        gnupg=* \
+        rsync=* \
+        shellcheck=* \
+        wget=* \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=hadolint /bin/hadolint /bin/hadolint
 
