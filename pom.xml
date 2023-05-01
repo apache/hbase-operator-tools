@@ -56,6 +56,7 @@
   <modules>
     <module>hbase-table-reporter</module>
     <module>hbase-hbck2</module>
+    <module>hbase-kubernetes-deployment</module>
     <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
          -->
     <module>hbase-operator-tools-assembly</module>
