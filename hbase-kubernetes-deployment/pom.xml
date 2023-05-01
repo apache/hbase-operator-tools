@@ -36,6 +36,7 @@
 
   <modules>
     <module>hbase-kubernetes-testing-image</module>
+    <module>hbase-kubernetes-kustomize</module>
   </modules>
 
   <dependencies />

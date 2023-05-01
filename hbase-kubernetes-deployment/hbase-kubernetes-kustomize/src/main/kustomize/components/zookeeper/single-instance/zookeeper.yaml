@@ -1,0 +1,142 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+spec:
+  replicas: 1
+  serviceName: zookeeper-headless
+  selector:
+    matchLabels:
+      cluster: zookeeper # has to match .spec.template.metadata.labels
+      role: zookeeper
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        cluster: zookeeper
+        role: zookeeper
+    spec:
+      containers:
+      - image: zookeeper
+        name: zookeeper
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: '0.1'
+            memory: 768Mi
+          limits:
+            cpu: '1.0'
+            memory: 1Gi
+        env:
+        - name: JAVA_HOME
+          value: /usr/local/openjdk-11
+        - name: LANG
+          value: C.UTF-8
+        - name: PATH
+          value: /usr/local/openjdk-11/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - name: ZK_LOG_DIR
+          value: /var/log/zookeeper
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: server
+        - containerPort: 3888
+          name: leader-election
+        - containerPort: 7001
+          name: metrics
+        command:
+        - sh
+        - -c
+        - |-
+          export LOG_DIR="${ZK_LOG_DIR}"
+          /usr/bin/zookeeper/start.sh --servers=1 --percentage=50
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - |-
+              [ "$(echo ruok | nc 127.0.0.1 2181)" == "imok"  ]
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - |-
+              [ "$(echo ruok | nc 127.0.0.1 2181)" == "imok"  ]
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/lib/zookeeper
+        - mountPath: /usr/bin/zookeeper
+          name: zookeeper-scripts
+        - mountPath: /var/log/zookeeper
+          name: zk-logs
+      volumes:
+      - emptyDir: {}
+        name: zk-logs
+      - configMap:
+          name: zookeeper-scripts
+          defaultMode: 0555
+        name: zookeeper-scripts
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce"  ]
+      resources:
+        requests:
+          storage: 2Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zookeeper-pdb
+spec:
+  selector:
+    matchLabels:
+      cluster: zookeeper
+  maxUnavailable: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-headless
+spec:
+  ports:
+    - port: 2888
+      name: server
+    - port: 3888
+      name: leader-election
+    - port: 2181
+      name: client
+    - port: 8080
+      name: http
+  clusterIP: None
+  publishNotReadyAddresses: true
+  # Select our zookeeper app. This is what gets us dns entries
+  # https://kubernetes.io/docs/concepts/services-networking/service/#with-selectors
+  selector:
+    cluster: zookeeper
