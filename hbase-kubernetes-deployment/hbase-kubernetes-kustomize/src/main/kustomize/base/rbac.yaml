@@ -1,0 +1,103 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Service and ServiceAccount names are hard-coded as 'hadoop'.
+# RBAC Role name is also hard-coded as 'hadoop-role'.  Service selects on
+# an app named 'hadoop', another hard-coding.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hadoop-role
+rules:
+- resources:
+  - configmaps
+  verbs:
+  - get
+  - delete
+  - list
+  apiGroups:
+  - ''
+- resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  apiGroups:
+  - ''
+- resources:
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  apiGroups:
+  - 'apps'
+  - 'api'
+- resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - delete
+  - watch
+  apiGroups:
+  - ''
+- resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+  apiGroups:
+  - coordination.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hadoop-role-binding
+subjects:
+- kind: ServiceAccount
+  name: hadoop
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hadoop-role
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hadoop
+---
+# Headless-service to cluster all our pods under
+# Matches the ServiceAccount above referenced by statefulsets
+# in their serviceName.
+# See https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id
+# This is required for statefulsets. See https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: hadoop
