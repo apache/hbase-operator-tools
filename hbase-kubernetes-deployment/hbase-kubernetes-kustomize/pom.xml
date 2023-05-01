@@ -49,7 +49,6 @@
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <configuration>
-          <executable>src/test/resources/mvn_exec_run_kuttl.sh</executable>
           <useMavenLogger>true</useMavenLogger>
           <skip>${skipTests}</skip>
         </configuration>
@@ -61,11 +60,16 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+              <executable>/usr/bin/env</executable>
               <arguments>
-                <argument>--config</argument>
-                <argument>src/test/resources/kuttl-test-unit.yaml</argument>
-                <argument>--artifacts-dir</argument>
-                <argument>target/kuttl-reports</argument>
+                <argument>sh</argument>
+                <argument>-c</argument>
+                <argument>
+                  2>&amp;1 \
+                  src/test/resources/mvn_exec_run_kuttl.sh \
+                    --config src/test/resources/kuttl-test-unit.yaml \
+                    --artifacts-dir target/kuttl-reports
+                </argument>
               </arguments>
             </configuration>
           </execution>
@@ -76,11 +80,16 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+              <executable>/usr/bin/env</executable>
               <arguments>
-                <argument>--config</argument>
-                <argument>src/test/resources/kuttl-test-integration.yaml</argument>
-                <argument>--artifacts-dir</argument>
-                <argument>target/kuttl-reports</argument>
+                <argument>sh</argument>
+                <argument>-c</argument>
+                <argument>
+                  2>&amp;1 \
+                  src/test/resources/mvn_exec_run_kuttl.sh \
+                    --config src/test/resources/kuttl-test-integration.yaml \
+                    --artifacts-dir target/kuttl-reports
+                </argument>
               </arguments>
             </configuration>
           </execution>
