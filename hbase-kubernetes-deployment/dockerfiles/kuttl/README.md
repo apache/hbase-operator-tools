@@ -62,12 +62,12 @@ $ docker container run --rm -it ${USER}/hbase/operator-tools/kuttl:latest --help
 ```
 
 Running tests in the image requires mounting the workspace into the container image and passing
-appropriate parameters to `kuttl`. For example, run the "small" tests like this:
+appropriate parameters to `kuttl`. For example, run the "unit" tests like this:
 
 ```shell
 $ docker container run \
   --mount type=bind,source=$(pwd),target=/workspace \
   --workdir /workspace \
   ${USER}/hbase/operator-tools/kuttl:latest \
-  --config tests/kuttl-test-small.yaml
+  --config tests/kuttl-test-unit.yaml
 ```

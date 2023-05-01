@@ -1,0 +1,325 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: namenode
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      role: namenode
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: namenode
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      role: namenode
+  serviceName: hadoop
+  template:
+    metadata:
+      labels:
+        role: namenode
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  role: namenode
+              topologyKey: kubernetes.io/hostname
+            weight: 30
+      containers:
+      - image: hadoop
+        name: namenode
+        imagePullPolicy: IfNotPresent
+        command:
+          - /bin/bash
+          - -c
+          - |-
+            # Shell context so we can pull in the environment variables set in the container and
+            # via the env and envFrom.
+            # See https://stackoverflow.com/questions/57885828/netty-cannot-access-class-jdk-internal-misc-unsafe
+            HADOOP_LOGFILE="hdfs-${HOSTNAME}.log" \
+            HDFS_NAMENODE_OPTS=" \
+              -XX:MaxRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+              -XX:InitialRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+              -Djava.security.properties=/tmp/scratch/java.security \
+              -javaagent:${JMX_PROMETHEUS_JAR}=8000:/tmp/scratch/jmxexporter.yaml \
+              -Djava.library.path=${HADOOP_HOME}/lib/native \
+              --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
+              -Dio.netty.tryReflectionSetAccessible=true \
+              -Xlog:gc:/var/log/hadoop/gc.log:time,uptime:filecount=10,filesize=100M" \
+            hdfs namenode
+        # For now, just fetch local /jmx
+        # Says kubelet only exposes failures, not success: https://stackoverflow.com/questions/34455040/kubernetes-liveness-probe-logging
+        livenessProbe:
+          httpGet:
+            path: /jmx?qry=java.lang:type=OperatingSystem
+            # 9871 if HTTPS
+            port: 9870
+          initialDelaySeconds: 1
+          failureThreshold: 6
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /jmx?qry=java.lang:type=OperatingSystem
+            # 9871 if HTTPS
+            port: 9870
+          initialDelaySeconds: 10
+          failureThreshold: 3
+          periodSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /jmx?qry=java.lang:type=OperatingSystem
+            # 9871 if HTTPS
+            port: 9870
+          initialDelaySeconds: 10
+          failureThreshold: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: '0.4'
+            memory: 2Gi
+          limits:
+            cpu: '1'
+            memory: 3Gi
+        envFrom:
+        - configMapRef:
+            name: environment
+        env:
+        # The 'node' this container is running on, not hdfs namenode.
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - name: http
+          containerPort: 9870
+        - name: https
+          containerPort: 9871
+        - name: jmx
+          containerPort: 9870
+        - name: rpc
+          containerPort: 8020
+        - name: servicerpc
+          containerPort: 8022
+        - name: lifelinerpc
+          containerPort: 8050
+        volumeMounts:
+        - mountPath: /etc/hadoop
+          name: hadoop-configuration
+        - mountPath: /var/log/hadoop
+          name: hadoop-logs
+        - mountPath: /tmp/scratch
+          name: scratch
+        - mountPath: /tmp/scripts
+          name: scripts
+        - mountPath: /data00
+          name: data00
+      initContainers:
+      - image: hadoop
+        name: bootstrapper
+        imagePullPolicy: IfNotPresent
+        command:
+        # This container is running as root so can set permissions.
+        - /bin/bash
+        - -c
+        - |-
+          set -xe
+          if [ -n "${QJOURNAL}" ]; then
+            # If QJOURNAL, then HA and journalnodes are in the mix. Wait on them to come up.
+            /tmp/scripts/jmxping.sh journalnode ${HADOOP_SERVICE}
+          fi
+          # Copy over the files under global-files so in place for the runtime container.
+          cp /tmp/global-files/* /tmp/scratch/
+          # Set perms
+          chown -R ${USER} ${HADOOP_LOG_DIR}
+          # If format-hdfs configmap present, format.
+          find ${NAMENODE_DATA_DIR} || :
+          ! /tmp/scripts/exists_configmap.sh format-hdfs || (
+            rm -rf ${NAMENODE_DATA_DIR}
+          )
+          chmod 777 /data00
+        securityContext:
+          # Run bootstrapper as root so can set ${USER} owner on data volume
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+        resources:
+          requests:
+            cpu: '0.2'
+            memory: 256Mi
+          limits:
+            cpu: '0.5'
+            memory: 512Mi
+        envFrom:
+        - configMapRef:
+            name: environment
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/hadoop
+          name: hadoop-configuration
+        - mountPath: /var/log/hadoop
+          name: hadoop-logs
+        - mountPath: /data00
+          name: data00
+        - mountPath: /etc/hadoop/zookeeper/auth
+          name: zookeeper-credentials
+          readOnly: true
+        - mountPath: /tmp/scripts
+          name: scripts
+        # Scratch dir is a location where init containers place items for later use
+        # by  the main containers when they run.
+        - mountPath: /tmp/scratch
+          name: scratch
+        - mountPath: /tmp/global-files
+          name: global-files
+      - image: hadoop
+        name: format-hdfs
+        imagePullPolicy: IfNotPresent
+        command:
+        # Runs as the image/hdfs user.
+        - /bin/bash
+        - -c
+        - |-
+          set -xe
+          find /data00 || echo $?
+          # Run format if no nn dir.
+          if [ ! -d "${NAMENODE_DATA_DIR}" ]; then
+            ordinal=$(echo $POD_NAME | sed -e 's/^[^-]*-\(.*\)/\1/')
+            case $ordinal in
+              0)
+                hdfs namenode -format -nonInteractive || (
+                  # Perhaps another nn is active? If so, we should do bootstrap here instead.
+                  hdfs namenode -bootstrapStandby -nonInteractive
+                )
+                ;;
+              *)
+                hdfs namenode -bootstrapStandby -nonInteractive
+                ;;
+            esac
+          fi
+        resources:
+          requests:
+            cpu: '0.2'
+            memory: 256Mi
+          limits:
+            cpu: '0.5'
+            memory: 512Mi
+        envFrom:
+        - configMapRef:
+            name: environment
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/hadoop
+          name: hadoop-configuration
+        - mountPath: /var/log/hadoop
+          name: hadoop-logs
+        - mountPath: /data00
+          name: data00
+        - mountPath: /etc/hadoop/zookeeper/auth
+          name: zookeeper-credentials
+          readOnly: true
+        - mountPath: /tmp/scripts
+          name: scripts
+        # Scratch dir is a location where init containers place items for later use
+        # by  the main containers when they run.
+        - mountPath: /tmp/scratch
+          name: scratch
+      serviceAccountName: hadoop
+      volumes:
+      - configMap:
+          name: hadoop-configuration
+        name: hadoop-configuration
+      - configMap:
+          name: scripts
+          defaultMode: 0555
+        name: scripts
+      - configMap:
+          name: global-files
+        name: global-files
+      - emptyDir: {}
+        name: hadoop-logs
+      # Scratch dir is a location where init containers place items for later use
+      # by  the main containers when they run.
+      - emptyDir: {}
+        name: scratch
+      - secret:
+          secretName: zookeeper-credentials
+          defaultMode: 400
+          optional: true
+        name: zookeeper-credentials
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - metadata:
+      name: data00
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 2Gi

@@ -32,3 +32,7 @@ awscli-exe*
 *.key
 *.repo
 *.jar
+
+# detritus produced by kuttl
+kubeconfig*
+kuttl-report-*.xml
