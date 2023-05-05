@@ -29,3 +29,6 @@ awscli-exe*
 *aws_cli_public_key
 *.tar.gz
 *.sig
+*.key
+*.repo
+*.jar
