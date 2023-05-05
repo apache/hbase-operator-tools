@@ -35,8 +35,9 @@
   <packaging>pom</packaging>
 
   <modules>
-    <module>hbase-kubernetes-testing-image</module>
+    <module>hbase-kubernetes-hadoop-image</module>
     <module>hbase-kubernetes-kustomize</module>
+    <module>hbase-kubernetes-testing-image</module>
   </modules>
 
   <dependencies />
