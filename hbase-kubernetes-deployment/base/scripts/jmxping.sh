@@ -71,14 +71,14 @@ do
   # The statefulset we depend on may not have deployed yet... so the first
   # attempts at getting replicas may fail.
   # https://stackoverflow.com/questions/3601515/how-to-check-if-a-variable-is-set-in-bash
-  replicas=$(/tmp/scripts/get_statefulset_replica_count.sh $role)
+  replicas="$(/tmp/scripts/get_statefulset_replica_count.sh "$role")"
   count=${count_param}
   if [ "x" = "${count_param}x" ]; then
     count=${replicas}
   else
     count=$((replicas < count_param? replicas : count_param ))
   fi
-  seq_end=$(( $count - 1 ))
+  seq_end=$(( count - 1 ))
   total=0
   for i in $( seq 0 $seq_end ); do
     # Url is http://journalnode-1:8480/jmx?qry=java.lang:type=OperatingSystem
@@ -86,9 +86,9 @@ do
     # Returns 1 if success, zero otherwise.
     result=$(curl --cacert /tmp/scratch/ca.crt -v "$url" | grep -c SystemLoadAverage)
     ((total+=result))
-    (($total != $count)) || exit 0
+    ((total != count)) || exit 0
   done
-  timeout=$(($timeout - $interval))
+  timeout=$((timeout - interval))
   echo "Failed; sleeping $interval, then retrying for $timeout more seconds"
   sleep $interval
 done

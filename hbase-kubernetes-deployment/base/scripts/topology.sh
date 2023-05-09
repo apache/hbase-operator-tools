@@ -35,31 +35,32 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 TOPOLOGY_LOG="topology.log" # filepath within $HADOOP_LOG_DIR wherein topology logs will be placed
 export TOPOLOGY_LOG
 
-source "${script_dir}/log.sh" $TOPOLOGY_LOG
+# shellcheck disable=SC1091
+source "${script_dir}/log.sh" "$TOPOLOGY_LOG"
 partition_group_label="partition_number" # this is an assumption made based on the Siri cluster at the moment; modify this variable if the Kube node label signifying placement groups is named differently
 
 log "argument(s) input to script: $*"
 for dn_IP in "$@"
 do
   log "datanode IP: $dn_IP"
-  nodeLabels=$(${script_dir}/get_node_labels_from_pod_IP.sh "$dn_IP")
-  nodePartitionGroup=$(echo "$nodeLabels" | jq -r ".$partition_group_label")
+  nodeLabels="$("${script_dir}/get_node_labels_from_pod_IP.sh" "$dn_IP")"
+  nodePartitionGroup="$(echo "$nodeLabels" | jq -r ".$partition_group_label")"
   if [[ "$nodePartitionGroup" == "null" ]];
   then
-    nodeAZ=$(echo "$nodeLabels" | jq -r '."topology.kubernetes.io/zone"')
+    nodeAZ="$(echo "$nodeLabels" | jq -r '."topology.kubernetes.io/zone"')"
     if [[ "$nodeAZ" == "null" ]];
     then
       rack="/default-rack" # when no partition group or availability zone info is found for the datanode
       log "No partition groups or availability zones found; output default rack $rack for $dn_IP"
-      echo $rack
+      echo "$rack"
     else
       rack="/availability-zone-$nodeAZ"
       log "output rack $rack for $dn_IP"
-      echo $rack
+      echo "$rack"
     fi
   else
     rack="/partition-group-$nodePartitionGroup"
     log "output rack $rack for $dn_IP"
-    echo $rack
+    echo "$rack"
   fi
 done

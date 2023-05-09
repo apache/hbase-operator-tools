@@ -35,8 +35,10 @@ log(){
         prefix="WARNING:"
         shift
         ;;
+      *) # what is this?
+        ;;
     esac
   done
   message=${1}
-  echo "$(date +"%F %T") $prefix $message" >> $LOG_FILEPATH
+  echo "$(date +"%F %T") $prefix $message" >> "$LOG_FILEPATH"
 }
