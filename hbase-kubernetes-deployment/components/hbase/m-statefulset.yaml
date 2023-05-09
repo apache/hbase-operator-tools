@@ -1,0 +1,250 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: master
+  labels:
+    role: master
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      role: master
+  serviceName: hadoop
+  template:
+    metadata:
+      labels:
+        role: master
+    spec:
+      serviceAccountName: hadoop
+      containers:
+      - image: hbase
+        name: hbase
+        command:
+          - /bin/bash
+          - -c
+          - |-
+            # Shell context so we can pull in the environment variables set in the container and
+            # via the env and envFrom.
+            # See https://stackoverflow.com/questions/57885828/netty-cannot-access-class-jdk-internal-misc-unsafe
+            HBASE_CLASSPATH=/etc/hadoop \
+            HBASE_OPTS=" \
+              -XX:MaxRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+              -XX:InitialRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+              -javaagent:${JMX_PROMETHEUS_JAR}=7000:/tmp/scratch/jmxexporter.yaml \
+              -Djava.security.properties=/tmp/scratch/java.security \
+              -Djava.library.path=${HADOOP_HOME}/lib/native --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
+              -Djava.util.logging.config.file=${HBASE_CONF_DIR}/logging.properties \
+              -Dio.netty.tryReflectionSetAccessible=true \
+              -Xlog:gc:${HBASE_LOG_DIR}/gc.log:time,uptime:filecount=10,filesize=100M" \
+            hbase-daemon.sh --config /etc/hbase foreground_start master \
+              ${FAILOVER_PROXY_PROVIDER}
+        # For now, just fetch local /jmx
+        # Says kubelet only exposes failures, not success: https://stackoverflow.com/questions/34455040/kubernetes-liveness-probe-logging
+        # TODO: Use https://hbase.apache.org/devapidocs/org/apache/hadoop/hbase/HealthChecker.html
+        livenessProbe:
+          httpGet:
+            path: /jmx?qry=java.lang:type=OperatingSystem
+            port: 16010
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /jmx?qry=java.lang:type=OperatingSystem
+            port: 16010
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /jmx?qry=java.lang:type=OperatingSystem
+            port: 16010
+          initialDelaySeconds: 10
+          failureThreshold: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "1.5Gi"
+            cpu: "0.1"
+          limits:
+            memory: "2Gi"
+            cpu: "1.0"
+        envFrom:
+        - configMapRef:
+            name: environment
+        - configMapRef:
+            name: zookeeper-quorum
+        - configMapRef:
+            name: jaegertracing
+            optional: true
+        - configMapRef:
+            name: xraytracing
+            optional: true
+        env:
+# not honored by opentelemetry-java/v1.0.1
+#          - name: OTEL_EXPERIMENTAL_SDK_ENABLED
+#            # flip this switch to disable tracing
+#            value: "true"
+# not honored by opentelemetry-java/v1.0.1
+#          - name: OTEL_SERVICE_NAME
+#            value: "hbase-master"
+#          - name: OTEL_RESOURCE_ATTRIBUTES
+#            value: "service.name=hbase-master"
+#          - name: HBASE_TRACE_OPTS
+#            value: "true"
+#          - name: HBASE_SHELL_OPTS
+#            # it appears that system properties override environment variables, so naming the shell
+#            # can via system property will override the master name provided by environment variable
+#            value: "-Dotel.resource.attributes=service.name=hbase-shell"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 16010
+          name: http
+        - containerPort: 16000
+          name: rpc
+        volumeMounts:
+          - name: hbase-configuration
+            mountPath: /etc/hbase
+            readOnly: true
+          - name: hbck2-configuration
+            mountPath: /etc/hbck2
+            readOnly: true
+          - mountPath: /etc/hadoop
+            name: hadoop-configuration
+          - mountPath: /var/log/hbase
+            name: hbase-logs
+          - mountPath: /tmp/scratch
+            name: scratch
+          - mountPath: /tmp/scripts
+            name: scripts
+      initContainers:
+      - image: hbase
+        name: bootstrapper
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - |-
+          set -ex
+          env | sort
+          # Currently, waits till NNs and all DNs are up. Waiting on all DNs is extreme
+          # but will do for now; could just wait on 5 or 10 or so.
+          /tmp/scripts/jmxping.sh namenode ${HADOOP_SERVICE}
+          # TODO: Should we check if ha and if so, if a NN active... get a report on health?
+          /tmp/scripts/jmxping.sh datanode ${HADOOP_SERVICE} 3
+          cp /tmp/global-files/* /tmp/scratch/
+          # Write the USER hbase is running as into temporary file for use by next init container
+          echo ${USER} > /tmp/scratch/hbaseuser.txt
+          # Ditto for the location of the hbase dir.
+          hbase org.apache.hadoop.hbase.util.HBaseConfTool hbase.rootdir > /tmp/scratch/hbaserootdir.txt
+          cat /tmp/scratch/hbaserootdir.txt
+        securityContext:
+          # Run bootstrapper as root so can set ${USER} owner on data volume
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+        resources:
+          requests:
+            cpu: '0.2'
+            memory: 256Mi
+          limits:
+            cpu: '0.5'
+            memory: 512Mi
+        envFrom:
+        - configMapRef:
+            name: environment
+        volumeMounts:
+        - mountPath: /tmp/scripts
+          name: scripts
+        # Scratch dir is a location where init containers place items for later use
+        # by  the main containers when they run.
+        - mountPath: /tmp/scratch
+          name: scratch
+        - mountPath: /tmp/global-files
+          name: global-files
+        - name: hbase-configuration
+          mountPath: /etc/hbase
+          readOnly: true
+      - image: hadoop
+        name: prepare-hdfs-for-hbase
+        command:
+        - /bin/bash
+        - -c
+        - |-
+          set -ex
+          # This container runs as the HDFS ${USER}/super-user.
+          # Make sure that this image is the same as that of the cluster hbase is to
+          # run on (else below will fail w/ permissions issues).
+          HBASE_USER=$(cat /tmp/scratch/hbaseuser.txt)
+          HBASE_ROOTDIR=$(cat /tmp/scratch/hbaserootdir.txt)
+          hdfs --config /etc/hadoop dfs -mkdir ${HBASE_ROOTDIR} || echo $?
+          hdfs --config /etc/hadoop dfs -chown -R ${HBASE_USER} ${HBASE_ROOTDIR}
+        resources:
+          requests:
+            cpu: '0.2'
+            memory: 256Mi
+          limits:
+            cpu: '0.5'
+            memory: 512Mi
+        envFrom:
+        - configMapRef:
+            name: environment
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        # Scratch dir is a location where init containers place items for later use
+        # by  the main containers when they run.
+        - mountPath: /tmp/scratch
+          name: scratch
+        - mountPath: /etc/hadoop
+          name: hadoop-configuration
+        - mountPath: /var/log/hadoop
+          name: hadoop-logs
+      restartPolicy: Always
+      volumes:
+        - name: hbase-configuration
+          configMap:
+            name: hbase-configuration
+        - name: hbck2-configuration
+          configMap:
+            name: hbck2-configuration
+        - configMap:
+            name: hadoop-configuration
+          name: hadoop-configuration
+        - configMap:
+            name: global-files
+          name: global-files
+        - emptyDir: {}
+          name: hbase-logs
+        - emptyDir: {}
+          name: hadoop-logs
+        - configMap:
+            name: scripts
+            defaultMode: 0555
+          name: scripts
+        # Scratch dir is a location where init containers place items for later use
+        # by  the main containers when they run.
+        - emptyDir: {}
+          name: scratch
