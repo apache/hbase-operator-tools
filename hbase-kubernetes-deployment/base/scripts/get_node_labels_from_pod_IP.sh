@@ -17,7 +17,7 @@
 #
 # Get the labels json object of the node upon which the pod with the provided pod IP is running
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 source "${script_dir}/log.sh" "$TOPOLOGY_LOG" # source log function; the $TOPOLOGY_LOG variable is set in topology.sh
 nodeName=$("${script_dir}/get_node_name_from_pod_IP.sh" "${1}") # requesting node name based on pod IP
 if [[ "$nodeName" == "null" ]] # if no node is found when querying with this pod IP

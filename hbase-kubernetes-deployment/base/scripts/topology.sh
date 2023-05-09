@@ -35,7 +35,7 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 TOPOLOGY_LOG="topology.log" # filepath within $HADOOP_LOG_DIR wherein topology logs will be placed
 export TOPOLOGY_LOG
 
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 source "${script_dir}/log.sh" "$TOPOLOGY_LOG"
 partition_group_label="partition_number" # this is an assumption made based on the Siri cluster at the moment; modify this variable if the Kube node label signifying placement groups is named differently
 

@@ -21,7 +21,7 @@ node="${1}"
 outfile="$(mktemp "/tmp/$(basename "$0")".XXXX)"
 trap '{ rm -f -- "$outfile"; }' EXIT
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 source "${script_dir}/apiserver_access.sh"
 # Following model described here: https://chengdol.github.io/2019/11/06/k8s-api/
 # http_code is the return status code
