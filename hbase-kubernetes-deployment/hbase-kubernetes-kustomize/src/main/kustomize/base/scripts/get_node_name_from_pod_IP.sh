@@ -18,7 +18,7 @@
 # Get the name of the Kubernetes node with the provided hadoop pod IP
 set -x
 podIP="${1}" # this will be the IP of a datanode
-outfile="$(mktemp "/tmp/$(basename "$0").XXXX")"
+outfile="$(mktemp "/tmp/$(basename "$0").XXXXXX")"
 trap '{ rm -f -- "$outfile"; }' EXIT
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # shellcheck source=/dev/null

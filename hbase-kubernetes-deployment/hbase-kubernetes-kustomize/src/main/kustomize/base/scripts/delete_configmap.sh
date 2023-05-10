@@ -18,7 +18,7 @@
 # Get the description of the named statefulset
 set -x
 configmap_name="${1}"
-outfile="$(mktemp "/tmp/$(basename "$0").XXXX")"
+outfile="$(mktemp "/tmp/$(basename "$0").XXXXXX")"
 trap '{ rm -f -- "$outfile"; }' EXIT
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # shellcheck source=/dev/null
