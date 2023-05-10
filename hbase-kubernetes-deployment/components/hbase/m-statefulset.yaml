@@ -138,7 +138,7 @@ spec:
           - mountPath: /tmp/scripts
             name: scripts
       initContainers:
-      - image: hbase 
+      - image: hbase
         name: bootstrapper
         imagePullPolicy: IfNotPresent
         command:
@@ -184,7 +184,7 @@ spec:
         - name: hbase-configuration
           mountPath: /etc/hbase
           readOnly: true
-      - image: hadoop 
+      - image: hadoop
         name: prepare-hdfs-for-hbase
         command:
         - /bin/bash
