@@ -1,0 +1,144 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+- op: add
+  path: /spec/template/spec/containers/-
+  value:
+    image: hadoop
+    name: zkfc
+    command:
+      - /bin/bash
+      - -c
+      - |-
+        # Shell context so we can pull in the environment variables set in the container and
+        # via the env and envFrom.
+        # See https://stackoverflow.com/questions/57885828/netty-cannot-access-class-jdk-internal-misc-unsafe
+        # https://stackoverflow.com/questions/33311585/how-does-hadoop-namenode-failover-process-works
+        # https://github.com/c9n/hadoop/blob/master/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/ha/ZKFailoverController.java
+        HDFS_NAMENODE_OPTS=" \
+          -XX:MaxRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+          -XX:InitialRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+          -Djava.security.properties=/tmp/scratch/java.security \
+          -javaagent:${JMX_PROMETHEUS_JAR}=8000:/tmp/scratch/jmxexporter.yaml \
+          -Djava.library.path=${HADOOP_HOME}/lib/native \
+          --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
+          -Dio.netty.tryReflectionSetAccessible=true \
+          -Xlog:gc:/var/log/hadoop/gc.log:time,uptime:filecount=10,filesize=100M" \
+        hdfs zkfc
+    resources:
+      requests:
+        cpu: '0.2'
+        memory: 768Mi
+      limits:
+        cpu: '0.5'
+        memory: 1Gi
+    envFrom:
+    - configMapRef:
+        name: environment
+    - configMapRef:
+        name: zookeeper-quorum
+    env:
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    volumeMounts:
+    - mountPath: /etc/hadoop
+      name: hadoop-configuration
+    - mountPath: /var/log/hadoop
+      name: hadoop-logs
+    - mountPath: /tmp/scratch
+      name: scratch
+    - mountPath: /tmp/scripts
+      name: scripts
+    - mountPath: /etc/hadoop/zookeeper/auth
+      name: zookeeper-credentials
+      readOnly: true
+    # Mount the data00 dir here in case nn doesn't come up.
+    # Doing this, I can look at the data00 if zkfc container is up.
+    - mountPath: /data00
+      name: data00
+- op: add
+  path: /spec/template/spec/initContainers/-
+  value:
+    image: hadoop
+    name: format-zkfc
+    command:
+    # Runs as the image/hdfs user.
+    - /bin/bash
+    - -c
+    - |-
+      set -xe
+      ordinal=$(echo $POD_NAME | sed -e 's/^[^-]*-\(.*\)/\1/')
+      case $ordinal in
+        0)
+          # Fails if dir exists up in zk already. Ignore
+          hdfs zkfc -formatZK -force -nonInteractive || echo $?
+          ;;
+        *)
+          ;;
+      esac
+    resources:
+      requests:
+        cpu: '0.2'
+        memory: 256Mi
+      limits:
+        cpu: '0.5'
+        memory: 512Mi
+    envFrom:
+    - configMapRef:
+        name: environment
+    - configMapRef:
+        name: zookeeper-quorum
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    volumeMounts:
+    - mountPath: /etc/hadoop
+      name: hadoop-configuration
+    - mountPath: /var/log/hadoop
+      name: hadoop-logs
+    - mountPath: /data00
+      name: data00
+    - mountPath: /etc/hadoop/zookeeper/auth
+      name: zookeeper-credentials
+      readOnly: true
+    # Scratch dir is a location where init containers place items for later use
+    # by  the main containers when they run.
+    - mountPath: /tmp/scratch
+      name: scratch
+      #- mountPath: /tmp/hadoop-crt
+      #name: hadoop-crt
+    - mountPath: /tmp/global-files
+      name: global-files

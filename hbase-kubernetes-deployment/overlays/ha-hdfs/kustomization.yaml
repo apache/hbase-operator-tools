@@ -1,0 +1,62 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+replicas:
+- name: datanode
+  count: 5
+- name: namenode
+  count: 3
+
+commonLabels:
+  app: hadoop
+
+configMapGenerator:
+- name: hadoop-configuration
+  # Put in place HA config in place of base hdfs-site.xml
+  behavior: merge
+  files:
+  - hdfs-site.xml
+- name: environment
+  behavior: merge
+  literals:
+  - DFS_REPLICATION=3
+  # Hard-coded. Five QJMs. Here we point at 5 Service instances defined in adjacent jn-service.yaml.
+  - QJOURNAL="qjournal://journalnode-0:8485;journalnode-1:8485;journalnode-2:8485;journalnode-3:8485;journalnode-4:8485/hadoop"
+
+patches:
+- target:
+    group: "apps"
+    version: v1
+    kind: StatefulSet
+    name: namenode
+  path: nn-statefulset-patch.yaml
+- target:
+    group: "apps"
+    version: v1
+    kind: StatefulSet
+    name: datanode
+  path: dn-statefulset-patch.yaml
+
+components:
+- ../../components/zookeeper/ha-ensemble
+
+resources:
+- jn-statefulset.yaml
+- jn-service.yaml
+- ../hdfs
