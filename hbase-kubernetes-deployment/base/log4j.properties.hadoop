@@ -1,0 +1,55 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+hadoop.console.threshold=LOG
+hadoop.log.maxbackupindex=20
+hadoop.log.maxfilesize=256MB
+hadoop.root.logger=TRACE,CONSOLE
+hadoop.security.log.file=SecurityAuth-${user.name}.audit
+hadoop.security.log.maxbackupindex=20
+hadoop.security.log.maxfilesize=256MB
+hadoop.security.logger=INFO,RFAS
+hdfs.audit.log.maxbackupindex=20
+hdfs.audit.log.maxfilesize=256MB
+hdfs.audit.logger=INFO,RFAAUDIT
+log4j.additivity.org.apache.hadoop.hdfs.server.namenode.FSNamesystem.audit=false
+log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender
+log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout
+log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n
+log4j.appender.CONSOLE.Threshold=${hadoop.console.threshold}
+log4j.appender.RFA=org.apache.log4j.RollingFileAppender
+log4j.appender.RFA.File=${hadoop.log.dir}/${hadoop.log.file}
+log4j.appender.RFA.layout=org.apache.log4j.PatternLayout
+log4j.appender.RFA.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n
+log4j.appender.RFA.MaxBackupIndex=${hadoop.log.maxbackupindex}
+log4j.appender.RFA.MaxFileSize=${hadoop.log.maxfilesize}
+log4j.appender.RFAAUDIT=org.apache.log4j.RollingFileAppender
+log4j.appender.RFAAUDIT.File=${hadoop.log.dir}/hdfs-audit.log
+log4j.appender.RFAAUDIT.layout=org.apache.log4j.PatternLayout
+log4j.appender.RFAAUDIT.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n
+log4j.appender.RFAAUDIT.MaxBackupIndex=${hdfs.audit.log.maxbackupindex}
+log4j.appender.RFAAUDIT.MaxFileSize=${hdfs.audit.log.maxfilesize}
+log4j.appender.RFAS=org.apache.log4j.RollingFileAppender
+log4j.appender.RFAS.File=${hadoop.log.dir}/${hadoop.security.log.file}
+log4j.appender.RFAS.layout=org.apache.log4j.PatternLayout
+log4j.appender.RFAS.layout.ConversionPattern=%d{ISO8601} [myid:%X{myid}] - %-5p [%t:%C{1}@%L] - %m%n
+log4j.appender.RFAS.MaxBackupIndex=${hadoop.security.log.maxbackupindex}
+log4j.appender.RFAS.MaxFileSize=${hadoop.security.log.maxfilesize}
+log4j.category.SecurityLogger=${hadoop.security.logger}
+log4j.logger.org.apache.hadoop.hdfs.server.namenode.FSNamesystem.audit=${hdfs.audit.logger}
+log4j.logger.org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicy=DEBUG
+log4j.logger.org.apache.hadoop.net.NetworkTopology=DEBUG
+log4j.rootLogger=${hadoop.root.logger}

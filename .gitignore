@@ -21,3 +21,18 @@ linklint-*.zip
 linklint/
 .checkstyle
 **/.checkstyle
+
+# kubernetes download artifacts
+*kubectl*
+*checksums.txt
+awscli-exe*
+*aws_cli_public_key
+*.tar.gz
+*.sig
+*.key
+*.repo
+*.jar
+
+# detritus produced by kuttl
+kubeconfig*
+kuttl-report-*.xml

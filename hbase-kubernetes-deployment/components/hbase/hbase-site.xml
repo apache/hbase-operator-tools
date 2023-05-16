@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.  See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.  The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hbase.rootdir</name>
+    <value>hdfs://${env.HADOOP_SERVICE}:8020/hbase</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>${env.HBASE_ZOOKEEPER_QUORUM}</value>
+  </property>
+  <property>
+    <!--In k8s context, master notion of name doesn't always agree; use RS name.
+        Seems to fix case where RS was showing up w/ IP instead of name because
+        Master told it use its understanding of what its name was. See
+        HBASE-18226 and then HBASE-24667-->
+    <name>hbase.unsafe.regionserver.hostname.disable.master.reversedns</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hbase.ssl.enabled</name>
+      <!-- Needs upstream fix. See https://github.com/eclipse/jetty.project/issues/4385-->
+    <value>${env.HBASE_SSL_ENABLED}</value>
+  </property>
+  <property>
+    <name>hbase.master.cleaner.interval</name>
+    <!-- Needs to clean up oldWAL and archived hfiles every 10 seconds -->
+    <value>10000</value>
+  </property>
+  <property>
+    <name>hbase.regionserver.handler.count</name>
+    <value>45</value>
+  </property>
+  <property>
+    <name>hbase.netty.eventloop.rpcserver.thread.count</name>
+    <value>1</value>
+    <description>See the end of https://issues.apache.org/jira/browse/HBASE-27112. Default
+  is 2xCPU_COUNT which seems way too much. 1 thread seems fine for the siri workload at least.</description>
+  </property>
+  <property>
+    <name>hbase.netty.worker.count</name>
+    <value>1</value>
+    <description>See the end of https://issues.apache.org/jira/browse/HBASE-27112. Default
+  is 2xCPU_COUNT which seems way too much. 1 thread seems fine for the siri workload at least.</description>
+  </property>
+  <property>
+    <name>hbase.regionserver.throughput.controller</name>
+    <value>org.apache.hadoop.hbase.regionserver.throttle.NoLimitThroughputController</value>
+  </property>
+</configuration>

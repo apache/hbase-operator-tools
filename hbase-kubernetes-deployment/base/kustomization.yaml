@@ -1,0 +1,71 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+configMapGenerator:
+- name: hadoop-configuration
+  # Base set of hadoop configurations. Overlays will add to the set here.
+  files:
+  - log4j.properties=log4j.properties.hadoop
+- name: scripts
+  # Useful scripts
+  files:
+  - scripts/jmxping.sh
+  - scripts/apiserver_access.sh
+  - scripts/get_statefulset_replica_count.sh
+  - scripts/get_statefulset.sh
+  - scripts/exists_configmap.sh
+  - scripts/delete_configmap.sh
+  - scripts/topology.sh
+  - scripts/describe_node.sh
+  - scripts/get_node_name_from_pod_IP.sh
+  - scripts/get_node_labels.sh
+  - scripts/get_node_labels_from_pod_IP.sh
+  - scripts/log.sh
+  options:
+    disableNameSuffixHash: true
+- name: global-files
+  # Add files used by most/all processes into a global configuration configmap
+  # accessible to all processes. The environment-configmap defines env varibles used by
+  # all processes and pods. This configmap loads files used by each process.
+  files:
+  - jmxexporter.yaml
+  - java.security
+  - ssl-client.xml
+  - ssl-server.xml
+  options:
+    disableNameSuffixHash: true
+
+secretGenerator:
+- name: keystore-password
+  type: Opaque
+  options:
+    disableNameSuffixHash: true
+  literals:
+  - password=changeit
+
+resources:
+- namespace.yaml
+# Global environment variables read in by pods
+- environment-configmap.yaml
+- rbac.yaml
+- delete-format-hdfs-configmap-job.yaml
+# These depend on cert-manager being installed.
+# See https://cert-manager.io/docs/installation/
+#- clusterissuer.yaml
+#- certificate.yaml
