@@ -62,7 +62,7 @@
                 <argument>-c</argument>
                 <argument>
                   2>&amp;1 \
-                  docker buildx bake \
+                  src/build/shell/exec_docker_buildx_bake.sh \
                     --print \
                     --file src/main/docker/docker-bake.hcl \
                     --file src/main/docker/docker-bake.override.hcl
@@ -83,7 +83,7 @@
                 <argument>-c</argument>
                 <argument>
                   2>&amp;1 \
-                  docker buildx bake \
+                  src/build/shell/exec_docker_buildx_bake.sh \
                     --progress plain \
                     --pull \
                     --load \

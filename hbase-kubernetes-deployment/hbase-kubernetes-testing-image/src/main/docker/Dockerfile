@@ -129,6 +129,9 @@ RUN tar xzf "/tmp/${KUSTOMIZE_BIN_TGZ}" \
 FROM ${IMG_BASE}:${IMG_BASE_TAG} as final
 ARG IMG_BASE
 ARG IMG_BASE_TAG
+ARG NON_ROOT_USER
+ARG NON_ROOT_USER_ID
+ARG NON_ROOT_USER_HOME
 
 COPY --from=yq /usr/bin/yq /usr/bin/yq
 COPY --from=kubectl /tmp/kubectl /usr/local/bin/
@@ -137,9 +140,9 @@ COPY --from=kustomize /tmp/kustomize /usr/local/bin/
 COPY src/main/docker/entrypoint.sh /bin/
 
 # nonroot user as defined in https://github.com/GoogleContainerTools/distroless
-ENV NON_ROOT_USER=nonroot
-ENV NON_ROOT_USER_ID=65532
-ENV NON_ROOT_USER_HOME=/home/nonroot
+ENV NON_ROOT_USER="${NON_ROOT_USER}"
+ENV NON_ROOT_USER_ID="${NON_ROOT_USER_ID}"
+ENV NON_ROOT_USER_HOME="${NON_ROOT_USER_HOME}"
 
 # hadolint ignore=DL3018
 RUN apk add --update --no-cache \

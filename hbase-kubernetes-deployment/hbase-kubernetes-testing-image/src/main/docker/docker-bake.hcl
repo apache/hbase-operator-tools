@@ -41,6 +41,15 @@ variable KUSTOMIZE_BIN_ARM64_TGZ_URL {}
 variable KUSTOMIZE_BIN_ARM64_TGZ {}
 
 # output variables
+variable NON_ROOT_USER {
+  default = "nonroot"
+}
+variable NON_ROOT_USER_ID {
+  default = "65532"
+}
+variable NON_ROOT_USER_HOME {
+  default = "/home/${NON_ROOT_USER}"
+}
 variable USER {
   default = "apache"
 }
@@ -78,6 +87,9 @@ target kuttl {
     KUSTOMIZE_BIN_AMD64_TGZ = KUSTOMIZE_BIN_AMD64_TGZ
     KUSTOMIZE_BIN_ARM64_TGZ_URL = KUSTOMIZE_BIN_ARM64_TGZ_URL
     KUSTOMIZE_BIN_ARM64_TGZ = KUSTOMIZE_BIN_ARM64_TGZ
+    NON_ROOT_USER = NON_ROOT_USER
+    NON_ROOT_USER_ID = NON_ROOT_USER_ID
+    NON_ROOT_USER_HOME = NON_ROOT_USER_HOME
   }
   target = "final"
   platforms = [

@@ -49,6 +49,34 @@ pipeline {
         YETUS_DRIVER = "${WORKDIR}/${YETUS_DRIVER_REL}"
         YETUSDIR = "${WORKDIR}/${YETUS_REL}"
         PLUGINS = 'all'
+        // workaround for INFRA-24621
+        NON_ROOT_AS_JENKINS = 'true'
+        NON_ROOT_USER = """${sh(
+                returnStdout: true,
+                script: '''#!/usr/bin/env bash
+set -e
+
+if [ "${DEBUG}" = 'true' ] ; then
+  set -x
+fi
+
+whoami
+'''
+        )}
+""".trim()
+        NON_ROOT_UID = """${sh(
+                returnStdout: true,
+                script: '''#!/usr/bin/env bash
+set -e
+
+if [ "${DEBUG}" = 'true' ] ; then
+  set -x
+fi
+
+echo "${UID}"
+'''
+        )}
+""".trim()
     }
 
     parameters {
@@ -78,7 +106,9 @@ pipeline {
                         usernameVariable: 'GITHUB_USER'
                       )]) {
                         sh label: 'test-patch', script: '''#!/bin/bash -e
+                            docker container run --rm --user=0 --mount type=bind,source=${SOURCEDIR},target=/sourcedir --workdir /sourcedir alpine:latest rm -rfv hbase-kubernetes-deployment/hbase-kubernetes-kustomize/target
                             printenv 2>&1 | sort
+                            export DOCKER_EXTRAENVS=("NON_ROOT_AS_JENKINS" "NON_ROOT_USER" "NON_ROOT_UID" )
                             echo "[INFO] Launching Yetus via ${YETUS_DRIVER}"
                             "${YETUS_DRIVER}"
                         '''
