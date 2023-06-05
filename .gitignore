@@ -21,3 +21,6 @@ linklint-*.zip
 linklint/
 .checkstyle
 **/.checkstyle
+
+# detritus produced by kuttl
+kubeconfig*
