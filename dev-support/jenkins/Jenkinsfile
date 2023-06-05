@@ -79,6 +79,9 @@ pipeline {
                       )]) {
                         sh label: 'test-patch', script: '''#!/bin/bash -e
                             printenv 2>&1 | sort
+                            echo "whoami $(whoami)"
+                            echo "groups: $(groups)"
+                            echo "UID: ${UID}"
                             echo "[INFO] Launching Yetus via ${YETUS_DRIVER}"
                             "${YETUS_DRIVER}"
                         '''
