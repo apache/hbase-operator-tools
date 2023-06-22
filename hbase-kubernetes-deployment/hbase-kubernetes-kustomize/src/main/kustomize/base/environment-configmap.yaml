@@ -1,0 +1,70 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Common environment variables shared across pods.
+# Include w/ the 'envFrom:' directive.
+# We have to be pendantic in here. We cannot have a value
+# refer to a define made earlier; the interpolation
+# doesn't work.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: environment
+data:
+  DOMAIN: svc.cluster.local
+  # HADOOP_HOME, HADOOP_HDFS_HOME, etc., and HBASE_HOME are provided by the images.
+  #
+  # The headless-service pods in our statefulsets come up in.
+  # See https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id
+  # The headless-service is defined in the adjacent rbac.yaml.
+  # Matches the serviceName we have on our statefulsets.
+  # Required that we create it according to https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#limitations
+  HADOOP_SERVICE: hadoop
+  # dfs.http.policy
+  # If HTTPS_ONLY or HTTPS_OR_HTTP then we'll depend on https in UI and jmx'ing
+  # and will adjust schema and ports accordingly. If https, we need to get certificates
+  # so cert-manager, etc., needs to be instaled.
+  HTTP_POLICY: HTTP_ONLY
+  DFS_HTTPS_ENABLE: "false"
+  HBASE_SSL_ENABLED: "false"
+  HTTP_AUTH: kerberos
+  # The insecure port for now.
+  DATANODE_DATA_DIR: /data00/dn
+  JOURNALNODE_DATA_DIR: /data00/jn
+  NAMENODE_DATA_DIR: /data00/nn
+  HDFS_AUDIT_LOGGER: INFO,RFAAUDIT
+  HADOOP_DAEMON_ROOT_LOGGER: INFO,RFA,CONSOLE
+  HADOOP_ROOT_LOGGER: INFO,RFA,CONSOLE
+  HADOOP_SECURITY_LOGGER: INFO,RFAS
+  HADOOP_CONF_DIR: /etc/hadoop
+  HADOOP_LOG_DIR: /var/log/hadoop
+  HADOOP_SECURE_LOG: /var/log/hadoop
+  HBASE_ROOT_LOGGER: DEBUG,RFA,console
+  HBASE_LOG_DIR: /var/log/hbase
+  HBASE_CONF_DIR: /etc/hbase
+  # if [ "$HBASE_NO_REDIRECT_LOG" != "" ]; then ... so we are asking for NO redirect of logs.
+  HBASE_NO_REDIRECT_LOG: "true"
+  HBASE_MANAGES_ZK: "false"
+  DFS_REPLICATION: "1"
+  # What percentage of the container memory to give over to the JVM.
+  # Be aware that we look at the container resource limit, NOT request: e.g. if
+  # the resource request memory is set to 8G and the limit is 16G and the
+  # JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT is 50 as in 50%,
+  # the heap will be set to 8G: i.e. 1/2 of the 16G limit.
+  # ip-172-18-132-227.us-west-2.compute.internal
+  # See https://dzone.com/articles/best-practices-java-memory-arguments-for-container
+  JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT: "45"
