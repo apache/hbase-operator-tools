@@ -27,6 +27,16 @@ spec:
     matchLabels:
       role: master
   serviceName: hadoop
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: role
+            operator: In
+            values:
+            - master
+        topologyKey: kubernetes.io/hostname
   template:
     metadata:
       labels:
@@ -140,7 +150,6 @@ spec:
       initContainers:
       - image: hbase
         name: bootstrapper
-        imagePullPolicy: IfNotPresent
         command:
         - /bin/bash
         - -c
