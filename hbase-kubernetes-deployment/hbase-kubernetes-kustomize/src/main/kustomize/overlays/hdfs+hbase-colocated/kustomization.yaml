@@ -1,0 +1,77 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# Like hdfs except that region server runs as another container in the datanode pod. This arrangemt
+# enables short-circuit reads between these processes.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app: hadoop
+
+resources:
+- ../hdfs
+
+components:
+- ../../components/zookeeper/single-instance
+- ../../components/hbase
+
+patches:
+- # delete the region server Service
+  target:
+    kind: Service
+    name: regionserver
+  path: patches/regionserver_service_delete.yaml
+- # delete the region server StatefulSet
+  target:
+    kind: StatefulSet
+    name: regionserver
+  path: patches/regionserver_statefulset_delete.yaml
+- # introduce the short-circuit read volume to the datanode pod
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_statefulset_scr_volume.yaml
+- # introduce the short-circuit read mount to the datanode container
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_statefulset_scr_datanode_mount.yaml
+- # introduce the region server machinery into the datanode pod
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_regionserver_container.yaml
+- # introduce the short-circuit read mount to the regionserver container
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_statefulset_scr_regionserver_mount.yaml
+- # introduce the init container prepares the scr directory
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_statefulset_scr_initcontainer.yaml
+- # introduce the init container that copies the hadoop native libs into the hbase container
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_statefulset_copy_native_initcontainer.yaml
+- # include the hbase volumes in the datanode
+  target:
+    kind: StatefulSet
+    name: datanode
+  path: patches/datanode_statefulset_hbase_volumes.yaml

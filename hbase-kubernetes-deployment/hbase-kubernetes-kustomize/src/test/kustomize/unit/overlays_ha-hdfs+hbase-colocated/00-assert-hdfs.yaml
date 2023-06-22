@@ -1,0 +1,66 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Asserts on the HDFS portion of the deployment.
+#
+---
+# assert that there is a `StatefulSet` named "datanode" that:
+# - provides pods labeled role:datanode
+# - has containers named 'datanode' and 'hbase'
+# - has a "scr" volume attached
+# - has an initContainer that prepares the scr mount
+# - the datanode and hbase containers have a short-circuit reads volume mounted
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: datanode
+spec:
+  template:
+    spec:
+      containers:
+      - name: datanode
+        volumeMounts:
+        - name: scr
+        - name: hadoop-configuration
+        - name: hadoop-logs
+        - name: scratch
+        - name: scripts
+        - name: data00
+      - name: regionserver
+        volumeMounts:
+        - name: hbase-configuration
+        - name: hbck2-configuration
+        - name: hadoop-configuration
+        - name: hbase-logs
+        - name: scratch
+        - name: scripts
+        - name: hadoop-native-lib
+        - name: scr
+      initContainers:
+      - name: bootstrapper
+      - name: scr-bootstrapper
+      - name: copy-hadoop-native-lib
+      volumes:
+      - name: scr
+      - name: hadoop-configuration
+      - name: scripts
+      - name: global-files
+      - name: hadoop-logs
+      - name: scratch
+      - name: hadoop-native-lib
+      - name: hbase-configuration
+      - name: hbck2-configuration
+      - name: hbase-logs

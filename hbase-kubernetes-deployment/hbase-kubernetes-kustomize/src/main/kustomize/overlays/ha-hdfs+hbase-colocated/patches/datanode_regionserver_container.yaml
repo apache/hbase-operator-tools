@@ -1,0 +1,119 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# Introduce the region server container into the datanode pod
+- op: add
+  path: /spec/template/spec/containers/-
+  value:
+    # this object is copied directly out of components/hbase/rs-statefulset.yaml. Changes there
+    # must be reflected here.
+    # TODO: find a better way to manage this shared blob of resource definition. Perhaps the
+    #   cross-document anchors described in this blogh post will work?
+    #   https://batalin.dev/posts/yaml-anchors-and-aliases/#reusing-yaml-anchors-between-multiple-files
+    image: hbase
+    name: regionserver
+    command:
+      - /bin/bash
+      - -c
+      - |-
+        # Shell context so we can pull in the environment variables set in the container and
+        # via the env and envFrom.
+        #
+        # See https://stackoverflow.com/questions/57885828/netty-cannot-access-class-jdk-internal-misc-unsafe
+        HBASE_CLASSPATH=/etc/hadoop \
+        HBASE_OPTS=" \
+          -XX:MaxRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+          -XX:InitialRAMPercentage=${JVM_HEAP_PERCENTAGE_OF_RESOURCE_LIMIT} \
+          -javaagent:${JMX_PROMETHEUS_JAR}=7000:/tmp/scratch/jmxexporter.yaml \
+          -Djava.security.properties=/tmp/scratch/java.security \
+          -Djava.library.path=/var/lib/hadoop-native-lib/native \
+            --add-opens java.base/jdk.internal.misc=ALL-UNNAMED \
+          -Djava.util.logging.config.file=${HBASE_CONF_DIR}/logging.properties \
+          -Dio.netty.tryReflectionSetAccessible=true \
+          -Xlog:gc:${HBASE_LOG_DIR}/gc.log:time,uptime:filecount=10,filesize=100M" \
+        hbase-daemon.sh --config /etc/hbase foreground_start regionserver \
+          ${FAILOVER_PROXY_PROVIDER} # &> ${HBASE_LOG_DIR}/regionserver.$(date -u +"%Y-%m-%dT%H%M%SZ").out
+    # For now, just fetch local /jmx
+    # Says kubelet only exposes failures, not success: https://stackoverflow.com/questions/34455040/kubernetes-liveness-probe-logging
+    # TODO: Use https://hbase.apache.org/devapidocs/org/apache/hadoop/hbase/HealthChecker.html
+    livenessProbe:
+      httpGet:
+        path: /jmx?qry=java.lang:type=OperatingSystem
+        port: 16030
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /jmx?qry=java.lang:type=OperatingSystem
+        port: 16030
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 3
+    startupProbe:
+      httpGet:
+        path: /jmx?qry=java.lang:type=OperatingSystem
+        port: 16030
+      initialDelaySeconds: 10
+      failureThreshold: 30
+      periodSeconds: 10
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "0.2"
+      limits:
+        memory: "3Gi"
+        cpu: "1.0"
+    envFrom:
+    - configMapRef:
+        name: environment
+    - configMapRef:
+        name: zookeeper-quorum
+    - configMapRef:
+        name: jaegertracing
+        optional: true
+    - configMapRef:
+        name: xraytracing
+        optional: true
+    env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    ports:
+    - containerPort: 16030
+      name: http
+    - containerPort: 16020
+      name: rpc
+    volumeMounts:
+      - name: hbase-configuration
+        mountPath: /etc/hbase
+        readOnly: true
+      - name: hbck2-configuration
+        mountPath: /etc/hbck2
+        readOnly: true
+      - mountPath: /etc/hadoop
+        name: hadoop-configuration
+      - mountPath: /var/log/hbase
+        name: hbase-logs
+      - mountPath: /tmp/scratch
+        name: scratch
+      - mountPath: /tmp/scripts
+        name: scripts
+      - mountPath: /var/lib/hadoop-native-lib
+        name: hadoop-native-lib
+#      - name: scr
+#        mountPath: /var/run/scr
