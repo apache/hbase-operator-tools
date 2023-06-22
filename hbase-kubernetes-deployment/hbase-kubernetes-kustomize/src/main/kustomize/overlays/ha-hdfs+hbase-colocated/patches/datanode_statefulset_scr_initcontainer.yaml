@@ -1,0 +1,53 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+# introduce the init container prepares the scr directory
+- op: add
+  path: /spec/template/spec/initContainers/-
+  value:
+    image: hadoop
+    name: scr-bootstrapper
+    command:
+    - /bin/bash
+    - -c
+    - |-
+      set -xe
+      scr_dir="/var/run/scr"
+      ls -lad ${scr_dir} || $?
+      chown -R ${NON_ROOT_USER} ${scr_dir} || echo $?
+      chmod -R 700 ${scr_dir} || echo $?
+      ls -lad ${scr_dir} || $?
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    envFrom:
+    - configMapRef:
+        name: environment
+    resources:
+      requests:
+        cpu: '0.2'
+        memory: 256Mi
+      limits:
+        cpu: '0.5'
+        memory: 512Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      runAsUser: 0
+    volumeMounts:
+    - mountPath: /var/run/scr
+      name: scr
