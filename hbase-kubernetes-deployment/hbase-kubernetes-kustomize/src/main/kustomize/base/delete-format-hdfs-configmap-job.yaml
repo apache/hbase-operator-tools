@@ -1,0 +1,89 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Job to delete the 'format-hdfs' configmap after hdfs has come up
+# successfully. The 'format-hdfs' configmap is added by running
+# 'kubectl -n hadoop apply -k tools/format-hdfs' (You need the
+# '-n hadoop' to apply the configmap to the 'hadoop' namespace).
+# Add the configmap if you want hdfs to format the filesystem.
+# Do this on initial install only or if you want to clean out
+# the current HDFS data.
+#
+# If the 'format-hdfs' configmap is NOT present, this Job exits/completes.
+# Otherwise, it keeps probing until HDFS is up and healthy, and then
+# this job removes the 'format-hdfs' configmap. The presence of the
+# 'format-hdfs' configmap is checked by all hdfs pods on startup. If
+# the configmap is present, they clean out their data directories and run
+# format/recreate of their data directories. To install the 'format-hdfs'
+# configmap, do it before launch of hdfs. See tools/format-hdfs.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delete-format-hdfs-configmap
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      containers:
+      - image: hadoop
+        name: delete-format-hdfs-configmap
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - |-
+          set -xe
+          # See if 'format-hdfs' configmap is present.
+          # If not, then there is nothing for this job to do, complete, exit 0.
+          /tmp/scripts/exists_configmap.sh format-hdfs || {
+            echo "No 'format-hdfs' configmap found so no work to do; exiting"
+            exit 0
+          }
+          # The `format-hdfs`` configmap is present. Remove it after HDFS is fully up.
+          /tmp/scripts/jmxping.sh namenode ${HADOOP_SERVICE}
+          /tmp/scripts/jmxping.sh datanode ${HADOOP_SERVICE}
+          # TODO: Should we check if ha and if so, if a NN active... get a report on health?
+          # HDFS is up. Delete the format-hdfs flag.
+          /tmp/scripts/delete_configmap.sh format-hdfs
+        resources:
+          requests:
+            cpu: '0.2'
+            memory: 256Mi
+          limits:
+            cpu: '0.5'
+            memory: 512Mi
+        envFrom:
+        - configMapRef:
+            name: environment
+        volumeMounts:
+        - mountPath: /tmp/scripts
+          name: scripts
+        # Scratch dir is a location where init containers place items for later use
+        # by  the main containers when they run.
+        - mountPath: /tmp/scratch
+          name: scratch
+      serviceAccountName: hadoop
+      restartPolicy: Never
+      volumes:
+      - configMap:
+          name: scripts
+          defaultMode: 0555
+        name: scripts
+      # Scratch dir is location where init containers place items for later use
+      # by  the main containers when they run.
+      - emptyDir: {}
+        name: scratch
