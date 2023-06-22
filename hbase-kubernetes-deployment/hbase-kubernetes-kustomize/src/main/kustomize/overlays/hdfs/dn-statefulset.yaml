@@ -134,7 +134,6 @@ spec:
       initContainers:
       - image: hadoop
         name: bootstrapper
-        imagePullPolicy: IfNotPresent
         command:
         - /bin/bash
         - -c

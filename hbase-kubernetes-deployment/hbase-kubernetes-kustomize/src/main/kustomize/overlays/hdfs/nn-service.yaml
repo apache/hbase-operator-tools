@@ -25,5 +25,13 @@ spec:
     role: namenode
   clusterIP: None
   ports:
+  - name: rpc
+    port: 8020
+    protocol: TCP
+    targetPort: 8020
+  - name: http
+    port: 9870
+    protocol: TCP
+    targetPort: 9870
   - name: jmxexporter
     port: 8000

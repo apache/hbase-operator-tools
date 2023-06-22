@@ -42,13 +42,14 @@ spec:
     spec:
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  role: namenode
-              topologyKey: kubernetes.io/hostname
-            weight: 30
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: role
+                operator: In
+                values:
+                - namenode
+            topologyKey: kubernetes.io/hostname
       containers:
       - image: hadoop
         name: namenode
