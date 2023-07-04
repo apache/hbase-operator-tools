@@ -17,6 +17,7 @@
  */
 package org.apache.hbase;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +38,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
 import org.apache.hadoop.conf.Configuration;
@@ -67,6 +69,7 @@ import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.hbase.thirdparty.com.google.common.collect.Lists;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLineParser;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
@@ -384,6 +387,68 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
+  private Pair<List<String>, List<Exception>>
+    addMissingRegionsInMetaForTablesWrapper(String... args) throws IOException {
+    // Init
+    Options options = new Options();
+    Option outputFile = Option.builder("o").longOpt("outputFile").hasArg().build();
+    options.addOption(outputFile);
+    Option numberOfLinesPerFile = Option.builder("n").longOpt("numLines").hasArg().build();
+    options.addOption(numberOfLinesPerFile);
+    Option inputFile = Option.builder("i").longOpt("inputFiles").build();
+    options.addOption(inputFile);
+
+    // 1st element is region name list and 2nd element is error list
+    final Pair<List<String>, List<Exception>> result =
+      Pair.newPair(new ArrayList<>(), new ArrayList<>());
+    final List<String> regionsList = result.getFirst();
+    final List<Exception> errorList = result.getSecond();
+
+    // Parse command-line
+    CommandLine commandLine = getCommandLine(args, options);
+    if (commandLine == null) {
+      return result;
+    }
+
+    boolean outputFileFlag = commandLine.hasOption(outputFile.getOpt());
+    boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
+    boolean numberOfLinesPerFileFlag = commandLine.hasOption(numberOfLinesPerFile.getOpt());
+
+    final List<String> namespacesTables =
+      getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
+    final List<Future<List<String>>> addedRegions =
+      addMissingRegionsInMetaForTables(namespacesTables.toArray(new String[] {}));
+
+    for (Future<List<String>> f : addedRegions) {
+      try {
+        regionsList.addAll(f.get());
+      } catch (InterruptedException | ExecutionException e) {
+        errorList.add(e);
+      }
+    }
+
+    if (outputFileFlag) {
+      String fileNameOrPrefix = commandLine.getOptionValue(outputFile.getOpt());
+      if (numberOfLinesPerFileFlag) {
+        int numberOfRegionsPerFile =
+          Integer.parseInt(commandLine.getOptionValue(numberOfLinesPerFile.getOpt()));
+        final List<List<String>> partition = Lists.partition(regionsList, numberOfRegionsPerFile);
+        for (int i = 0; i < partition.size(); i++) {
+          // Dump to file
+          File file = new File(fileNameOrPrefix + "." + i);
+          System.out.println("Dumping region names to file: " + file.getAbsolutePath());
+          FileUtils.writeLines(file, partition.get(i));
+        }
+      } else {
+        File file = new File(fileNameOrPrefix);
+        System.out.println("Dumping region names to file: " + file.getAbsolutePath());
+        FileUtils.writeLines(file, regionsList);
+      }
+    }
+
+    return result;
+  }
+
   List<Long> assigns(Hbck hbck, String[] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
@@ -547,10 +612,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageAddFsRegionsMissingInMeta(PrintWriter writer) {
-    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [<NAMESPACE|"
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [OPTIONS] [<NAMESPACE|"
       + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
+    writer.println("    -o,--outputFile  name/prefix of the file(s) to dump region names");
+    writer.println("    -n,--numLines  number of lines to be written to each output file");
     writer.println("   To be used when regions missing from hbase:meta but directories");
     writer.println("   are present still in HDFS. Can happen if user has run _hbck1_");
     writer.println("   'OfflineMetaRepair' against an hbase-2.x cluster. Needs hbase:meta");
@@ -577,6 +644,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   For example:");
     writer.println(
       "     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " -i fileName1 fileName2");
+    writer.println("   If -o or --outputFile is specified, the output file(s) can be passed as");
+    writer.println("    input to assigns command via -i or -inputFiles option.");
+    writer.println("   If -n or --numLines is specified, and say it is  set to 100, this will");
+    writer.println("   create files with prefix as value passed by -o or --outputFile option.");
+    writer.println("   Each file will have 100 region names (max.), one per line.");
+    writer.println("   For example:");
+    writer.println(
+      "     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " -o outputFilePrefix -n 100");
+    writer.println("     -i fileName1 fileName2");
+    writer.println("   But if -n is not specified, but -o is specified, it will dump all");
+    writer.println("   region names in a single file, one per line.");
+    writer.println("   NOTE: -n option is applicable only if -o option is specified.");
   }
 
   private static void usageAssigns(PrintWriter writer) {
@@ -1116,18 +1195,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more table names.");
           return EXIT_FAILURE;
         }
-        List<Future<List<String>>> addedRegions =
-          addMissingRegionsInMetaForTables(purgeFirst(commands));
-        List<String> regionNames = new ArrayList<>();
-        List<Exception> errors = new ArrayList<>();
-        for (Future<List<String>> f : addedRegions) {
-          try {
-            regionNames.addAll(f.get());
-          } catch (InterruptedException | ExecutionException e) {
-            errors.add(e);
-          }
+
+        try {
+          Pair<List<String>, List<Exception>> result =
+            addMissingRegionsInMetaForTablesWrapper(purgeFirst(commands));
+          System.out.println(formatReAddedRegionsMessage(result.getFirst(), result.getSecond()));
+        } catch (Exception e) {
+          return EXIT_FAILURE;
         }
-        System.out.println(formatReAddedRegionsMessage(regionNames, errors));
         break;
 
       case REPORT_MISSING_REGIONS_IN_META:
