@@ -20,7 +20,6 @@ package org.apache.hbase;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hbase.hbck1.HBaseFsck;
@@ -48,7 +47,7 @@ public class ReplicationFsck implements Closeable {
         // Below needs connection to be up; uses admin.
         hbaseFsck.connect();
         hbaseFsck.setCleanReplicationBarrier(fix);
-        for (String table: tables) {
+        for (String table : tables) {
           hbaseFsck.setCleanReplicationBarrierTable(table);
           hbaseFsck.cleanReplicationBarrier();
         }

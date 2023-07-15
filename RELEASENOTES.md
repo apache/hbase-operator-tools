@@ -335,6 +335,3 @@ Commands:
      $ HBCK2 unassign 1588230740 de00010733901a05f5a2a3a382e27dd4
    Returns the pid of the created UnassignProcedure or -1 if none.
 {code}
-
-
-

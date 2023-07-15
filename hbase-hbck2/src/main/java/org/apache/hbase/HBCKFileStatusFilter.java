@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,19 +22,16 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 
 /**
- * COPIED from org.apache.hadoop.hbase.util.FileStatusFilter
- * because the original class was tagged with @InterfaceAudience.Private.
+ * COPIED from org.apache.hadoop.hbase.util.FileStatusFilter because the original class was tagged
+ * with @InterfaceAudience.Private.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public interface HBCKFileStatusFilter {
   /**
-   * Tests whether or not the specified filestatus should be
-   * included in a filestatus list.
-   *
-   * @param  f  The filestatus to be tested
-   * @return  <code>true</code> if and only if the filestatus
-   *          should be included
+   * Tests whether or not the specified filestatus should be included in a filestatus list.
+   * @param f The filestatus to be tested
+   * @return <code>true</code> if and only if the filestatus should be included
    */
   boolean accept(FileStatus f);
 }

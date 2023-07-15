@@ -497,7 +497,7 @@ fetches and the _-t 6000000_ tells the Canary run for ~two hours
 maximum. When done, check out _/tmp/canary.log_. Grep for
 _ERROR_ lines to find problematic Region assigns.
 
-You can do a probe like the Canary's in the hbase shell. 
+You can do a probe like the Canary's in the hbase shell.
 For example, given a Region that has a start row of _d1dddd0c_
 belonging to the table _testtable_, do as follows:
 

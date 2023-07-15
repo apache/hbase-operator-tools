@@ -43,12 +43,12 @@ import org.junit.experimental.categories.Category;
 import org.junit.rules.TestName;
 import org.mockito.Mockito;
 
-@Category({MiscTests.class, SmallTests.class})
+@Category({ MiscTests.class, SmallTests.class })
 public class TestHFileCorruptionChecker {
 
   @ClassRule
   public static final HBaseClassTestRule CLASS_RULE =
-      HBaseClassTestRule.forClass(TestHFileCorruptionChecker.class);
+    HBaseClassTestRule.forClass(TestHFileCorruptionChecker.class);
 
   private static final HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
 
@@ -80,9 +80,8 @@ public class TestHFileCorruptionChecker {
     FileSystem localFileSystem = new LocalFileSystem();
     testFsScheme = TEST_UTIL.getTestFileSystem().getUri().getScheme();
     localFsScheme = localFileSystem.getScheme();
-    nonDefaultRootDir =
-        TEST_UTIL.getRandomDir().makeQualified(localFileSystem.getUri(),
-            localFileSystem.getWorkingDirectory()).toString();
+    nonDefaultRootDir = TEST_UTIL.getRandomDir()
+      .makeQualified(localFileSystem.getUri(), localFileSystem.getWorkingDirectory()).toString();
   }
 
   @Test
@@ -96,7 +95,7 @@ public class TestHFileCorruptionChecker {
   }
 
   private void checkFileSystemScheme(String hbaseRootDir, String defaultFsScheme,
-      String hbaseRootFsScheme) throws IOException {
+    String hbaseRootFsScheme) throws IOException {
     Configuration conf = TEST_UTIL.getConfiguration();
     conf.set(HConstants.HBASE_DIR, hbaseRootDir);
 
@@ -104,16 +103,15 @@ public class TestHFileCorruptionChecker {
     assertEquals(defaultFsScheme, TEST_UTIL.getTestFileSystem().getUri().getScheme());
 
     ExecutorService mockExecutor = Mockito.mock(ExecutorService.class);
-    HFileCorruptionChecker corruptionChecker =
-        new HFileCorruptionChecker(conf, mockExecutor, true);
+    HFileCorruptionChecker corruptionChecker = new HFileCorruptionChecker(conf, mockExecutor, true);
     // if `FSUtils.listStatusWithStatusFilter` pass, then we're using the configured HBASE_DIR
-    corruptionChecker.checkTableDir(HBCKFsUtils.getTableDir(new Path(hbaseRootDir),
-        TableName.META_TABLE_NAME));
+    corruptionChecker
+      .checkTableDir(HBCKFsUtils.getTableDir(new Path(hbaseRootDir), TableName.META_TABLE_NAME));
 
     assertEquals(hbaseRootFsScheme, corruptionChecker.fs.getScheme());
     if (!defaultFsScheme.equalsIgnoreCase(hbaseRootFsScheme)) {
       assertNotEquals(TEST_UTIL.getTestFileSystem().getUri().getScheme(),
-          corruptionChecker.fs.getScheme());
+        corruptionChecker.fs.getScheme());
     }
   }
 }

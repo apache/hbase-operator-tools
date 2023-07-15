@@ -218,5 +218,3 @@
 | [HBASE-22906](https://issues.apache.org/jira/browse/HBASE-22906) | Clean up checkstyle complaints in hbase-operator-tools |  Trivial | hbase-operator-tools |
 | [HBASE-22675](https://issues.apache.org/jira/browse/HBASE-22675) | Use commons-cli from hbase-thirdparty |  Major | hbase-operator-tools |
 | [HBASE-21433](https://issues.apache.org/jira/browse/HBASE-21433) | [hbase-operator-tools] Add Apache Yetus integration for hbase-operator-tools repository |  Major | build, hbase-operator-tools |
-
-

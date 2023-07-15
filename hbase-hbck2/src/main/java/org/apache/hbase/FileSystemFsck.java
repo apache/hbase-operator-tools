@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -62,10 +61,10 @@ public class FileSystemFsck implements Closeable {
       // Check hfiles.
       HFileCorruptionChecker hfcc = hbaseFsck.createHFileCorruptionChecker(fix);
       hbaseFsck.setHFileCorruptionChecker(hfcc);
-      Collection<Path> tableDirs = tables.isEmpty()?
-          FSUtils.getTableDirs(this.fs, this.rootDir):
-          tables.stream().map(t -> CommonFSUtils.getTableDir(this.rootDir, TableName.valueOf(t))).
-              collect(Collectors.toList());
+      Collection<Path> tableDirs = tables.isEmpty()
+        ? FSUtils.getTableDirs(this.fs, this.rootDir)
+        : tables.stream().map(t -> CommonFSUtils.getTableDir(this.rootDir, TableName.valueOf(t)))
+          .collect(Collectors.toList());
       hfcc.checkTables(tableDirs);
       hfcc.report(hbaseFsck.getErrors());
       // Now check links.
@@ -73,15 +72,11 @@ public class FileSystemFsck implements Closeable {
       hbaseFsck.setFixHFileLinks(fix);
       hbaseFsck.setCheckHdfs(true);
       /*
-      The below are too radical for hbck2. They are filesystem changes only.
-      Need to connect them to hbase:meta and master; master should repair
-      holes and overlaps and adopt regions.
-
-      hbaseFsck.setFixHdfsOrphans(fix);
-      hbaseFsck.setFixHdfsHoles(fix);
-      hbaseFsck.setFixHdfsOverlaps(fix);
-      hbaseFsck.setFixTableOrphans(fix);
-      */
+       * The below are too radical for hbck2. They are filesystem changes only. Need to connect them
+       * to hbase:meta and master; master should repair holes and overlaps and adopt regions.
+       * hbaseFsck.setFixHdfsOrphans(fix); hbaseFsck.setFixHdfsHoles(fix);
+       * hbaseFsck.setFixHdfsOverlaps(fix); hbaseFsck.setFixTableOrphans(fix);
+       */
       hbaseFsck.offlineHbck();
     } catch (ClassNotFoundException | InterruptedException e) {
       throw new IOException(e);

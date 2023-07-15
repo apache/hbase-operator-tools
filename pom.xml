@@ -39,11 +39,9 @@
   <groupId>org.apache.hbase.operator.tools</groupId>
   <artifactId>hbase-operator-tools</artifactId>
   <version>${revision}</version>
-  <name>Apache HBase Operator Tools</name>
   <packaging>pom</packaging>
-  <description>
-    Operator Tools for Apache HBase.
-  </description>
+  <name>Apache HBase Operator Tools</name>
+  <description>Operator Tools for Apache HBase.</description>
   <url>https://hbase.apache.org</url>
   <inceptionYear>2018</inceptionYear>
   <licenses>
@@ -53,28 +51,7 @@
       <distribution>repo</distribution>
     </license>
   </licenses>
-  <modules>
-    <module>hbase-table-reporter</module>
-    <module>hbase-hbck2</module>
-    <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
-         -->
-    <module>hbase-operator-tools-assembly</module>
-      <module>hbase-tools</module>
-  </modules>
-  <scm>
-    <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase-operator-tools.git</connection>
-    <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/hbase-operator-tools.git</developerConnection>
-    <url>https://gitbox.apache.org/repos/asf?p=hbase-operator-tools.git;a=summary</url>
-  </scm>
-  <issueManagement>
-    <!--File issues for this project against Apache HBase JIRA-->
-    <system>JIRA</system>
-    <url>http://issues.apache.org/jira/browse/HBASE</url>
-  </issueManagement>
-  <ciManagement>
-    <system>hudson</system>
-    <url>http://hudson.zones.apache.org/hudson/view/HBase/job/HBase-TRUNK/</url>
-  </ciManagement>
+  <developers/>
   <mailingLists>
     <mailingList>
       <name>User List</name>
@@ -117,14 +94,33 @@
       <archive>http://mail-archives.apache.org/mod_mbox/hbase-builds/</archive>
     </mailingList>
   </mailingLists>
-  <developers/>
+  <modules>
+    <module>hbase-table-reporter</module>
+    <module>hbase-hbck2</module>
+    <!--Add an assembly module because of http://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
+         -->
+    <module>hbase-operator-tools-assembly</module>
+    <module>hbase-tools</module>
+  </modules>
+  <scm>
+    <connection>scm:git:git://gitbox.apache.org/repos/asf/hbase-operator-tools.git</connection>
+    <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/hbase-operator-tools.git</developerConnection>
+    <url>https://gitbox.apache.org/repos/asf?p=hbase-operator-tools.git;a=summary</url>
+  </scm>
+  <issueManagement>
+    <!--File issues for this project against Apache HBase JIRA-->
+    <system>JIRA</system>
+    <url>http://issues.apache.org/jira/browse/HBASE</url>
+  </issueManagement>
+  <ciManagement>
+    <system>hudson</system>
+    <url>http://hudson.zones.apache.org/hudson/view/HBase/job/HBase-TRUNK/</url>
+  </ciManagement>
   <!--TODO-->
   <properties>
     <revision>1.3.0-SNAPSHOT</revision>
     <maven.javadoc.skip>true</maven.javadoc.skip>
-    <maven.build.timestamp.format>
-      yyyy-MM-dd'T'HH:mm
-    </maven.build.timestamp.format>
+    <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm</maven.build.timestamp.format>
     <buildDate>${maven.build.timestamp}</buildDate>
     <compileSource>1.8</compileSource>
     <java.min.version>${compileSource}</java.min.version>
@@ -209,16 +205,6 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <dependencies>
-            <!-- by default surefire selects dynamically the connector to the unit tests
-              tool. We want to use always the same as the different connectors can have different
-              bugs and behaviour. -->
-            <dependency>
-              <groupId>org.apache.maven.surefire</groupId>
-              <artifactId>${surefire.provider}</artifactId>
-              <version>${surefire.version}</version>
-            </dependency>
-          </dependencies>
           <!-- Generic testing configuration for all packages -->
           <configuration>
             <failIfNoTests>false</failIfNoTests>
@@ -236,6 +222,16 @@
               <exclude>${test.exclude.pattern}</exclude>
             </excludes>
           </configuration>
+          <dependencies>
+            <!-- by default surefire selects dynamically the connector to the unit tests
+              tool. We want to use always the same as the different connectors can have different
+              bugs and behaviour. -->
+            <dependency>
+              <groupId>org.apache.maven.surefire</groupId>
+              <artifactId>${surefire.provider}</artifactId>
+              <version>${surefire.version}</version>
+            </dependency>
+          </dependencies>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -284,18 +280,18 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>buildnumber-maven-plugin</artifactId>
           <version>1.4</version>
-          <executions>
-            <execution>
-              <phase>validate</phase>
-              <goals>
-                <goal>create-timestamp</goal>
-              </goals>
-            </execution>
-          </executions>
           <configuration>
             <timestampFormat>yyyy</timestampFormat>
             <timestampPropertyName>build.year</timestampPropertyName>
           </configuration>
+          <executions>
+            <execution>
+              <goals>
+                <goal>create-timestamp</goal>
+              </goals>
+              <phase>validate</phase>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <!-- Approach followed here is roughly the same as mentioned here:
@@ -304,6 +300,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-checkstyle-plugin</artifactId>
           <version>${maven.checkstyle.version}</version>
+          <configuration>
+            <configLocation>hbase/checkstyle.xml</configLocation>
+            <suppressionsLocation>build-support/checkstyle-suppressions.xml</suppressionsLocation>
+            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          </configuration>
           <dependencies>
             <dependency>
               <groupId>org.apache.hbase</groupId>
@@ -316,11 +317,6 @@
               <version>${checkstyle.version}</version>
             </dependency>
           </dependencies>
-          <configuration>
-            <configLocation>hbase/checkstyle.xml</configLocation>
-            <suppressionsLocation>build-support/checkstyle-suppressions.xml</suppressionsLocation>
-            <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -392,16 +388,14 @@
   HBase requires at least version ${maven.min.version} of Maven to properly build from source.
   You appear to be using an older version. You can use either "mvn -version" or
   "mvn enforcer:display-info" to verify what version is active.
-  See the reference guide on building for more information: http://hbase.apache.org/book.html#build
-                  </message>
+  See the reference guide on building for more information: http://hbase.apache.org/book.html#build</message>
                 </requireMavenVersion>
                 <!-- The earliest JVM version we verify builds for via ASF Jenkins -->
                 <requireJavaVersion>
                   <version>[${java.min.version},)</version>
                   <message>Java is out of date.
   HBase requires at least version ${java.min.version} of the JDK to properly build from source.
-  See the reference guide on building for more information: http://hbase.apache.org/book.html#build
-                  </message>
+  See the reference guide on building for more information: http://hbase.apache.org/book.html#build</message>
                 </requireJavaVersion>
                 <bannedDependencies>
                   <excludes>
@@ -547,10 +541,10 @@
             <artifactId>apache-rat-plugin</artifactId>
             <executions>
               <execution>
-                <phase>package</phase>
                 <goals>
                   <goal>check</goal>
                 </goals>
+                <phase>package</phase>
               </execution>
             </executions>
           </plugin>
@@ -558,13 +552,6 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-enforcer-plugin</artifactId>
             <version>${enforcer.version}</version>
-            <dependencies>
-                <dependency>
-                  <groupId>org.codehaus.mojo</groupId>
-                  <artifactId>extra-enforcer-rules</artifactId>
-                  <version>${extra.enforcer.version}</version>
-                </dependency>
-            </dependencies>
             <configuration>
               <rules>
                 <enforceBytecodeVersion>
@@ -574,14 +561,20 @@
   of the JDK to properly build from source.  You appear to be using a newer dependency. You can use
   either "mvn -version" or "mvn enforcer:display-info" to verify what version is active.
   Non-release builds can temporarily build with a newer JDK version by setting the
-  'compileSource' property (eg. mvn -DcompileSource=1.8 clean package).
-                  </message>
+  'compileSource' property (eg. mvn -DcompileSource=1.8 clean package).</message>
                   <ignoreClasses>
                     <ignoreClass>module-info</ignoreClass>
                   </ignoreClasses>
                 </enforceBytecodeVersion>
               </rules>
             </configuration>
+            <dependencies>
+              <dependency>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>extra-enforcer-rules</artifactId>
+                <version>${extra.enforcer.version}</version>
+              </dependency>
+            </dependencies>
           </plugin>
         </plugins>
       </build>
@@ -621,6 +614,15 @@
         <cloverDatabase>${project.build.directory}/clover/code-coverage.db</cloverDatabase>
       </properties>
       <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.openclover</groupId>
+              <artifactId>clover-maven-plugin</artifactId>
+              <version>${clover-maven-plugin.version}</version>
+            </plugin>
+          </plugins>
+        </pluginManagement>
         <plugins>
           <plugin>
             <groupId>org.openclover</groupId>
@@ -654,15 +656,6 @@
             </executions>
           </plugin>
         </plugins>
-        <pluginManagement>
-          <plugins>
-            <plugin>
-              <groupId>org.openclover</groupId>
-              <artifactId>clover-maven-plugin</artifactId>
-              <version>${clover-maven-plugin.version}</version>
-            </plugin>
-          </plugins>
-        </pluginManagement>
       </build>
     </profile>
     <profile>
@@ -682,12 +675,6 @@
         <sonar.exclusions>hbase-operator-tools-assembly/**/*,**/pom.xml</sonar.exclusions>
       </properties>
       <build>
-        <plugins>
-          <plugin>
-            <groupId>org.sonarsource.scanner.maven</groupId>
-            <artifactId>sonar-maven-plugin</artifactId>
-          </plugin>
-        </plugins>
         <pluginManagement>
           <plugins>
             <plugin>
@@ -697,6 +684,12 @@
             </plugin>
           </plugins>
         </pluginManagement>
+        <plugins>
+          <plugin>
+            <groupId>org.sonarsource.scanner.maven</groupId>
+            <artifactId>sonar-maven-plugin</artifactId>
+          </plugin>
+        </plugins>
       </build>
     </profile>
   </profiles>

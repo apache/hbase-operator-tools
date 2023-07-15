@@ -110,4 +110,3 @@ else
   mv ${PROJECT} ${PROJECT}.tag
   echo "Clone with version changes and tag available as ${PROJECT}.tag in the output directory."
 fi
-

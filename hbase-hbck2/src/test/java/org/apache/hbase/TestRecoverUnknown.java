@@ -21,7 +21,6 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.Hbck;
@@ -31,7 +30,6 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-
 
 public class TestRecoverUnknown {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();

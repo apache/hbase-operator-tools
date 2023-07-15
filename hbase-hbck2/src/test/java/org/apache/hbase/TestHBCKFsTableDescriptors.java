@@ -45,11 +45,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * COPIED (partially) from org.apache.hadoop.hbase.util.TestFSTableDescriptors
- *
- * Tests for {@link HBCKFsTableDescriptors}.
+ * COPIED (partially) from org.apache.hadoop.hbase.util.TestFSTableDescriptors Tests for
+ * {@link HBCKFsTableDescriptors}.
  */
-@Category({MiscTests.class, MediumTests.class})
+@Category({ MiscTests.class, MediumTests.class })
 public class TestHBCKFsTableDescriptors {
 
   @ClassRule
@@ -62,7 +61,7 @@ public class TestHBCKFsTableDescriptors {
   @Rule
   public TestName name = new TestName();
 
-  @Test (expected=IllegalArgumentException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testRegexAgainstOldStyleTableInfo() {
     Path p = new Path("/tmp", HBCKFsTableDescriptors.TABLEINFO_FILE_PREFIX);
     int i = HBCKFsTableDescriptors.getTableInfoSequenceId(p);
@@ -80,8 +79,7 @@ public class TestHBCKFsTableDescriptors {
     for (int i = 0; i < HBCKFsTableDescriptors.WIDTH_OF_SEQUENCE_ID; i++) {
       sb.append("0");
     }
-    assertEquals(HBCKFsTableDescriptors.TABLEINFO_FILE_PREFIX + "." + sb.toString(),
-                 p0.getName());
+    assertEquals(HBCKFsTableDescriptors.TABLEINFO_FILE_PREFIX + "." + sb.toString(), p0.getName());
     // Check a few more.
     Path p2 = assertWriteAndReadSequenceId(2);
     Path p10000 = assertWriteAndReadSequenceId(10000);
@@ -104,8 +102,8 @@ public class TestHBCKFsTableDescriptors {
     return p;
   }
 
-
-  @Test public void testReadingHTDFromFS() throws IOException {
+  @Test
+  public void testReadingHTDFromFS() throws IOException {
     final String name = this.name.getMethodName();
     FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     TableDescriptor htd = TableDescriptorBuilder.newBuilder(TableName.valueOf(name)).build();
@@ -132,18 +130,15 @@ public class TestHBCKFsTableDescriptors {
 
   @Test
   public void testTableInfoFileStatusComparator() {
-    FileStatus bare =
-      new FileStatus(0, false, 0, 0, -1,
-                     new Path("/tmp", HBCKFsTableDescriptors.TABLEINFO_FILE_PREFIX));
+    FileStatus bare = new FileStatus(0, false, 0, 0, -1,
+      new Path("/tmp", HBCKFsTableDescriptors.TABLEINFO_FILE_PREFIX));
     FileStatus future =
-      new FileStatus(0, false, 0, 0, -1,
-                     new Path("/tmp/tablinfo." + System.currentTimeMillis()));
-    FileStatus farFuture =
-      new FileStatus(0, false, 0, 0, -1,
-                     new Path("/tmp/tablinfo." + System.currentTimeMillis() + 1000));
-    FileStatus [] alist = {bare, future, farFuture};
-    FileStatus [] blist = {bare, farFuture, future};
-    FileStatus [] clist = {farFuture, bare, future};
+      new FileStatus(0, false, 0, 0, -1, new Path("/tmp/tablinfo." + System.currentTimeMillis()));
+    FileStatus farFuture = new FileStatus(0, false, 0, 0, -1,
+      new Path("/tmp/tablinfo." + System.currentTimeMillis() + 1000));
+    FileStatus[] alist = { bare, future, farFuture };
+    FileStatus[] blist = { bare, farFuture, future };
+    FileStatus[] clist = { farFuture, bare, future };
     Comparator<FileStatus> c = HBCKFsTableDescriptors.TABLEINFO_FILESTATUS_COMPARATOR;
     Arrays.sort(alist, c);
     Arrays.sort(blist, c);
@@ -152,7 +147,7 @@ public class TestHBCKFsTableDescriptors {
     for (int i = 0; i < alist.length; i++) {
       assertTrue(alist[i].equals(blist[i]));
       assertTrue(blist[i].equals(clist[i]));
-      assertTrue(clist[i].equals(i == 0? farFuture: i == 1? future: bare));
+      assertTrue(clist[i].equals(i == 0 ? farFuture : i == 1 ? future : bare));
     }
   }
 
@@ -166,9 +161,8 @@ public class TestHBCKFsTableDescriptors {
     assertTrue(fstd.createTableDescriptor(htd, false));
     assertFalse(fstd.createTableDescriptor(htd, false));
     htd = TableDescriptorBuilder.newBuilder(htd)
-      .setValue(Bytes.toBytes("mykey"), Bytes.toBytes("myValue"))
-      .build();
-    assertTrue(fstd.createTableDescriptor(htd, false)); //this will re-create
+      .setValue(Bytes.toBytes("mykey"), Bytes.toBytes("myValue")).build();
+    assertTrue(fstd.createTableDescriptor(htd, false)); // this will re-create
     Path tableDir = fstd.getTableDir(htd.getTableName());
     Path tmpTableDir = new Path(tableDir, HBCKFsTableDescriptors.TMP_DIR);
     FileStatus[] statuses = fs.listStatus(tmpTableDir);
@@ -178,4 +172,3 @@ public class TestHBCKFsTableDescriptors {
   }
 
 }
-

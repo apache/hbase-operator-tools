@@ -24,7 +24,6 @@ import static org.junit.Assert.assertNotNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
@@ -37,7 +36,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
-
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -80,11 +78,11 @@ public class TestHBCKMetaTableAccessor {
     Result r = meta.get(get);
     assertNotNull(r);
     assertFalse(r.isEmpty());
-    RegionInfo returnedRI = RegionInfo.parseFrom(r.getValue(HConstants.CATALOG_FAMILY,
-      HConstants.REGIONINFO_QUALIFIER));
+    RegionInfo returnedRI =
+      RegionInfo.parseFrom(r.getValue(HConstants.CATALOG_FAMILY, HConstants.REGIONINFO_QUALIFIER));
     assertEquals(regionInfo, returnedRI);
-    String state = Bytes.toString(r.getValue(HConstants.CATALOG_FAMILY,
-      HConstants.STATE_QUALIFIER));
+    String state =
+      Bytes.toString(r.getValue(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER));
     assertEquals(RegionState.State.valueOf(state), RegionState.State.CLOSED);
   }
 
@@ -95,9 +93,9 @@ public class TestHBCKMetaTableAccessor {
     scan.addColumn(HConstants.CATALOG_FAMILY, HConstants.REGIONINFO_QUALIFIER);
     ResultScanner scanner = table.getScanner(scan);
     final List<RegionInfo> regionInfos = new ArrayList<>();
-    for(Result r : scanner) {
-      regionInfos.add(RegionInfo.parseFrom(r.getValue(HConstants.CATALOG_FAMILY,
-        HConstants.REGIONINFO_QUALIFIER)));
+    for (Result r : scanner) {
+      regionInfos.add(RegionInfo
+        .parseFrom(r.getValue(HConstants.CATALOG_FAMILY, HConstants.REGIONINFO_QUALIFIER)));
     }
     return regionInfos;
   }

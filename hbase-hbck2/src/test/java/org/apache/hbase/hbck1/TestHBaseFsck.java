@@ -41,11 +41,11 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.rules.TestName;
 
-@Category({MiscTests.class, SmallTests.class})
+@Category({ MiscTests.class, SmallTests.class })
 public class TestHBaseFsck {
   @ClassRule
   public static final HBaseClassTestRule CLASS_RULE =
-      HBaseClassTestRule.forClass(TestHBaseFsck.class);
+    HBaseClassTestRule.forClass(TestHBaseFsck.class);
 
   private static final HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
 
@@ -75,25 +75,24 @@ public class TestHBaseFsck {
     defaultRootDir = TEST_UTIL.getDataTestDirOnTestFS().toString();
     localFileSystem = new LocalFileSystem();
     testFileSystem = TEST_UTIL.getTestFileSystem();
-    nonDefaultRootDir =
-        TEST_UTIL.getRandomDir().makeQualified(localFileSystem.getUri(),
-            localFileSystem.getWorkingDirectory()).toString();
+    nonDefaultRootDir = TEST_UTIL.getRandomDir()
+      .makeQualified(localFileSystem.getUri(), localFileSystem.getWorkingDirectory()).toString();
   }
 
   @Test
-  public void testHBaseRootDirWithSameFileSystemScheme() throws IOException,
-      ClassNotFoundException {
+  public void testHBaseRootDirWithSameFileSystemScheme()
+    throws IOException, ClassNotFoundException {
     checkFileSystemScheme(defaultRootDir, testFileSystem.getUri().getScheme());
   }
 
   @Test
-  public void testHBaseRootDirWithDifferentFileSystemScheme() throws IOException,
-      ClassNotFoundException {
+  public void testHBaseRootDirWithDifferentFileSystemScheme()
+    throws IOException, ClassNotFoundException {
     checkFileSystemScheme(nonDefaultRootDir, localFileSystem.getUri().getScheme());
   }
 
   private void checkFileSystemScheme(String hbaseRootDir, String expectedFsScheme)
-      throws IOException, ClassNotFoundException {
+    throws IOException, ClassNotFoundException {
     conf.set(HConstants.HBASE_DIR, hbaseRootDir);
     HBaseFsck fsck = new HBaseFsck(conf);
     String actualFsScheme = fsck.getRootFs().getScheme();
@@ -104,13 +103,12 @@ public class TestHBaseFsck {
   public void testFileLockCallableWithSetHBaseRootDir() throws IOException {
     FileSystem fs = new Path(nonDefaultRootDir).getFileSystem(conf);
     try {
-      assertNotEquals(TEST_UTIL.getTestFileSystem().getUri().getScheme(),
-          fs.getScheme());
+      assertNotEquals(TEST_UTIL.getTestFileSystem().getUri().getScheme(), fs.getScheme());
 
       conf.set(HConstants.HBASE_DIR, nonDefaultRootDir);
       Path expectedLockFilePath = new Path(HBaseFsck.getTmpDir(conf), HBaseFsck.HBCK2_LOCK_FILE);
       HBaseFsck.FileLockCallable fileLockCallable = new HBaseFsck.FileLockCallable(conf,
-          HBaseFsck.createLockRetryCounterFactory(conf).create());
+        HBaseFsck.createLockRetryCounterFactory(conf).create());
 
       assertTrue(!fs.exists(expectedLockFilePath));
       // make a call and generate the hbck2 lock file to the non default file system

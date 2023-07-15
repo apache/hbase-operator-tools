@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HConstants;
@@ -37,9 +36,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Standalone utility to correct the bug corrected by HBASE-23328 in which
- * the region name in the rowkey of a row in meta does not match the name
- * which is stored in the value of the info:regioninfo column of the same row.
+ * Standalone utility to correct the bug corrected by HBASE-23328 in which the region name in the
+ * rowkey of a row in meta does not match the name which is stored in the value of the
+ * info:regioninfo column of the same row.
  */
 public class RegionInfoMismatchTool {
   private static final Logger LOG = LoggerFactory.getLogger(RegionInfoMismatchTool.class);
@@ -75,45 +74,42 @@ public class RegionInfoMismatchTool {
   }
 
   /**
-   * Returns a list of {@link MalformedRegion}'s which exist in meta. If there are
-   * no malformed regions, the returned list will be empty.
+   * Returns a list of {@link MalformedRegion}'s which exist in meta. If there are no malformed
+   * regions, the returned list will be empty.
    */
   List<MalformedRegion> getMalformedRegions() throws IOException {
     try (Table meta = connection.getTable(TableName.META_TABLE_NAME)) {
       MetaScanner<MalformedRegion> scanner = new MetaScanner<>();
-      return scanner.scanMeta(connection,
-        scan -> scan.addFamily(HConstants.CATALOG_FAMILY),
-        r -> {
-          Cell riCell = r.getColumnLatestCell(HConstants.CATALOG_FAMILY,
-              HConstants.REGIONINFO_QUALIFIER);
-          RegionInfo info = RegionInfo.parseFromOrNull(riCell.getValueArray(),
-              riCell.getValueOffset(), riCell.getValueLength());
-          // Get the expected value from the RegionInfo in the cell value
-          byte[] valueEncodedRegionName = info.getEncodedNameAsBytes();
-          // Compare that to what is actually in the rowkey
-          HBCKMetaTableAccessor.getMetaKeyForRegion(info);
-          byte[] rowKeyRegionName = CellUtil.cloneRow(riCell);
-          byte[] rowkeyEncodedRegionName = Bytes.toBytes(
-              HBCKRegionInfo.encodeRegionName(rowKeyRegionName));
-          // If they are equal, we are good.
-          if (Arrays.equals(rowkeyEncodedRegionName, valueEncodedRegionName)) {
-            // Returning null will cause `scanMeta` to ignore this row
-            LOG.debug("Ignoring region {} because rowkey aligns with value", info);
-            return null;
-          }
+      return scanner.scanMeta(connection, scan -> scan.addFamily(HConstants.CATALOG_FAMILY), r -> {
+        Cell riCell =
+          r.getColumnLatestCell(HConstants.CATALOG_FAMILY, HConstants.REGIONINFO_QUALIFIER);
+        RegionInfo info = RegionInfo.parseFromOrNull(riCell.getValueArray(),
+          riCell.getValueOffset(), riCell.getValueLength());
+        // Get the expected value from the RegionInfo in the cell value
+        byte[] valueEncodedRegionName = info.getEncodedNameAsBytes();
+        // Compare that to what is actually in the rowkey
+        HBCKMetaTableAccessor.getMetaKeyForRegion(info);
+        byte[] rowKeyRegionName = CellUtil.cloneRow(riCell);
+        byte[] rowkeyEncodedRegionName =
+          Bytes.toBytes(HBCKRegionInfo.encodeRegionName(rowKeyRegionName));
+        // If they are equal, we are good.
+        if (Arrays.equals(rowkeyEncodedRegionName, valueEncodedRegionName)) {
+          // Returning null will cause `scanMeta` to ignore this row
+          LOG.debug("Ignoring region {} because rowkey aligns with value", info);
+          return null;
+        }
 
-          LOG.debug("Found mismatched region {} and {}", Bytes.toStringBinary(rowKeyRegionName),
-              Bytes.toStringBinary(valueEncodedRegionName));
-          // Only return row/regioninfo pairs that are wrong
-          return new MalformedRegion(rowKeyRegionName, info);
-        });
+        LOG.debug("Found mismatched region {} and {}", Bytes.toStringBinary(rowKeyRegionName),
+          Bytes.toStringBinary(valueEncodedRegionName));
+        // Only return row/regioninfo pairs that are wrong
+        return new MalformedRegion(rowKeyRegionName, info);
+      });
     }
   }
 
   /**
    * Run the RegionInfoMistmatchTool. Use the {@code fix} argument to control whether this method
    * will report problems or fix problems.
-   *
    * @param fix True if hbase:meta should be updated. False to report on any problems.
    */
   public void run(boolean fix) throws IOException, DeserializationException {
@@ -126,7 +122,7 @@ public class RegionInfoMismatchTool {
       out.println("Fix mode is disabled, printing all malformed regions detected:");
       for (MalformedRegion r : regionsToFix) {
         out.println("Rowkey " + HBCKRegionInfo.encodeRegionName(r.getRegionName())
-            + " does not match " + r.getRegionInfo());
+          + " does not match " + r.getRegionInfo());
       }
     }
     out.println("Found " + regionsToFix.size() + " regions to fix.");
@@ -139,8 +135,8 @@ public class RegionInfoMismatchTool {
         // broken by HBASE-23328
         byte[][] regionNameParts = HBCKRegionInfo.parseRegionNameOrReturnNull(regionName);
         if (regionNameParts == null) {
-          throw new RuntimeException("Couldn't parse parts from "
-              + Bytes.toStringBinary(regionName));
+          throw new RuntimeException(
+            "Couldn't parse parts from " + Bytes.toStringBinary(regionName));
         }
         int i = 0;
         for (byte[] part : regionNameParts) {
@@ -153,37 +149,33 @@ public class RegionInfoMismatchTool {
         // fields by hand which will force the new RegionInfo to recompute the NAME/encodedName
         // fields.
         RegionInfo correctedRegionInfo = RegionInfoBuilder.newBuilder(wrongRegionInfo.getTable())
-            .setRegionId(regionId)
-            .setStartKey(wrongRegionInfo.getStartKey())
-            .setEndKey(wrongRegionInfo.getEndKey())
-            .setReplicaId(0)
-            .setOffline(wrongRegionInfo.isOffline())
-            .setSplit(wrongRegionInfo.isSplit())
-            .build();
+          .setRegionId(regionId).setStartKey(wrongRegionInfo.getStartKey())
+          .setEndKey(wrongRegionInfo.getEndKey()).setReplicaId(0)
+          .setOffline(wrongRegionInfo.isOffline()).setSplit(wrongRegionInfo.isSplit()).build();
 
         String rowkeyEncodedRegionName = HBCKRegionInfo.encodeRegionName(regionName);
         String updatedValueEncodedRegionName = correctedRegionInfo.getEncodedName();
         if (!rowkeyEncodedRegionName.equals(updatedValueEncodedRegionName)) {
           out.println("Aborting: sanity-check failed on updated RegionInfo. Expected encoded "
-              + "region name " +rowkeyEncodedRegionName + " but got "
-              + updatedValueEncodedRegionName + ".");
+            + "region name " + rowkeyEncodedRegionName + " but got " + updatedValueEncodedRegionName
+            + ".");
           out.println("Incorrectly created RegionInfo was: " + correctedRegionInfo);
           throw new RuntimeException("Failed sanity-check on corrected RegionInfo");
         }
 
         out.println("Updating RegionInfo for " + Bytes.toStringBinary(regionName) + " to "
-            + correctedRegionInfo);
+          + correctedRegionInfo);
 
         // Write the update back to meta.
         if (fix) {
           meta.put(HBCKMetaTableAccessor.makePutFromRegionInfo(correctedRegionInfo,
-                System.currentTimeMillis()));
+            System.currentTimeMillis()));
         }
       }
       if (!fix) {
         out.println("Fix mode is not enabled, hbase:meta was not updated. See the tool output for"
-            + " a list of detected problematic regions. Re-run the tool without the dry run option"
-            + " to persist updates to hbase:meta.");
+          + " a list of detected problematic regions. Re-run the tool without the dry run option"
+          + " to persist updates to hbase:meta.");
       }
     }
   }

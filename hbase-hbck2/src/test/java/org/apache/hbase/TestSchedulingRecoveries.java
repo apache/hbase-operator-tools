@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.Hbck;
@@ -30,7 +29,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 
 public class TestSchedulingRecoveries {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
@@ -56,7 +54,7 @@ public class TestSchedulingRecoveries {
     String sn1 = TEST_UTIL.getHBaseCluster().getRegionServer(0).toString();
     String sn2 = TEST_UTIL.getHBaseCluster().getRegionServer(1).toString();
     try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
-      List<Long> pids = this.hbck2.scheduleRecoveries(hbck, new String[]{sn1, sn2});
+      List<Long> pids = this.hbck2.scheduleRecoveries(hbck, new String[] { sn1, sn2 });
       assertEquals(2, pids.size());
       assertTrue(pids.get(0) > 0);
       assertTrue(pids.get(1) > 0);

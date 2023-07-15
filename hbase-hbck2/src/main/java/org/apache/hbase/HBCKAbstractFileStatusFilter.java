@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,7 +19,6 @@ package org.apache.hbase;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import java.io.IOException;
-
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -27,14 +26,10 @@ import org.apache.hadoop.fs.PathFilter;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 
-
 /**
- *
- * COPIED from org.apache.hadoop.hbase.util.AbstractFileStatusFilter
- * because the original class was tagged with @InterfaceAudience.Private.
- *
- * Typical base class for file status filter.  Works more efficiently when
- * filtering file statuses, otherwise implementation will need to lookup filestatus
+ * COPIED from org.apache.hadoop.hbase.util.AbstractFileStatusFilter because the original class was
+ * tagged with @InterfaceAudience.Private. Typical base class for file status filter. Works more
+ * efficiently when filtering file statuses, otherwise implementation will need to lookup filestatus
  * for the path which will be expensive.
  */
 @InterfaceAudience.Private
@@ -42,12 +37,10 @@ import org.apache.yetus.audience.InterfaceStability;
 public abstract class HBCKAbstractFileStatusFilter implements PathFilter, HBCKFileStatusFilter {
 
   /**
-   * Filters out a path.  Can be given an optional directory hint to avoid
-   * filestatus lookup.
-   *
-   * @param p       A filesystem path
-   * @param isDir   An optional boolean indicating whether the path is a directory or not
-   * @return        true if the path is accepted, false if the path is filtered out
+   * Filters out a path. Can be given an optional directory hint to avoid filestatus lookup.
+   * @param p     A filesystem path
+   * @param isDir An optional boolean indicating whether the path is a directory or not
+   * @return true if the path is accepted, false if the path is filtered out
    */
   protected abstract boolean accept(Path p, @CheckForNull Boolean isDir);
 

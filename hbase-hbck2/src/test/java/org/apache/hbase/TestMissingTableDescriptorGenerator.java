@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -51,30 +50,22 @@ public class TestMissingTableDescriptorGenerator {
   private static final TableName TABLE_NAME_3 = TableName.valueOf(TABLE_NAME_3_AS_STRING);
   private static final byte[] FAMILY_A = Bytes.toBytes("familyA");
   private static final byte[] FAMILY_B = Bytes.toBytes("familyB");
-  private static final List<ColumnFamilyDescriptor> COLUMN_FAMILIES = asList(
-    ColumnFamilyDescriptorBuilder.of(FAMILY_A), ColumnFamilyDescriptorBuilder.of(FAMILY_B));
+  private static final List<ColumnFamilyDescriptor> COLUMN_FAMILIES =
+    asList(ColumnFamilyDescriptorBuilder.of(FAMILY_A), ColumnFamilyDescriptorBuilder.of(FAMILY_B));
   private static final int CUSTOM_MAX_FILE_SIZE = 99 * 1024 * 1024;
 
   private static final TableDescriptor TABLE_INFO_WITH_DEFAULT_PARAMS =
-    TableDescriptorBuilder.newBuilder(TABLE_NAME)
-      .setColumnFamilies(COLUMN_FAMILIES)
-      .build();
+    TableDescriptorBuilder.newBuilder(TABLE_NAME).setColumnFamilies(COLUMN_FAMILIES).build();
 
   private static final TableDescriptor TABLE_INFO_2_WITH_DEFAULT_PARAMS =
-      TableDescriptorBuilder.newBuilder(TABLE_NAME_2)
-          .setColumnFamilies(COLUMN_FAMILIES)
-          .build();
+    TableDescriptorBuilder.newBuilder(TABLE_NAME_2).setColumnFamilies(COLUMN_FAMILIES).build();
 
   private static final TableDescriptor TABLE_INFO_3_WITH_DEFAULT_PARAMS =
-      TableDescriptorBuilder.newBuilder(TABLE_NAME_3)
-          .setColumnFamilies(COLUMN_FAMILIES)
-          .build();
+    TableDescriptorBuilder.newBuilder(TABLE_NAME_3).setColumnFamilies(COLUMN_FAMILIES).build();
 
   private static final TableDescriptor TABLE_INFO_WITH_CUSTOM_MAX_FILE_SIZE =
-    TableDescriptorBuilder.newBuilder(TABLE_NAME)
-      .setColumnFamilies(COLUMN_FAMILIES)
-      .setMaxFileSize(CUSTOM_MAX_FILE_SIZE)
-      .build();
+    TableDescriptorBuilder.newBuilder(TABLE_NAME).setColumnFamilies(COLUMN_FAMILIES)
+      .setMaxFileSize(CUSTOM_MAX_FILE_SIZE).build();
 
   private MissingTableDescriptorGenerator missingTableDescriptorGenerator;
   private HBCKFsTableDescriptors tableDescriptorUtil;
@@ -123,7 +114,7 @@ public class TestMissingTableDescriptorGenerator {
     // In this case actually the region belongs to the test table shouldn't be online
     // after the restart. You should find in the logs a warning similar to:
     // "Failed opening region test-1,,1608040700497.5d72e524ae11c5c72c6f3d365f190349.
-    //  java.io.IOException: Missing table descriptor for 5d72e524ae11c5c72c6f3d365f190349"
+    // java.io.IOException: Missing table descriptor for 5d72e524ae11c5c72c6f3d365f190349"
     TEST_UTIL.shutdownMiniHBaseCluster();
     Thread.sleep(2000);
     TEST_UTIL.restartHBaseCluster(1);
@@ -153,10 +144,10 @@ public class TestMissingTableDescriptorGenerator {
   }
 
   private void generateAndVerifyTableDescriptor(List<String> tableNames, long customMaxFileSize)
-      throws IOException, InterruptedException {
+    throws IOException, InterruptedException {
     // regenerate the .tableinfo file
-    missingTableDescriptorGenerator
-        .generateTableDescriptorFileIfMissing(TEST_UTIL.getAdmin(), tableNames);
+    missingTableDescriptorGenerator.generateTableDescriptorFileIfMissing(TEST_UTIL.getAdmin(),
+      tableNames);
 
     // list all the tables
     TableName[] tables = TEST_UTIL.getAdmin().listTableNames();
@@ -166,7 +157,7 @@ public class TestMissingTableDescriptorGenerator {
       // verify table info file content (as the table descriptor should be restored based on the
       // cache in HBase Master, we expect the maxFileSize to be set to the non-default value)
       TableDescriptor descriptor =
-          HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, table);
+        HBCKFsTableDescriptors.getTableDescriptorFromFs(fs, rootDir, table);
       assertEquals(table.getNameAsString(), descriptor.getTableName().getNameAsString());
       assertTrue(descriptor.hasColumnFamily(FAMILY_A));
       assertTrue(descriptor.hasColumnFamily(FAMILY_B));

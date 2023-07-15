@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.Cell.Type;
 import org.apache.hadoop.hbase.CellBuilderFactory;
@@ -102,11 +101,8 @@ public class TestRegionInfoMismatchTool {
   @Test
   public void testNoReportOnHealthy() throws Exception {
     admin.createTable(TableDescriptorBuilder.newBuilder(tableName)
-        .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f"))
-        .setRegionReplication(2)
-        .build());
-    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(
-        connection, tableName);
+      .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f")).setRegionReplication(2).build());
+    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(connection, tableName);
 
     assertEquals(1, regions.size());
     // Should find no malformed regions on a brand new table
@@ -121,17 +117,16 @@ public class TestRegionInfoMismatchTool {
     String outputAsString = baos.toString();
     LOG.info("Output from tool: " + outputAsString);
     assertTrue("Expected no output to be printed",
-        outputAsString.contains("Found 0 regions to fix"));
+      outputAsString.contains("Found 0 regions to fix"));
   }
 
   @Test
   public void testReportOneCorruptRegion() throws Exception {
-    admin.createTable(TableDescriptorBuilder.newBuilder(tableName)
-        .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f"))
-        .setRegionReplication(2)
-        .build(), new byte[][] {Bytes.toBytes("a"), Bytes.toBytes("b"), Bytes.toBytes("c")});
-    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(
-        connection, tableName);
+    admin.createTable(
+      TableDescriptorBuilder.newBuilder(tableName)
+        .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f")).setRegionReplication(2).build(),
+      new byte[][] { Bytes.toBytes("a"), Bytes.toBytes("b"), Bytes.toBytes("c") });
+    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(connection, tableName);
 
     // Log hbase:meta to be helpful
     printMeta(connection);
@@ -156,18 +151,17 @@ public class TestRegionInfoMismatchTool {
     assertEquals("Found malformed regions: " + malformedRegions, 1, malformedRegions.size());
 
     assertArrayEquals(regionToCorrupt.getEncodedNameAsBytes(),
-        encodeRegionName(malformedRegions.get(0).getRegionName()));
+      encodeRegionName(malformedRegions.get(0).getRegionName()));
     assertEquals(corruptedRegion, malformedRegions.get(0).getRegionInfo());
   }
 
   @Test
   public void testReportManyCorruptRegions() throws Exception {
-    admin.createTable(TableDescriptorBuilder.newBuilder(tableName)
-        .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f"))
-        .setRegionReplication(2)
-        .build(), new byte[][] {Bytes.toBytes("a"), Bytes.toBytes("b"), Bytes.toBytes("c")});
-    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(
-        connection, tableName);
+    admin.createTable(
+      TableDescriptorBuilder.newBuilder(tableName)
+        .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f")).setRegionReplication(2).build(),
+      new byte[][] { Bytes.toBytes("a"), Bytes.toBytes("b"), Bytes.toBytes("c") });
+    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(connection, tableName);
     LOG.info("Created regions {}", regions);
 
     assertEquals(4, regions.size());
@@ -198,11 +192,11 @@ public class TestRegionInfoMismatchTool {
     for (int i = 0; i < regions.size(); i++) {
       RegionInfo originalRegion = regions.get(i);
       RegionInfo corruptedRegion = corruptedRegions.get(i);
-      assertArrayEquals("Comparing "
-          + Bytes.toStringBinary(originalRegion.getEncodedNameAsBytes()) + " and "
+      assertArrayEquals(
+        "Comparing " + Bytes.toStringBinary(originalRegion.getEncodedNameAsBytes()) + " and "
           + Bytes.toStringBinary(encodeRegionName(malformedRegions.get(i).getRegionName())),
-          originalRegion.getEncodedNameAsBytes(),
-          encodeRegionName(malformedRegions.get(i).getRegionName()));
+        originalRegion.getEncodedNameAsBytes(),
+        encodeRegionName(malformedRegions.get(i).getRegionName()));
       assertEquals(corruptedRegion, malformedRegions.get(i).getRegionInfo());
     }
   }
@@ -246,18 +240,15 @@ public class TestRegionInfoMismatchTool {
 
   // Copy from HBCKMetaTableAccessor so we can introduce the "bug" into the cell value
   Put makePutFromRegionInfo(RegionInfo originalRegionInfo, RegionInfo corruptRegionInfo)
-      throws IOException {
+    throws IOException {
     System.out.println("Changing " + originalRegionInfo + " to " + corruptRegionInfo);
     Put put = new Put(originalRegionInfo.getRegionName());
-    //copied from MetaTableAccessor
-    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
-      .setRow(put.getRow())
-      .setFamily(HConstants.CATALOG_FAMILY)
-      .setQualifier(HConstants.REGIONINFO_QUALIFIER)
+    // copied from MetaTableAccessor
+    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY).setRow(put.getRow())
+      .setFamily(HConstants.CATALOG_FAMILY).setQualifier(HConstants.REGIONINFO_QUALIFIER)
       .setType(Type.Put)
       // Hack in our own encoded name.
-      .setValue(RegionInfo.toByteArray(corruptRegionInfo))
-      .build());
+      .setValue(RegionInfo.toByteArray(corruptRegionInfo)).build());
     return put;
   }
 
@@ -286,10 +277,11 @@ public class TestRegionInfoMismatchTool {
 
   void printCell(Cell cell) throws DeserializationException {
     LOG.info(CellUtil.toString(cell, true));
-    if (Bytes.equals(CellUtil.cloneFamily(cell), HConstants.CATALOG_FAMILY) &&
-        Bytes.equals(CellUtil.cloneQualifier(cell), HConstants.REGIONINFO_QUALIFIER)) {
-      LOG.info("Deserialized RegionInfo="
-        + RegionInfo.parseFrom(CellUtil.cloneValue(cell)));
+    if (
+      Bytes.equals(CellUtil.cloneFamily(cell), HConstants.CATALOG_FAMILY)
+        && Bytes.equals(CellUtil.cloneQualifier(cell), HConstants.REGIONINFO_QUALIFIER)
+    ) {
+      LOG.info("Deserialized RegionInfo=" + RegionInfo.parseFrom(CellUtil.cloneValue(cell)));
     }
   }
 

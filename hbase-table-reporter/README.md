@@ -62,5 +62,5 @@ $ for i in $(ls histogram); do  echo -n \"pwd/$i\"; x=$(head -1 $i | sed -e 's/^
 
 Or if all the reporter files are in the current directory, something like this to put the `.p` file references into files in the tmp dir:
 ```
-$ for z in rowSize.histo rowSize.per columnCount.histo columnCount.per; do for i in $(ls *$z*); do  echo -n \"`pwd`/$i\"; x=$(head -1 $i | sed -e 's/^# //' | sed -e 's/_/\\\\_/g'); echo " title \"$x\" with lines, \\";  done > /tmp/$z.txt; done 
+$ for z in rowSize.histo rowSize.per columnCount.histo columnCount.per; do for i in $(ls *$z*); do  echo -n \"`pwd`/$i\"; x=$(head -1 $i | sed -e 's/^# //' | sed -e 's/_/\\\\_/g'); echo " title \"$x\" with lines, \\";  done > /tmp/$z.txt; done
 ```

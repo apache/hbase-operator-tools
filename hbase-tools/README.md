@@ -72,7 +72,7 @@ _org.apache.hadoop.hbase.client.Admin.mergeRegionsAsync_ client API method.
 This means multiple merge requests had been sent once the whole list has been
 iterated.
 
-Assuming that all merges issued by the RegionsMerger are successful, the resulting number of 
+Assuming that all merges issued by the RegionsMerger are successful, the resulting number of
 regions will be no more than half the original number of regions. This resulting total
 might not be equal to the target value passed as parameter, in which case
 _RegionsMerger_ will perform another round of merge requests, this time over
@@ -169,4 +169,4 @@ without invoking `hbck2 scheduleRecoveries` command.
 
 _RegionsOnUnknownServersRecoverer_ parses master log file searching for specific messages mentioning
  "unknown servers". Once "unknown servers" are found, it then uses `HBCK2.scheduleRecoveries` to
- submit SCPs for each of these "unknown servers". 
+ submit SCPs for each of these "unknown servers".
