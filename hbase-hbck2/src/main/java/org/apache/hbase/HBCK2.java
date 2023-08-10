@@ -39,6 +39,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.retry.RetryOneTime;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
@@ -62,6 +65,9 @@ import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.zookeeper.ZKConfig;
+import org.apache.hadoop.hbase.zookeeper.ZKMetadata;
+import org.apache.hadoop.hbase.zookeeper.ZNodePaths;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
@@ -75,7 +81,9 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
+import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
+import org.apache.hadoop.hbase.shaded.protobuf.generated.ZooKeeperProtos;
 
 /**
  * HBase fixup tool version 2, for hbase-2.0.0+ clusters. Supercedes hbck1.
@@ -106,6 +114,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String GENERATE_TABLE_INFO = "generateMissingTableDescriptorFile";
   private static final String FIX_META = "fixMeta";
   private static final String REGIONINFO_MISMATCH = "regionInfoMismatch";
+
   // TODO update this map in case of the name of a method changes in Hbck interface
   // in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
   // does not equals to the method name in Hbck interface.
@@ -132,6 +141,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
    * Wait 1ms on lock by default.
    */
   private static final long DEFAULT_LOCK_WAIT = 1;
+
+  private static final String META_ENCODED_REGIONNAME = "1588230740";
 
   /**
    * Check for HBCK support. Expects created connection.
@@ -259,7 +270,43 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     RegionState.State state = RegionState.State.valueOf(args[2]);
     int replicaId = Integer.parseInt(args[1]);
-    return setRegionState(connection, args[0], replicaId, state);
+    if (META_ENCODED_REGIONNAME.equals(args[0])) {
+      return setRegionStateForMeta(replicaId, state);
+    } else {
+      return setRegionState(connection, args[0], replicaId, state);
+    }
+  }
+
+  int setRegionStateForMeta(int replicaId, RegionState.State newState) throws IOException {
+    String mrsPath = new ZNodePaths(conf).getZNodeForReplica(replicaId);
+    try (CuratorFramework client = CuratorFrameworkFactory
+      .newClient(ZKConfig.getZKQuorumServersString(conf), new RetryOneTime(3000))) {
+      client.start();
+      // read and print current MetaRegionServer info
+      byte[] mrsData = ZKMetadata.removeMetaData(client.getData().forPath(mrsPath));
+      int prefixLen = ProtobufUtil.lengthOfPBMagic();
+      ZooKeeperProtos.MetaRegionServer mrs = ZooKeeperProtos.MetaRegionServer.parser()
+        .parseFrom(mrsData, prefixLen, mrsData.length - prefixLen);
+      System.out.println(mrs.getServer());
+      String currentState = mrs.getState().toString();
+
+      // update MetaRegionServer with new state
+      mrs = mrs.toBuilder().setState(newState.convert()).build();
+      mrsData = ProtobufUtil.prependPBMagic(mrs.toByteArray());
+      client.setData().forPath(mrsPath, mrsData);
+
+      if (replicaId == 0) {
+        System.out.println("Changed region " + META_ENCODED_REGIONNAME + " STATE from "
+          + currentState + " to " + newState);
+      } else {
+        System.out.println("Changed STATE for replica region " + replicaId + " of primary region "
+          + META_ENCODED_REGIONNAME + "from " + currentState + " to " + newState);
+      }
+    } catch (Exception e) {
+      LOG.error("Error changing state for region of meta: ", e);
+      throw new IOException(e);
+    }
+    return EXIT_SUCCESS;
   }
 
   int setRegionState(ClusterConnection connection, String region, int replicaId,
