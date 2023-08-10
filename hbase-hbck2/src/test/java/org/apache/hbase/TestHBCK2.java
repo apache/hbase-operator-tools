@@ -37,6 +37,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.retry.RetryOneTime;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
@@ -51,10 +55,14 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.master.RegionState;
+import org.apache.hadoop.hbase.shaded.protobuf.ProtobufUtil;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.Threads;
 
+import org.apache.hadoop.hbase.zookeeper.ZKConfig;
+import org.apache.hadoop.hbase.zookeeper.ZKMetadata;
+import org.apache.hadoop.hbase.zookeeper.ZNodePaths;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -226,6 +234,30 @@ public class TestHBCK2 {
       assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
     } finally {
       TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test
+  public void testSetRegionStateForMeta() throws Exception {
+    Configuration conf = TEST_UTIL.getConfiguration();
+    String mrsPath = new ZNodePaths(conf).getZNodeForReplica(0);
+    try (CuratorFramework client = CuratorFrameworkFactory
+            .newClient(ZKConfig.getZKQuorumServersString(conf), new RetryOneTime(3000))) {
+      client.start();
+      // current state should be OPEN
+      byte[] mrsData = ZKMetadata.removeMetaData(client.getData().forPath(mrsPath));
+      RegionState regionState= ProtobufUtil.parseMetaRegionStateFrom(mrsData,0);
+      assertEquals(RegionState.State.OPEN, regionState.getState());
+
+      // change state to OFFLINE and then to OPEN
+      RegionState.State[] targetStates = new RegionState.State[]{RegionState.State.OFFLINE,
+              RegionState.State.OPEN};
+      for (RegionState.State targetState : targetStates) {
+        this.hbck2.setRegionStateForMeta(0, targetState);
+        mrsData = ZKMetadata.removeMetaData(client.getData().forPath(mrsPath));
+        regionState = ProtobufUtil.parseMetaRegionStateFrom(mrsData, 0);
+        assertEquals(targetState, regionState.getState());
+      }
     }
   }
 
