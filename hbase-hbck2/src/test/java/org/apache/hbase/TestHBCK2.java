@@ -60,6 +60,7 @@ import org.apache.hadoop.hbase.util.Threads;
 import org.apache.hadoop.hbase.zookeeper.ZKConfig;
 import org.apache.hadoop.hbase.zookeeper.ZKMetadata;
 import org.apache.hadoop.hbase.zookeeper.ZNodePaths;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
