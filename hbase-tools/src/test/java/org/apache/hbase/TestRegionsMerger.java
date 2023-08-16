@@ -21,7 +21,6 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellBuilderFactory;
 import org.apache.hadoop.hbase.CellBuilderType;
@@ -53,7 +52,7 @@ public class TestRegionsMerger {
   @BeforeClass
   public static void beforeClass() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
-      Long.toString(1024*1024*3));
+      Long.toString(1024 * 1024 * 3));
     TEST_UTIL.startMiniCluster(3);
   }
 
@@ -85,8 +84,8 @@ public class TestRegionsMerger {
     final int target = 10;
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, target);
     assertEquals(target, result.size());
-    assertEquals("Row count before and after merge should be equal",
-        originalCount, TEST_UTIL.countRows(table));
+    assertEquals("Row count before and after merge should be equal", originalCount,
+      TEST_UTIL.countRows(table));
   }
 
   @Test
@@ -95,19 +94,18 @@ public class TestRegionsMerger {
       TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
       TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
       Table tableWithNamespace =
-          TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
+        TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
       final int originalCount = TEST_UTIL.countRows(tableWithNamespace);
       final int target = 10;
       List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME_WITH_NAMESPACE, target);
       assertEquals(target, result.size());
-      assertEquals("Row count before and after merge should be equal",
-        originalCount, TEST_UTIL.countRows(tableWithNamespace));
+      assertEquals("Row count before and after merge should be equal", originalCount,
+        TEST_UTIL.countRows(tableWithNamespace));
     } finally {
       TEST_UTIL.deleteTable(TABLE_NAME_WITH_NAMESPACE);
       TEST_UTIL.getAdmin().deleteNamespace(NAMESPACE);
     }
   }
-
 
   @Test
   public void testMergeRegionsCanMergeSomeButNotToTarget() throws Exception {
@@ -116,8 +114,8 @@ public class TestRegionsMerger {
     final int originalCount = TEST_UTIL.countRows(table);
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 3);
     assertEquals(8, result.size());
-    assertEquals("Row count before and after merge should be equal",
-        originalCount, TEST_UTIL.countRows(table));
+    assertEquals("Row count before and after merge should be equal", originalCount,
+      TEST_UTIL.countRows(table));
   }
 
   @Test
@@ -129,17 +127,17 @@ public class TestRegionsMerger {
     final int originalCount = TEST_UTIL.countRows(table);
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 3);
     assertEquals(15, result.size());
-    assertEquals("Row count before and after merge should be equal",
-        originalCount, TEST_UTIL.countRows(table));
+    assertEquals("Row count before and after merge should be equal", originalCount,
+      TEST_UTIL.countRows(table));
   }
 
   @Test
   public void testMergeRegionsInvalidParams() throws Exception {
     final int originalCount = TEST_UTIL.countRows(table);
     RegionsMerger merger = new RegionsMerger(TEST_UTIL.getConfiguration());
-    assertEquals(1, merger.run(new String[]{}));
-    assertEquals("Row count before and after merge should be equal",
-        originalCount, TEST_UTIL.countRows(table));
+    assertEquals(1, merger.run(new String[] {}));
+    assertEquals("Row count before and after merge should be equal", originalCount,
+      TEST_UTIL.countRows(table));
   }
 
   @Test
@@ -150,31 +148,26 @@ public class TestRegionsMerger {
     // not have the column info:state in the meta table, only the column
     // rep_barrier:seqnumDuringOpen is left. And we should skip the parent regions.
     // Here we manually put a region with no state defined.
-    String noStateRegion = TABLE_NAME.getNameAsString()+",0";
+    String noStateRegion = TABLE_NAME.getNameAsString() + ",0";
     Put put = new Put(Bytes.toBytes(noStateRegion));
-    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY)
-      .setRow(put.getRow())
-      .setFamily(HConstants.REPLICATION_BARRIER_FAMILY)
-      .setQualifier(HConstants.SEQNUM_QUALIFIER)
-      .setTimestamp(put.getTimestamp())
-      .setType(Cell.Type.Put)
-      .setValue(Bytes.toBytes(1))
-      .build());
+    put.add(CellBuilderFactory.create(CellBuilderType.SHALLOW_COPY).setRow(put.getRow())
+      .setFamily(HConstants.REPLICATION_BARRIER_FAMILY).setQualifier(HConstants.SEQNUM_QUALIFIER)
+      .setTimestamp(put.getTimestamp()).setType(Cell.Type.Put).setValue(Bytes.toBytes(1)).build());
     MetaTableAccessor.getMetaHTable(TEST_UTIL.getConnection()).put(put);
 
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
     final int originalCount = TEST_UTIL.countRows(table);
     List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, 10);
     assertEquals(10, result.size());
-    assertEquals("Row count before and after merge should be equal",
-      originalCount, TEST_UTIL.countRows(table));
+    assertEquals("Row count before and after merge should be equal", originalCount,
+      TEST_UTIL.countRows(table));
   }
 
   private void generateTableData() throws Exception {
     TEST_UTIL.getAdmin().getRegions(TABLE_NAME).forEach(r -> {
-      byte[] key = r.getStartKey().length == 0 ? new byte[]{0} : r.getStartKey();
+      byte[] key = r.getStartKey().length == 0 ? new byte[] { 0 } : r.getStartKey();
       Put put = new Put(key);
-      put.addColumn(family, Bytes.toBytes("c"), new byte[1024*1024]);
+      put.addColumn(family, Bytes.toBytes("c"), new byte[1024 * 1024]);
       try {
         table.put(put);
       } catch (IOException e) {

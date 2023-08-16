@@ -36,7 +36,6 @@ import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
-
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
@@ -54,7 +53,6 @@ import org.apache.hadoop.hbase.master.RegionState;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.hbase.util.Threads;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -73,8 +71,8 @@ public class TestHBCK2 {
   private static final Logger LOG = LoggerFactory.getLogger(TestHBCK2.class);
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static final TableName TABLE_NAME = TableName.valueOf(TestHBCK2.class.getSimpleName());
-  private static final TableName REGION_STATES_TABLE_NAME = TableName.
-          valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
+  private static final TableName REGION_STATES_TABLE_NAME =
+    TableName.valueOf(TestHBCK2.class.getSimpleName() + "-REGIONS_STATES");
   private final static String ASSIGNS = "assigns";
   private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
   private final static String UNASSIGNS = "unassigns";
@@ -127,7 +125,7 @@ public class TestHBCK2 {
       assertTrue("Found=" + state.getState(), state.isDisabled());
 
       // Test the new method with arg list
-      String[] args = new String[]{TABLE_NAME.getNameAsString(), "DISABLED"};
+      String[] args = new String[] { TABLE_NAME.getNameAsString(), "DISABLED" };
       state = this.hbck2.setTableStateByArgs(hbck, args);
       assertTrue("Found=" + state.getState(), state.isEnabled());
     }
@@ -136,8 +134,8 @@ public class TestHBCK2 {
   @Test
   public void testSetTableStateWithInputFiles() throws IOException {
     File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForSetTableTest");
-    writeStringsToAFile(testFile, new String[]{TABLE_NAME.getNameAsString() + " DISABLED"});
-    String result = testRunWithArgs(new String[]{SET_TABLE_STATE, "-i", testFile.toString()});
+    writeStringsToAFile(testFile, new String[] { TABLE_NAME.getNameAsString() + " DISABLED" });
+    String result = testRunWithArgs(new String[] { SET_TABLE_STATE, "-i", testFile.toString() });
     assertTrue(result.contains("tableName=TestHBCK2, state=ENABLED"));
 
     // Restore the state.
@@ -152,15 +150,15 @@ public class TestHBCK2 {
     try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
       List<RegionInfo> regions = admin.getRegions(TABLE_NAME);
       for (RegionInfo ri : regions) {
-        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-                getRegionStates().getRegionState(ri.getEncodedName());
+        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager()
+          .getRegionStates().getRegionState(ri.getEncodedName());
         LOG.info("RS: {}", rs.toString());
       }
       String[] regionStrsArray =
-              regions.stream().map(RegionInfo::getEncodedName).toArray(String[]::new);
+        regions.stream().map(RegionInfo::getEncodedName).toArray(String[]::new);
       File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForUnAssignsTest");
       writeStringsToAFile(testFile, regionStrsArray);
-      String result = testRunWithArgs(new String[]{UNASSIGNS, "-i", testFile.toString()});
+      String result = testRunWithArgs(new String[] { UNASSIGNS, "-i", testFile.toString() });
       validateRegionEndState(getPidsFromResult(result), regions, false);
     }
   }
@@ -170,20 +168,20 @@ public class TestHBCK2 {
     try (Admin admin = TEST_UTIL.getConnection().getAdmin()) {
       List<RegionInfo> regions = admin.getRegions(TABLE_NAME);
       for (RegionInfo ri : regions) {
-        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-                getRegionStates().getRegionState(ri.getEncodedName());
+        RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager()
+          .getRegionStates().getRegionState(ri.getEncodedName());
         LOG.info("RS: {}", rs.toString());
       }
       String[] regionStrsArray =
-              regions.stream().map(RegionInfo::getEncodedName).toArray(String[]::new);
+        regions.stream().map(RegionInfo::getEncodedName).toArray(String[]::new);
 
       try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
         unassigns(regions, regionStrsArray);
         List<Long> pids = this.hbck2.assigns(hbck, regionStrsArray);
         validateRegionEndState(pids, regions, true);
         // What happens if crappy region list passed?
-        pids = this.hbck2.assigns(hbck, Arrays.stream(new String[]{"a", "some rubbish name"}).
-                collect(Collectors.toList()).toArray(new String[]{}));
+        pids = this.hbck2.assigns(hbck, Arrays.stream(new String[] { "a", "some rubbish name" })
+          .collect(Collectors.toList()).toArray(new String[] {}));
         for (long pid : pids) {
           assertEquals(org.apache.hadoop.hbase.procedure2.Procedure.NO_PROC_ID, pid);
         }
@@ -192,7 +190,7 @@ public class TestHBCK2 {
         unassigns(regions, regionStrsArray);
         File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForAssignsTest");
         writeStringsToAFile(testFile, regionStrsArray);
-        String result = testRunWithArgs(new String[]{ASSIGNS, "-i", testFile.toString()});
+        String result = testRunWithArgs(new String[] { ASSIGNS, "-i", testFile.toString() });
         validateRegionEndState(getPidsFromResult(result), regions, true);
 
         // Test multiple input files
@@ -201,12 +199,12 @@ public class TestHBCK2 {
         params.add(ASSIGNS);
         params.add("-i");
         for (String regionStr : regionStrsArray) {
-          File tempTestFile = new File(TEST_UTIL.getDataTestDir().toString(),
-                  "inputForAssignsTest-" + regionStr);
-          writeStringsToAFile(tempTestFile, new String[]{regionStr});
+          File tempTestFile =
+            new File(TEST_UTIL.getDataTestDir().toString(), "inputForAssignsTest-" + regionStr);
+          writeStringsToAFile(tempTestFile, new String[] { regionStr });
           params.add(tempTestFile.toString());
         }
-        result = testRunWithArgs(params.toArray(new String[]{}));
+        result = testRunWithArgs(params.toArray(new String[] {}));
         validateRegionEndState(getPidsFromResult(result), regions, true);
       }
     }
@@ -237,7 +235,7 @@ public class TestHBCK2 {
       RegionInfo info = regions.get(0);
       assertEquals(RegionState.State.OPEN, getCurrentRegionState(info));
       String region = info.getEncodedName();
-      String[] args = new String[]{region, "0", "CLOSING"};
+      String[] args = new String[] { region, "0", "CLOSING" };
       try (ClusterConnection connection = this.hbck2.connect()) {
         this.hbck2.setRegionStateByArgs(connection, args);
       }
@@ -262,7 +260,7 @@ public class TestHBCK2 {
 
       File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForSetRegionStateTest");
       writeStringsToAFile(testFile, input);
-      testRunWithArgs(new String[]{SET_REGION_STATE, "-i", testFile.toString()});
+      testRunWithArgs(new String[] { SET_REGION_STATE, "-i", testFile.toString() });
 
       for (RegionInfo info : regions) {
         assertEquals(RegionState.State.CLOSING, getCurrentRegionState(info));
@@ -288,7 +286,7 @@ public class TestHBCK2 {
       String primaryRegion = primaryRegionInfo.getEncodedName();
       try (ClusterConnection connection = this.hbck2.connect()) {
         this.hbck2.setRegionState(connection, primaryRegion, regions.get(1).getReplicaId(),
-                RegionState.State.CLOSING);
+          RegionState.State.CLOSING);
       }
       assertEquals(RegionState.State.CLOSING, getCurrentRegionState(primaryRegionInfo, replicaId));
     } finally {
@@ -299,8 +297,8 @@ public class TestHBCK2 {
   @Test
   public void testSetRegionStateInvalidRegion() throws IOException {
     try (ClusterConnection connection = this.hbck2.connect()) {
-      assertEquals(HBCK2.EXIT_FAILURE, this.hbck2.setRegionState(connection, "NO_REGION",
-              RegionState.State.CLOSING));
+      assertEquals(HBCK2.EXIT_FAILURE,
+        this.hbck2.setRegionState(connection, "NO_REGION", RegionState.State.CLOSING));
     }
   }
 
@@ -333,29 +331,27 @@ public class TestHBCK2 {
   @Test
   public void testReportMissingRegionsInMetaAllNsTbls() throws Exception {
     String[] nullArgs = null;
-    this.testReportMissingRegionsInMeta(5, 5,
-            nullArgs);
+    this.testReportMissingRegionsInMeta(5, 5, nullArgs);
   }
 
   @Test
   public void testReportMissingRegionsInMetaSpecificTbl() throws Exception {
-    this.testReportMissingRegionsInMeta(5, 5,
-            TABLE_NAME.getNameWithNamespaceInclAsString());
+    this.testReportMissingRegionsInMeta(5, 5, TABLE_NAME.getNameWithNamespaceInclAsString());
   }
 
   @Test
   public void testReportMissingRegionsInMetaSpecificTblAndNsTbl() throws Exception {
-    this.testReportMissingRegionsInMeta(5, 5,
-            TABLE_NAME.getNameWithNamespaceInclAsString(), "hbase:namespace");
+    this.testReportMissingRegionsInMeta(5, 5, TABLE_NAME.getNameWithNamespaceInclAsString(),
+      "hbase:namespace");
   }
 
   @Test
   public void testReportMissingRegionsInMetaSpecificTblAndNsTblAlsoMissing() throws Exception {
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), TableName.valueOf("hbase:namespace"));
+    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(),
+      TableName.valueOf("hbase:namespace"));
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), regions.get(0));
-    this.testReportMissingRegionsInMeta(5, 6,
-            TABLE_NAME.getNameWithNamespaceInclAsString(), "hbase:namespace");
+    this.testReportMissingRegionsInMeta(5, 6, TABLE_NAME.getNameWithNamespaceInclAsString(),
+      "hbase:namespace");
   }
 
   @Test
@@ -372,18 +368,18 @@ public class TestHBCK2 {
   @Test
   public void testFormatReportMissingInMetaOneMissing() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), regions.get(0));
     String expectedResult = "Missing Regions for each table:\n";
     String result = testFormatMissingRegionsInMetaReport();
-    //validates initial report message
+    // validates initial report message
     assertTrue(result.contains(expectedResult));
-    //validates our test table region is reported missing
-    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
-            + regions.get(0).getEncodedName();
+    // validates our test table region is reported missing
+    expectedResult =
+      "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    //validates namespace region is not reported missing
+    // validates namespace region is not reported missing
     expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
@@ -412,26 +408,24 @@ public class TestHBCK2 {
       waitOnPids(pids);
     }
     for (RegionInfo ri : regions) {
-      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-              getRegionStates().getRegionState(ri.getEncodedName());
+      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager()
+        .getRegionStates().getRegionState(ri.getEncodedName());
       LOG.info("RS: {}", rs.toString());
       assertTrue(rs.toString(), rs.isClosed());
     }
   }
 
-
   private void validateRegionEndState(List<Long> pids, List<RegionInfo> regions, boolean open) {
     waitOnPids(pids);
     for (RegionInfo ri : regions) {
-      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager().
-              getRegionStates().getRegionState(ri.getEncodedName());
+      RegionState rs = TEST_UTIL.getHBaseCluster().getMaster().getAssignmentManager()
+        .getRegionStates().getRegionState(ri.getEncodedName());
       LOG.info("RS: {}", rs.toString());
       assertTrue(rs.toString(), open ? rs.isOpened() : rs.isClosed());
     }
   }
 
-  private String testFormatMissingRegionsInMetaReport()
-          throws IOException {
+  private String testFormatMissingRegionsInMetaReport() throws IOException {
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     final StringBuilder builder = new StringBuilder();
     PrintStream originalOS = System.out;
@@ -443,7 +437,7 @@ public class TestHBCK2 {
     };
     System.setOut(new PrintStream(testOS));
 
-    hbck.run(new String[]{"reportMissingRegionsInMeta"});
+    hbck.run(new String[] { "reportMissingRegionsInMeta" });
     System.setOut(originalOS);
     return builder.toString();
   }
@@ -455,18 +449,18 @@ public class TestHBCK2 {
   }
 
   private void testAddMissingRegionsInMetaForTables(int missingRegions, int totalRegions)
-          throws Exception {
+    throws Exception {
     TableName tableName = createTestTable(totalRegions);
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     Connection connection = TEST_UTIL.getConnection();
     regions.subList(0, missingRegions).forEach(r -> deleteRegionInfo(connection, r));
     int remaining = totalRegions - missingRegions;
     assertEquals("Table should have " + remaining + " regions in META.", remaining,
-            HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
-    List<Future<List<String>>> result = hbck.addMissingRegionsInMetaForTables("default:" +
-            tableName.getNameAsString());
+      HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+    List<Future<List<String>>> result =
+      hbck.addMissingRegionsInMetaForTables("default:" + tableName.getNameAsString());
 
     Integer total = result.stream().map(f -> {
       try {
@@ -478,24 +472,24 @@ public class TestHBCK2 {
     }).reduce(0, Integer::sum);
     assertEquals(missingRegions, total.intValue());
     assertEquals("Table regions should had been re-added in META.", totalRegions,
-            HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
-    //compare the added regions to make sure those are the same
-    List<RegionInfo> newRegions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+      HBCKMetaTableAccessor.getRegionCount(TEST_UTIL.getConnection(), tableName));
+    // compare the added regions to make sure those are the same
+    List<RegionInfo> newRegions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     assertEquals("All re-added regions should be the same", regions, newRegions);
   }
 
   private void testReportMissingRegionsInMeta(int missingRegionsInTestTbl,
-          int expectedTotalMissingRegions, String... namespaceOrTable) throws Exception {
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+    int expectedTotalMissingRegions, String... namespaceOrTable) throws Exception {
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
     Connection connection = TEST_UTIL.getConnection();
     regions.subList(0, missingRegionsInTestTbl).forEach(r -> deleteRegionInfo(connection, r));
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
     final Map<TableName, List<Path>> report =
-            hbck.reportTablesWithMissingRegionsInMeta(namespaceOrTable);
-    long resultingMissingRegions = report.keySet().stream().mapToLong(nsTbl ->
-            report.get(nsTbl).size()).sum();
+      hbck.reportTablesWithMissingRegionsInMeta(namespaceOrTable);
+    long resultingMissingRegions =
+      report.keySet().stream().mapToLong(nsTbl -> report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalMissingRegions, resultingMissingRegions);
     String[] nullArgs = null;
     hbck.addMissingRegionsInMetaForTables(nullArgs);
@@ -513,30 +507,31 @@ public class TestHBCK2 {
     Get get = new Get(regionInfo.getRegionName());
     get.addColumn(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER);
     Result result = metaTable.get(get);
-    byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
-            HConstants.STATE_QUALIFIER);
-    return currentStateValue != null ?
-            RegionState.State.valueOf(Bytes.toString(currentStateValue))
-            : null;
+    byte[] currentStateValue =
+      result.getValue(HConstants.CATALOG_FAMILY, HConstants.STATE_QUALIFIER);
+    return currentStateValue != null
+      ? RegionState.State.valueOf(Bytes.toString(currentStateValue))
+      : null;
   }
 
   private RegionState.State getCurrentRegionState(RegionInfo primary, int replicaId)
-          throws IOException {
+    throws IOException {
     Table metaTable = TEST_UTIL.getConnection().getTable(TableName.valueOf("hbase:meta"));
     Get get = new Get(primary.getRegionName());
     get.addColumn(HConstants.CATALOG_FAMILY, HBCK2.getRegionStateColumn(replicaId));
     Result result = metaTable.get(get);
-    byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
-            HBCK2.getRegionStateColumn(replicaId));
-    return currentStateValue != null ?
-            RegionState.State.valueOf(Bytes.toString(currentStateValue))
-            : null;
+    byte[] currentStateValue =
+      result.getValue(HConstants.CATALOG_FAMILY, HBCK2.getRegionStateColumn(replicaId));
+    return currentStateValue != null
+      ? RegionState.State.valueOf(Bytes.toString(currentStateValue))
+      : null;
   }
 
   private void waitOnPids(List<Long> pids) {
     for (Long pid : pids) {
-      while (!TEST_UTIL.getHBaseCluster().getMaster().getMasterProcedureExecutor().
-              isFinished(pid)) {
+      while (
+        !TEST_UTIL.getHBaseCluster().getMaster().getMasterProcedureExecutor().isFinished(pid)
+      ) {
         Threads.sleep(100);
       }
     }
@@ -568,31 +563,28 @@ public class TestHBCK2 {
   @Test
   public void testReportExtraRegionsInMetaAllNsTbls() throws Exception {
     String[] nullArgs = null;
-    this.testReportExtraRegionsInMeta(5, 5,
-            nullArgs);
+    this.testReportExtraRegionsInMeta(5, 5, nullArgs);
   }
 
   @Test
   public void testReportExtraRegionsInMetaSpecificTbl() throws Exception {
-    this.testReportExtraRegionsInMeta(5, 5,
-            TABLE_NAME.getNameWithNamespaceInclAsString());
+    this.testReportExtraRegionsInMeta(5, 5, TABLE_NAME.getNameWithNamespaceInclAsString());
   }
 
   @Test
   public void testReportExtraRegionsInMetaSpecificTblAndNsTbl() throws Exception {
-    this.testReportExtraRegionsInMeta(5, 5,
-            TABLE_NAME.getNameWithNamespaceInclAsString(), "hbase:namespace");
+    this.testReportExtraRegionsInMeta(5, 5, TABLE_NAME.getNameWithNamespaceInclAsString(),
+      "hbase:namespace");
   }
 
   @Test
   public void testReportExtraRegionsInMetaSpecificTblAndNsTblAlsoExtra() throws Exception {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
-    this.testReportExtraRegionsInMeta(5, 6,
-            TABLE_NAME.getNameWithNamespaceInclAsString(),
-            tableName.getNameWithNamespaceInclAsString());
+    this.testReportExtraRegionsInMeta(5, 6, TABLE_NAME.getNameWithNamespaceInclAsString(),
+      tableName.getNameWithNamespaceInclAsString());
   }
 
   @Test
@@ -609,18 +601,18 @@ public class TestHBCK2 {
   @Test
   public void testFormatReportExtraInMetaOneExtra() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaReport();
-    //validates initial report message
+    // validates initial report message
     assertTrue(result.contains(expectedResult));
-    //validates our test table region is reported as extra
-    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
-            + regions.get(0).getEncodedName();
+    // validates our test table region is reported as extra
+    expectedResult =
+      "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    //validates namespace region is not reported missing
+    // validates namespace region is not reported missing
     expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
@@ -639,7 +631,7 @@ public class TestHBCK2 {
   @Test
   public void testFormatFixExtraRegionsInMetaNoExtraSpecifyTable() throws IOException {
     final String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n"
-            + "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+      + "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     String result = testFormatExtraRegionsInMetaFix("hbase:namespace");
     assertTrue(result.contains(expectedResult));
   }
@@ -647,18 +639,18 @@ public class TestHBCK2 {
   @Test
   public void testFormatFixExtraInMetaOneExtra() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaFix(null);
-    //validates initial execute message
+    // validates initial execute message
     assertTrue(result.contains(expectedResult));
-    //validates our test table region is reported as extra
-    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
-            + regions.get(0).getEncodedName();
+    // validates our test table region is reported as extra
+    expectedResult =
+      "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    //validates namespace region is not reported missing
+    // validates namespace region is not reported missing
     expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
@@ -666,18 +658,18 @@ public class TestHBCK2 {
   @Test
   public void testFormatFixExtraInMetaOneExtraSpecificTable() throws IOException {
     TableName tableName = createTestTable(5);
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaFix(tableName.getNameWithNamespaceInclAsString());
-    //validates initial execute message
+    // validates initial execute message
     assertTrue(result.contains(expectedResult));
-    //validates our test table region is reported as extra
-    expectedResult = "\t" + tableName.getNameAsString() + "->\n\t\t"
-            + regions.get(0).getEncodedName();
+    // validates our test table region is reported as extra
+    expectedResult =
+      "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    //validates namespace region is not reported missing
+    // validates namespace region is not reported missing
     expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
     assertFalse("Should not contain: " + expectedResult, result.contains(expectedResult));
   }
@@ -700,25 +692,26 @@ public class TestHBCK2 {
   public void testRemoveExtraRegionWithoutInfo() throws Exception {
     TableName tableName = createTestTable(5);
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-      .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     deleteRegionDir(tableName, regions.get(0).getEncodedName());
     HBCKMetaTableAccessor.deleteRegionInfoColumn(TEST_UTIL.getConnection(), regions.get(0));
-    assertEquals(1, hbck.extraRegionsInMeta(new String[]{"-f",
-      "default:" + tableName.getNameAsString()}).get(tableName).size());
+    assertEquals(1,
+      hbck.extraRegionsInMeta(new String[] { "-f", "default:" + tableName.getNameAsString() })
+        .get(tableName).size());
     assertEquals("Table regions should had been removed from META.", 4,
       HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName).size());
   }
 
   private String testFormatExtraRegionsInMetaReport() throws IOException {
-    return testRunWithArgs(new String[]{EXTRA_REGIONS_IN_META});
+    return testRunWithArgs(new String[] { EXTRA_REGIONS_IN_META });
   }
 
   private String testFormatExtraRegionsInMetaFix(String table) throws IOException {
     if (table != null) {
-      return testRunWithArgs(new String[]{EXTRA_REGIONS_IN_META, "-f", table});
+      return testRunWithArgs(new String[] { EXTRA_REGIONS_IN_META, "-f", table });
     } else {
-      return testRunWithArgs(new String[]{EXTRA_REGIONS_IN_META, "-f"});
+      return testRunWithArgs(new String[] { EXTRA_REGIONS_IN_META, "-f" });
     }
   }
 
@@ -739,38 +732,38 @@ public class TestHBCK2 {
   }
 
   private void testRemoveExtraRegionsInMetaForTables(int extraRegions, int totalRegions)
-          throws Exception {
+    throws Exception {
     TableName tableName = createTestTable(totalRegions);
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), tableName);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     regions.subList(0, extraRegions).forEach(r -> deleteRegionDir(tableName, r.getEncodedName()));
     int remaining = totalRegions - extraRegions;
-    assertEquals(extraRegions, hbck.extraRegionsInMeta(new String[]{"-f",
-      "default:" + tableName.getNameAsString()}).get(tableName).size());
+    assertEquals(extraRegions,
+      hbck.extraRegionsInMeta(new String[] { "-f", "default:" + tableName.getNameAsString() })
+        .get(tableName).size());
     assertEquals("Table regions should had been removed from META.", remaining,
-            HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName).size());
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName).size());
   }
 
   private void testReportExtraRegionsInMeta(int extraRegionsInTestTbl,
-          int expectedTotalExtraRegions, String... namespaceOrTable) throws Exception {
-    List<RegionInfo> regions = HBCKMetaTableAccessor
-            .getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
-    regions.subList(0, extraRegionsInTestTbl).forEach(r -> deleteRegionDir(TABLE_NAME,
-            r.getEncodedName()));
+    int expectedTotalExtraRegions, String... namespaceOrTable) throws Exception {
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), TABLE_NAME);
+    regions.subList(0, extraRegionsInTestTbl)
+      .forEach(r -> deleteRegionDir(TABLE_NAME, r.getEncodedName()));
     HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
-    final Map<TableName, List<String>> report =
-            hbck.extraRegionsInMeta(namespaceOrTable);
-    long resultingExtraRegions = report.keySet().stream().mapToLong(nsTbl ->
-            report.get(nsTbl).size()).sum();
+    final Map<TableName, List<String>> report = hbck.extraRegionsInMeta(namespaceOrTable);
+    long resultingExtraRegions =
+      report.keySet().stream().mapToLong(nsTbl -> report.get(nsTbl).size()).sum();
     assertEquals(expectedTotalExtraRegions, resultingExtraRegions);
   }
 
   @Test
   public void testByPassWithInputFiles() throws IOException {
     File testFile = new File(TEST_UTIL.getDataTestDir().toString(), "inputForSetRegionStateTest");
-    writeStringsToAFile(testFile, new String[]{"100568", "200568"});
-    List<Boolean> result = this.hbck2.bypass(new String[]{"-i", testFile.toString()});
+    writeStringsToAFile(testFile, new String[] { "100568", "200568" });
+    List<Boolean> result = this.hbck2.bypass(new String[] { "-i", testFile.toString() });
     assertNotNull(result);
     assertEquals(result.size(), 2);
     for (boolean rs : result) {

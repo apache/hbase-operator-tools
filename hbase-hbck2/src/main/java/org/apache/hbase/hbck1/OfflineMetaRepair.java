@@ -18,31 +18,27 @@
 package org.apache.hbase.hbck1;
 
 import java.io.IOException;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hadoop.io.MultipleIOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This code is used to rebuild meta offline from metadata hbase drops into the
- * filesystem. If there are any problem detected, it will fail suggesting actions
- * for the user to "fix" problems. If it succeeds, it will backup the previous
- * hbase:meta and write new tables in place.
- *
- * <p>This is an advanced feature, so is only exposed for use if explicitly
- * mentioned.
- *
- * <p>It came from hbck1 retains same class name and arguments (though it has
- * been moved to a different package)</p>
- *
- *
- * <p>Run the below to see options. Passing no argument will set the tool
- * running trying to effect a repair so pass '-h' to see output:
+ * This code is used to rebuild meta offline from metadata hbase drops into the filesystem. If there
+ * are any problem detected, it will fail suggesting actions for the user to "fix" problems. If it
+ * succeeds, it will backup the previous hbase:meta and write new tables in place.
+ * <p>
+ * This is an advanced feature, so is only exposed for use if explicitly mentioned.
+ * <p>
+ * It came from hbck1 retains same class name and arguments (though it has been moved to a different
+ * package)
+ * </p>
+ * <p>
+ * Run the below to see options. Passing no argument will set the tool running trying to effect a
+ * repair so pass '-h' to see output:
  * <code>$ hbase org.apache.hbase.hbck1.OfflineMetaRepair ...</code>
  */
 public final class OfflineMetaRepair {
@@ -51,16 +47,16 @@ public final class OfflineMetaRepair {
   /**
    * Hide constructor.
    */
-  private OfflineMetaRepair() {}
+  private OfflineMetaRepair() {
+  }
 
   protected static void printUsageAndExit() {
     StringBuilder sb = new StringBuilder();
-    sb.append("Usage: OfflineMetaRepair [opts]\n").
-       append("Where [opts] are:\n").
-       append(" -details               report of all regions before hbase:meta rebuild.\n").
-       append(" -base <hdfs://>        Base HBase Data directory to read from.\n").
-       append(" -sidelineDir <hdfs://> path of where to backup existing hbase:meta.\n").
-       append("Master should be down (Script runs regardless!)");
+    sb.append("Usage: OfflineMetaRepair [opts]\n").append("Where [opts] are:\n")
+      .append(" -details               report of all regions before hbase:meta rebuild.\n")
+      .append(" -base <hdfs://>        Base HBase Data directory to read from.\n")
+      .append(" -sidelineDir <hdfs://> path of where to backup existing hbase:meta.\n")
+      .append("Master should be down (Script runs regardless!)");
     System.err.println(sb.toString());
     Runtime.getRuntime().exit(-2);
   }

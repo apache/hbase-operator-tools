@@ -19,7 +19,6 @@ package org.apache.hbase;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
@@ -56,8 +55,7 @@ public class HBCKActions {
       }
       String tableName = args[1];
       tool.deleteRegionFromMeta(tableName);
-    }
-    else {
+    } else {
       System.err.println("ERROR: Unknown option passed.");
       printUsageAndExit();
     }
@@ -70,14 +68,13 @@ public class HBCKActions {
     System.err.println("      Prints this help message.\n");
     System.err.println("deleteRegionFromMeta <tableName>");
     System.err.println("      Deletes the middle region from the regions of the\n"
-                     + "      given table from Meta table. Removes whole of the\n"
-                     + "      info column family");
+      + "      given table from Meta table. Removes whole of the\n" + "      info column family");
     System.exit(1);
   }
 
   /**
-   * Deletes the middle region from the regions of the given table from Meta table
-   * Removes whole of the "info" column family
+   * Deletes the middle region from the regions of the given table from Meta table Removes whole of
+   * the "info" column family
    */
   private void deleteRegionFromMeta(String tname) throws IOException, InterruptedException {
     TableName tn = TableName.valueOf(tname);
@@ -85,7 +82,7 @@ public class HBCKActions {
       Table metaTable = connection.getTable(TableName.valueOf("hbase:meta"));
       List<RegionInfo> ris = HBCKMetaTableAccessor.getTableRegions(connection, tn);
       System.out.println(String.format("Current Regions of the table " + tn.getNameAsString()
-          + " in Meta before deletion of the region are: " + ris));
+        + " in Meta before deletion of the region are: " + ris));
       RegionInfo ri = ris.get(ris.size() / 2);
       System.out.println("Deleting Region " + ri);
       byte[] key = HBCKMetaTableAccessor.getMetaKeyForRegion(ri);
@@ -98,7 +95,7 @@ public class HBCKActions {
 
       ris = HBCKMetaTableAccessor.getTableRegions(connection, tn);
       System.out.println("Current Regions of the table " + tn.getNameAsString()
-          + " in Meta after deletion of the region are: " + ris);
+        + " in Meta after deletion of the region are: " + ris);
     }
   }
 }

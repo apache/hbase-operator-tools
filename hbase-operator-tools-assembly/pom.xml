@@ -1,8 +1,5 @@
-<?xml version="1.0"?>
-<project
-        xmlns="http://maven.apache.org/POM/4.0.0"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <!--
     /**
      * Licensed to the Apache Software Foundation (ASF) under one
@@ -30,16 +27,26 @@
     <relativePath>..</relativePath>
   </parent>
   <artifactId>hbase-operator-tools-assembly</artifactId>
-  <name>Apache HBase Operator Tools - Assembly</name>
-  <description>
-        Module that does hbase-operator-tools assembly and that is all that it does.
-        We have a dedicated module just for assembly because of
-        https://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries
-    </description>
   <packaging>pom</packaging>
+  <name>Apache HBase Operator Tools - Assembly</name>
+  <description>Module that does hbase-operator-tools assembly and that is all that it does.
+        We have a dedicated module just for assembly because of
+        https://maven.apache.org/plugins/maven-assembly-plugin/faq.html#module-binaries</description>
   <properties>
     <license.bundles.dependencies>true</license.bundles.dependencies>
   </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.hbase.operator.tools</groupId>
+      <artifactId>hbase-hbck2</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase.operator.tools</groupId>
+      <artifactId>hbase-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+  </dependencies>
   <build>
     <plugins>
       <plugin>
@@ -57,16 +64,4 @@
       </plugin>
     </plugins>
   </build>
-  <dependencies>
-    <dependency>
-      <groupId>org.apache.hbase.operator.tools</groupId>
-      <artifactId>hbase-hbck2</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-  <dependency>
-    <groupId>org.apache.hbase.operator.tools</groupId>
-    <artifactId>hbase-tools</artifactId>
-    <version>${project.version}</version>
-  </dependency>
-  </dependencies>
 </project>

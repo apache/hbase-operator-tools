@@ -39,7 +39,7 @@ import org.junit.rules.TestName;
 /**
  * COPIED from org.apache.hadoop.hbase.TestFSTableDescriptorForceCreation
  */
-@Category({MiscTests.class, SmallTests.class})
+@Category({ MiscTests.class, SmallTests.class })
 public class TestHBCKFsTableDescriptorForceCreation {
 
   @ClassRule
@@ -52,16 +52,14 @@ public class TestHBCKFsTableDescriptorForceCreation {
   public TestName name = new TestName();
 
   @Test
-  public void testShouldCreateNewTableDescriptorIfForcefulCreationIsFalse()
-    throws IOException {
+  public void testShouldCreateNewTableDescriptorIfForcefulCreationIsFalse() throws IOException {
     final String name = this.name.getMethodName();
     FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
 
     final TableDescriptor td = TableDescriptorBuilder.newBuilder(TableName.valueOf(name)).build();
-    assertTrue("Should create new table descriptor",
-               fstd.createTableDescriptor(td, false));
+    assertTrue("Should create new table descriptor", fstd.createTableDescriptor(td, false));
   }
 
   @Test
@@ -80,19 +78,14 @@ public class TestHBCKFsTableDescriptorForceCreation {
   }
 
   @Test
-  public void testShouldAllowForcefulCreationOfAlreadyExistingTableDescriptor()
-    throws Exception {
+  public void testShouldAllowForcefulCreationOfAlreadyExistingTableDescriptor() throws Exception {
     final String name = this.name.getMethodName();
     FileSystem fs = HBCKFsUtils.getRootDirFileSystem(UTIL.getConfiguration());
     Path rootdir = new Path(UTIL.getDataTestDir(), name);
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootdir);
     TableDescriptor htd = TableDescriptorBuilder.newBuilder(TableName.valueOf(name)).build();
     fstd.createTableDescriptor(htd, false);
-    assertTrue("Should create new table descriptor",
-               fstd.createTableDescriptor(htd, true));
+    assertTrue("Should create new table descriptor", fstd.createTableDescriptor(htd, true));
   }
 
 }
-
-
-

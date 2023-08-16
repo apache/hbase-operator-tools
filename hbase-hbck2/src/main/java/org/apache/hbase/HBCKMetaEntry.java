@@ -18,8 +18,8 @@
 package org.apache.hbase;
 
 /**
- * A conveninent representation of a row in meta, composing the encoded name and the related
- * rowkey (region name).
+ * A conveninent representation of a row in meta, composing the encoded name and the related rowkey
+ * (region name).
  */
 public class HBCKMetaEntry {
 

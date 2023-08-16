@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -41,8 +40,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This class can be used to generate missing table descriptor file based on the in-memory cache
- * of the active master or based on the file system.
+ * This class can be used to generate missing table descriptor file based on the in-memory cache of
+ * the active master or based on the file system.
  */
 public class MissingTableDescriptorGenerator {
 
@@ -60,21 +59,14 @@ public class MissingTableDescriptorGenerator {
 
   /**
    * Trying to generate missing table descriptor. If anything goes wrong, then the method throws
-   * IllegalStateException without changing anything. The method follows these steps:
-   *
-   * - if the table folder is missing, then we return
-   * - if the .tableinfo file is not missing, then we return (we don't overwrite it)
-   * - if TableDescriptor is cached in master then recover the .tableinfo accordingly
-   * - if TableDescriptor is not cached in master, then we create a default .tableinfo file
-   *   with the following items:
-   *      - the table name
-   *      - the column family list (determined based on the file system)
-   *      - the default properties for both {@link TableDescriptor} and
-   *        {@link ColumnFamilyDescriptor}
-   *
-   * This method does not change anything in HBase, only writes the new .tableinfo file
-   * to the file system.
-   *
+   * IllegalStateException without changing anything. The method follows these steps: - if the table
+   * folder is missing, then we return - if the .tableinfo file is not missing, then we return (we
+   * don't overwrite it) - if TableDescriptor is cached in master then recover the .tableinfo
+   * accordingly - if TableDescriptor is not cached in master, then we create a default .tableinfo
+   * file with the following items: - the table name - the column family list (determined based on
+   * the file system) - the default properties for both {@link TableDescriptor} and
+   * {@link ColumnFamilyDescriptor} This method does not change anything in HBase, only writes the
+   * new .tableinfo file to the file system.
    * @param tableNameAsString the table name in standard 'table' or 'ns:table' format
    */
   public void generateTableDescriptorFileIfMissing(String tableNameAsString) {
@@ -89,25 +81,25 @@ public class MissingTableDescriptorGenerator {
     HBCKFsTableDescriptors fstd = new HBCKFsTableDescriptors(fs, rootDir);
     try {
       if (tableDescriptorFromMaster.isPresent()) {
-        LOG.info("Table descriptor found in the cache of HBase Master, " +
-                 "writing it to the file system.");
+        LOG.info("Table descriptor found in the cache of HBase Master, "
+          + "writing it to the file system.");
         fstd.createTableDescriptor(tableDescriptorFromMaster.get(), false);
         LOG.info("Table descriptor written successfully. Orphan table {} fixed.", tableName);
       } else {
         generateDefaultTableInfo(fstd, tableName);
         LOG.info("Table descriptor written successfully.");
-        LOG.warn("Orphan table {} fixed with a default .tableinfo file. It is strongly " +
-                 "recommended to review the TableDescriptor and modify if necessary.", tableName);
+        LOG.warn("Orphan table {} fixed with a default .tableinfo file. It is strongly "
+          + "recommended to review the TableDescriptor and modify if necessary.", tableName);
       }
     } catch (IOException e) {
       LOG.error("Exception while writing the table descriptor to the file system for table {}",
-                tableName, e);
+        tableName, e);
     }
 
   }
 
   public void generateTableDescriptorFileIfMissing(Admin admin, List<String> tableNamesAsString)
-      throws IOException {
+    throws IOException {
     // if the list is empty, need to check for all tables
     if (tableNamesAsString.isEmpty()) {
       List<TableName> tableNameList = Arrays.asList(admin.listTableNames());
@@ -124,17 +116,17 @@ public class MissingTableDescriptorGenerator {
     final Path tableDir = HBCKFsUtils.getTableDir(rootDir, tableName);
     try {
       if (!fs.exists(tableDir)) {
-        throw new IllegalStateException("Exiting without changing anything. " +
-                                        "Table folder does not exist: " + tableDir);
+        throw new IllegalStateException(
+          "Exiting without changing anything. " + "Table folder does not exist: " + tableDir);
       }
       if (!fs.getFileStatus(tableDir).isDirectory()) {
-        throw new IllegalStateException("Exiting without changing anything. " +
-                                        "Table folder is not a directory: " + tableDir);
+        throw new IllegalStateException(
+          "Exiting without changing anything. " + "Table folder is not a directory: " + tableDir);
       }
     } catch (IOException e) {
       LOG.error("Exception while trying to find table folder for table {}", tableName, e);
-      throw new IllegalStateException("Exiting without changing anything. " +
-                                      "Can not validate if table folder exists.");
+      throw new IllegalStateException(
+        "Exiting without changing anything. " + "Can not validate if table folder exists.");
     }
   }
 
@@ -148,8 +140,8 @@ public class MissingTableDescriptorGenerator {
       }
     } catch (IOException e) {
       LOG.error("Exception while trying to find the table descriptor for table {}", tableName, e);
-      throw new IllegalStateException("Can not validate if table descriptor exists. " +
-                                      "Exiting without changing anything.");
+      throw new IllegalStateException(
+        "Can not validate if table descriptor exists. " + "Exiting without changing anything.");
     }
     return false;
   }
@@ -157,7 +149,7 @@ public class MissingTableDescriptorGenerator {
   private Optional<TableDescriptor> getTableDescriptorFromMaster(TableName tableName) {
     LOG.info("Trying to fetch table descriptor for orphan table: {}", tableName);
     try (Connection conn = ConnectionFactory.createConnection(configuration);
-         Admin admin = conn.getAdmin()) {
+      Admin admin = conn.getAdmin()) {
       TableDescriptor tds = admin.getDescriptor(tableName);
       return Optional.of(tds);
     } catch (TableNotFoundException e) {
@@ -171,7 +163,7 @@ public class MissingTableDescriptorGenerator {
   private void generateDefaultTableInfo(HBCKFsTableDescriptors fstd, TableName tableName)
     throws IOException {
     Set<String> columnFamilies = getColumnFamilies(tableName);
-    if(columnFamilies.isEmpty()) {
+    if (columnFamilies.isEmpty()) {
       LOG.warn("No column family found in HDFS for table {}.", tableName);
     } else {
       LOG.info("Column families to be listed in the new table info: {}", columnFamilies);
@@ -200,9 +192,9 @@ public class MissingTableDescriptorGenerator {
       return columnFamilies;
     } catch (IOException e) {
       LOG.error("Exception while trying to find in HDFS the column families for table {}",
-                tableName, e);
-      throw new IllegalStateException("Unable to determine the list of column families. " +
-                                      "Exiting without changing anything.");
+        tableName, e);
+      throw new IllegalStateException(
+        "Unable to determine the list of column families. " + "Exiting without changing anything.");
     }
   }
 }

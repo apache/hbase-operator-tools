@@ -17,14 +17,12 @@
  */
 package org.apache.hbase;
 
-
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
@@ -42,7 +40,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-
 public class TestMissingRegionDirsRepairTool {
 
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
@@ -54,7 +51,7 @@ public class TestMissingRegionDirsRepairTool {
   @BeforeClass
   public static void beforeClass() throws Exception {
     TEST_UTIL.getConfiguration().set(HConstants.HREGION_MAX_FILESIZE,
-      Long.toString(1024*1024*3));
+      Long.toString(1024 * 1024 * 3));
     TEST_UTIL.startMiniCluster(3);
   }
 
@@ -77,11 +74,11 @@ public class TestMissingRegionDirsRepairTool {
   @Test
   public void testMoveRegionDirAndBulkloadFiles() throws Exception {
     List<RegionInfo> regions = TEST_UTIL.getAdmin().getRegions(TABLE_NAME);
-    //populate table
+    // populate table
     regions.forEach(r -> {
-      byte[] key = r.getStartKey().length == 0 ? new byte[]{0} : r.getStartKey();
+      byte[] key = r.getStartKey().length == 0 ? new byte[] { 0 } : r.getStartKey();
       Put put = new Put(key);
-      put.addColumn(family, Bytes.toBytes("c"), new byte[1024*1024]);
+      put.addColumn(family, Bytes.toBytes("c"), new byte[1024 * 1024]);
       try {
         table.put(put);
       } catch (IOException e) {
@@ -91,21 +88,21 @@ public class TestMissingRegionDirsRepairTool {
     TEST_UTIL.getAdmin().flush(TABLE_NAME);
     FileSystem fileSystem = TEST_UTIL.getDFSCluster().getFileSystem();
     Path root = TEST_UTIL.getDefaultRootDirPath();
-    Path tablePath = new Path((new Path(root, "data")),"default");
+    Path tablePath = new Path((new Path(root, "data")), "default");
     tablePath = new Path(tablePath, TABLE_NAME.getNameAsString());
     Path regionPath = new Path(tablePath, regions.get(0).getEncodedName());
     Path tmpRegionPath = new Path(root, "test");
     tmpRegionPath = new Path(tmpRegionPath, regions.get(0).getEncodedName());
-    //copy the first region entire dir to a temp folder
+    // copy the first region entire dir to a temp folder
     HBCKFsUtils.copyFilesParallel(fileSystem, regionPath, fileSystem, tmpRegionPath,
       TEST_UTIL.getConfiguration(), 3);
-    //truncates the table, so to delete all current existing hfiles
+    // truncates the table, so to delete all current existing hfiles
     TEST_UTIL.truncateTable(TABLE_NAME);
-    //confirms the table is now empty
+    // confirms the table is now empty
     Table table = TEST_UTIL.getConnection().getTable(TABLE_NAME);
     ResultScanner rs = table.getScanner(new Scan());
     assertTrue(rs.next() == null);
-    //moves back the original region back to tables dir
+    // moves back the original region back to tables dir
     fileSystem.mkdirs(regionPath);
     HBCKFsUtils.copyFilesParallel(fileSystem, tmpRegionPath, fileSystem, regionPath,
       TEST_UTIL.getConfiguration(), 3);
@@ -114,7 +111,7 @@ public class TestMissingRegionDirsRepairTool {
     tool.run(null);
     rs = table.getScanner(new Scan());
     assertNotNull(rs.next());
-    //verifies the region dir has been moved away
+    // verifies the region dir has been moved away
     assertFalse(fileSystem.exists(regionPath));
   }
 

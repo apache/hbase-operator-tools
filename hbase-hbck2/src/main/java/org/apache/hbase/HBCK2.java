@@ -37,10 +37,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
@@ -63,7 +61,6 @@ import org.apache.hadoop.hbase.client.TableState;
 import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.master.RegionState;
-
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -77,11 +74,11 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.HelpFormatter;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
+
 import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
 
 /**
- * HBase fixup tool version 2, for hbase-2.0.0+ clusters.
- * Supercedes hbck1.
+ * HBase fixup tool version 2, for hbase-2.0.0+ clusters. Supercedes hbck1.
  */
 // TODO:
 // + On assign, can we look to see if existing assign and if so fail until cancelled?
@@ -110,24 +107,25 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final String FIX_META = "fixMeta";
   private static final String REGIONINFO_MISMATCH = "regionInfoMismatch";
   // TODO update this map in case of the name of a method changes in Hbck interface
-  //  in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
-  //  does not equals to the method name in Hbck interface.
-  private static final Map<String, List<String> > FUNCTION_NAME_MAP =
-          Collections.unmodifiableMap(new HashMap<String, List<String>>() {{
-              put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
-              put(BYPASS, Arrays.asList("bypassProcedure"));
-              put(SCHEDULE_RECOVERIES, Arrays.asList("scheduleServerCrashProcedure",
-                      "scheduleServerCrashProcedures"));
-              put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
-            }});
+  // in org.apache.hadoop.hbase.client package. Or a new command is added and the hbck command
+  // does not equals to the method name in Hbck interface.
+  private static final Map<String, List<String>> FUNCTION_NAME_MAP =
+    Collections.unmodifiableMap(new HashMap<String, List<String>>() {
+      {
+        put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
+        put(BYPASS, Arrays.asList("bypassProcedure"));
+        put(SCHEDULE_RECOVERIES,
+          Arrays.asList("scheduleServerCrashProcedure", "scheduleServerCrashProcedures"));
+        put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
+      }
+    });
 
-  private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES =
-    "addFsRegionsMissingInMeta";
+  private static final String ADD_MISSING_REGIONS_IN_META_FOR_TABLES = "addFsRegionsMissingInMeta";
   private static final String REPORT_MISSING_REGIONS_IN_META = "reportMissingRegionsInMeta";
   private static final String EXTRA_REGIONS_IN_META = "extraRegionsInMeta";
 
   private Configuration conf;
-  static final String [] MINIMUM_HBCK2_VERSION = {"2.0.3", "2.1.1", "2.2.0", "3.0.0"};
+  static final String[] MINIMUM_HBCK2_VERSION = { "2.0.3", "2.1.1", "2.2.0", "3.0.0" };
   private boolean skipCheck = false;
 
   /**
@@ -136,26 +134,26 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final long DEFAULT_LOCK_WAIT = 1;
 
   /**
-   * Check for HBCK support.
-   * Expects created connection.
+   * Check for HBCK support. Expects created connection.
    * @param supportedVersions list of zero or more supported versions.
    */
-  void checkHBCKSupport(ClusterConnection connection, String cmd, String ... supportedVersions)
-      throws IOException {
+  void checkHBCKSupport(ClusterConnection connection, String cmd, String... supportedVersions)
+    throws IOException {
     if (skipCheck) {
       LOG.info("Skipped {} command version check; 'skip' set", cmd);
       return;
     }
     try (Admin admin = connection.getAdmin()) {
-      String serverVersion = admin.
-          getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).getHBaseVersion();
-      String [] thresholdVersions = supportedVersions == null || supportedVersions.length == 0?
-          MINIMUM_HBCK2_VERSION: supportedVersions;
+      String serverVersion =
+        admin.getClusterMetrics(EnumSet.of(ClusterMetrics.Option.HBASE_VERSION)).getHBaseVersion();
+      String[] thresholdVersions = supportedVersions == null || supportedVersions.length == 0
+        ? MINIMUM_HBCK2_VERSION
+        : supportedVersions;
       boolean supported = Version.check(serverVersion, thresholdVersions);
       if (!supported) {
-        throw new UnsupportedOperationException(cmd + " not supported on server version=" +
-            serverVersion + "; needs at least a server that matches or exceeds " +
-            Arrays.toString(thresholdVersions));
+        throw new UnsupportedOperationException(cmd + " not supported on server version="
+          + serverVersion + "; needs at least a server that matches or exceeds "
+          + Arrays.toString(thresholdVersions));
       }
     }
   }
@@ -167,19 +165,20 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     List<Method> methods = Arrays.asList(connection.getHbck().getClass().getDeclaredMethods());
     List<String> finalCmds = FUNCTION_NAME_MAP.getOrDefault(cmd, Collections.singletonList(cmd));
-    boolean supported = methods.stream().anyMatch(method ->  finalCmds.contains(method.getName()));
+    boolean supported = methods.stream().anyMatch(method -> finalCmds.contains(method.getName()));
     if (!supported) {
-      throw new UnsupportedOperationException("This HBase cluster does not support command: "
-              + cmd);
+      throw new UnsupportedOperationException(
+        "This HBase cluster does not support command: " + cmd);
     }
   }
 
   public static byte[] getRegionStateColumn(int replicaId) {
     try {
-      return replicaId == 0 ? HConstants.STATE_QUALIFIER
-              : (HConstants.STATE_QUALIFIER_STR + META_REPLICA_ID_DELIMITER
-              + String.format(RegionInfo.REPLICA_ID_FORMAT,
-              replicaId)).getBytes(StandardCharsets.UTF_8.name());
+      return replicaId == 0
+        ? HConstants.STATE_QUALIFIER
+        : (HConstants.STATE_QUALIFIER_STR + META_REPLICA_ID_DELIMITER
+          + String.format(RegionInfo.REPLICA_ID_FORMAT, replicaId))
+            .getBytes(StandardCharsets.UTF_8.name());
     } catch (UnsupportedEncodingException e) {
       // should never happen!
       throw new IllegalArgumentException("UTF8 decoding is not supported", e);
@@ -195,7 +194,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return;
     }
     String[] argList = commandLine.getArgs();
-    if(!commandLine.hasOption(inputFile.getOpt())) {
+    if (!commandLine.hasOption(inputFile.getOpt())) {
       System.out.println(setTableStateByArgs(hbck, argList));
     } else {
       List<String> inputList = getFromArgsOrFiles(stringArrayToList(argList), true);
@@ -208,23 +207,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   TableState setTableStateByArgs(Hbck hbck, String[] args) throws IOException {
     if (args == null || args.length < 2) {
-      showErrorMessage(SET_TABLE_STATE +
-              " takes tablename and state arguments: e.g. user ENABLED, you entered: " +
-              Arrays.toString(args));
+      showErrorMessage(
+        SET_TABLE_STATE + " takes tablename and state arguments: e.g. user ENABLED, you entered: "
+          + Arrays.toString(args));
       return null;
     }
-    return setTableState(hbck, TableName.valueOf(args[0]),
-            TableState.State.valueOf(args[1]));
+    return setTableState(hbck, TableName.valueOf(args[0]), TableState.State.valueOf(args[1]));
   }
 
   TableState setTableState(Hbck hbck, TableName tableName, TableState.State state)
-      throws IOException {
+    throws IOException {
     return hbck.setTableStateInMeta(new TableState(tableName, state));
   }
 
-  int setRegionState(ClusterConnection connection, String region,
-        RegionState.State newState)
-      throws IOException {
+  int setRegionState(ClusterConnection connection, String region, RegionState.State newState)
+    throws IOException {
     return setRegionState(connection, region, 0, newState);
   }
 
@@ -241,7 +238,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return EXIT_FAILURE;
     }
 
-    if(!commandLine.hasOption(inputFile.getOpt())) {
+    if (!commandLine.hasOption(inputFile.getOpt())) {
       String[] params = formatSetRegionStateCommand(argList);
       return setRegionStateByArgs(connection, params);
     } else {
@@ -266,8 +263,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   int setRegionState(ClusterConnection connection, String region, int replicaId,
-                     RegionState.State newState)
-          throws IOException {
+    RegionState.State newState) throws IOException {
     if (newState == null) {
       throw new IllegalArgumentException("State can't be null.");
     }
@@ -278,26 +274,25 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     scan.setFilter(filter);
     Result result = table.getScanner(scan).next();
     if (result != null) {
-      byte[] currentStateValue = result.getValue(HConstants.CATALOG_FAMILY,
-              getRegionStateColumn(replicaId));
+      byte[] currentStateValue =
+        result.getValue(HConstants.CATALOG_FAMILY, getRegionStateColumn(replicaId));
       if (currentStateValue == null) {
         System.out.println("WARN: Region state info on meta was NULL");
       } else {
-        currentState = RegionState.State.valueOf(
-                org.apache.hadoop.hbase.util.Bytes.toString(currentStateValue));
+        currentState =
+          RegionState.State.valueOf(org.apache.hadoop.hbase.util.Bytes.toString(currentStateValue));
       }
       Put put = new Put(result.getRow());
       put.addColumn(HConstants.CATALOG_FAMILY, getRegionStateColumn(replicaId),
-              org.apache.hadoop.hbase.util.Bytes.toBytes(newState.name()));
+        org.apache.hadoop.hbase.util.Bytes.toBytes(newState.name()));
       table.put(put);
 
       if (replicaId == 0) {
-        System.out.println("Changed region " + region + " STATE from "
-                + currentState + " to " + newState);
+        System.out
+          .println("Changed region " + region + " STATE from " + currentState + " to " + newState);
       } else {
-        System.out.println("Changed STATE for replica reigon " + replicaId +
-                " of primary region " + region +
-                "from " + currentState + " to " + newState);
+        System.out.println("Changed STATE for replica reigon " + replicaId + " of primary region "
+          + region + "from " + currentState + " to " + newState);
       }
 
       return EXIT_SUCCESS;
@@ -307,25 +302,23 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return EXIT_FAILURE;
   }
 
-  Map<TableName,List<Path>> reportTablesWithMissingRegionsInMeta(String... args)
-      throws IOException {
-    Map<TableName,List<Path>> report;
-    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
-        new FsRegionsMetaRecoverer(this.conf)) {
-      report = fsRegionsMetaRecoverer.reportTablesMissingRegions(
-        (getInputList(args)));
+  Map<TableName, List<Path>> reportTablesWithMissingRegionsInMeta(String... args)
+    throws IOException {
+    Map<TableName, List<Path>> report;
+    try (
+      final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)) {
+      report = fsRegionsMetaRecoverer.reportTablesMissingRegions((getInputList(args)));
     } catch (IOException e) {
       LOG.error("Error reporting missing regions: ", e);
       throw e;
     }
-    if(LOG.isDebugEnabled()) {
+    if (LOG.isDebugEnabled()) {
       LOG.debug(formatMissingRegionsInMetaReport(report));
     }
     return report;
   }
 
-  Map<TableName, List<String>> extraRegionsInMeta(String[] args)
-      throws Exception {
+  Map<TableName, List<String>> extraRegionsInMeta(String[] args) throws Exception {
     Options options = new Options();
     Option fixOption = Option.builder("f").longOpt("fix").build();
     options.addOption(fixOption);
@@ -340,30 +333,29 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean fix = commandLine.hasOption(fixOption.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
 
-    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
-      new FsRegionsMetaRecoverer(this.conf)) {
-      List<String> namespacesTables =
-              getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
+    try (
+      final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)) {
+      List<String> namespacesTables = getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
       Map<TableName, List<HBCKMetaEntry>> reportMap =
         fsRegionsMetaRecoverer.reportTablesExtraRegions(namespacesTables);
       final List<String> toFix = new ArrayList<>();
       reportMap.entrySet().forEach(e -> {
         result.put(e.getKey(),
-          e.getValue().stream().map(r->r.getEncodedRegionName()).collect(Collectors.toList()));
-        if(fix && e.getValue().size()>0){
+          e.getValue().stream().map(r -> r.getEncodedRegionName()).collect(Collectors.toList()));
+        if (fix && e.getValue().size() > 0) {
           toFix.add(e.getKey().getNameWithNamespaceInclAsString());
         }
       });
-      if(fix) {
+      if (fix) {
         List<Future<List<String>>> removeResult =
           fsRegionsMetaRecoverer.removeExtraRegionsFromMetaForTables(toFix);
-        if(removeResult!=null) {
+        if (removeResult != null) {
           int totalRegions = 0;
           List<Exception> errors = new ArrayList<>();
-          for(Future<List<String>> f : removeResult){
+          for (Future<List<String>> f : removeResult) {
             try {
               totalRegions += f.get().size();
-            } catch (ExecutionException|InterruptedException e){
+            } catch (ExecutionException | InterruptedException e) {
               errors.add(e);
             }
           }
@@ -374,18 +366,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       LOG.error("Error on checking extra regions: ", e);
       throw e;
     }
-    if(LOG.isDebugEnabled()) {
+    if (LOG.isDebugEnabled()) {
       LOG.debug(formatExtraRegionsReport(result));
     }
     return result;
   }
 
-  List<Future<List<String>>> addMissingRegionsInMetaForTables(String...
-      nameSpaceOrTable) throws IOException {
-    try (final FsRegionsMetaRecoverer fsRegionsMetaRecoverer =
-      new FsRegionsMetaRecoverer(this.conf)) {
-      return fsRegionsMetaRecoverer.addMissingRegionsInMetaForTables(
-        getInputList(nameSpaceOrTable));
+  List<Future<List<String>>> addMissingRegionsInMetaForTables(String... nameSpaceOrTable)
+    throws IOException {
+    try (
+      final FsRegionsMetaRecoverer fsRegionsMetaRecoverer = new FsRegionsMetaRecoverer(this.conf)) {
+      return fsRegionsMetaRecoverer
+        .addMissingRegionsInMetaForTables(getInputList(nameSpaceOrTable));
     } catch (IOException e) {
       LOG.error("Error adding missing regions: ", e);
       throw e;
@@ -406,10 +398,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
     List<String> argList = commandLine.getArgList();
-    return hbck.assigns(getFromArgsOrFiles(argList, inputFileFlag),overrideFlag);
+    return hbck.assigns(getFromArgsOrFiles(argList, inputFileFlag), overrideFlag);
   }
 
-  List<Long> unassigns(Hbck hbck, String [] args) throws IOException {
+  List<Long> unassigns(Hbck hbck, String[] args) throws IOException {
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
@@ -426,9 +418,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return hbck.unassigns(getFromArgsOrFiles(argList, inputFileFlag), overrideFlag);
   }
 
-  /**
-   * @return List of results OR null if failed to run.
-   */
+  /** Returns List of results OR null if failed to run. */
   List<Boolean> bypass(String[] args) throws IOException {
     // Bypass has two options....
     Options options = new Options();
@@ -454,8 +444,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean recursiveFlag = commandLine.hasOption(recursive.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
 
-    String[] pidStrs = getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag)
-            .toArray(new String[0]);
+    String[] pidStrs =
+      getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag).toArray(new String[0]);
     if (pidStrs == null || pidStrs.length <= 0) {
       showErrorMessage("No pids supplied.");
       return null;
@@ -502,8 +492,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private HBaseProtos.ServerName parseServerName(String serverName) {
     ServerName sn = ServerName.parseServerName(serverName);
-    return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).
-        setPort(sn.getPort()).setStartCode(sn.getStartcode()).build();
+    return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).setPort(sn.getPort())
+      .setStartCode(sn.getStartcode()).build();
   }
 
   /**
@@ -558,7 +548,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageAddFsRegionsMissingInMeta(PrintWriter writer) {
     writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [<NAMESPACE|"
-        + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
+      + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
     writer.println("   To be used when regions missing from hbase:meta but directories");
@@ -577,16 +567,16 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example adding missing regions for tables 'tbl_1' in the default");
     writer.println("   namespace, 'tbl_2' in namespace 'n1' and for all tables from");
     writer.println("   namespace 'n2':");
-    writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
-        " default:tbl_1 n1:tbl_2 n2");
+    writer.println(
+      "     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " default:tbl_1 n1:tbl_2 n2");
     writer.println("   Returns HBCK2  an 'assigns' command with all re-inserted regions.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
     writer.println("   SEE ALSO: " + FIX_META);
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println("   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.");
     writer.println("   For example:");
-    writer.println("     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
-            " -i fileName1 fileName2");
+    writer.println(
+      "     $ HBCK2 " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " -i fileName1 fileName2");
   }
 
   private static void usageAssigns(PrintWriter writer) {
@@ -654,8 +644,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   named similarily. Works against the reports generated by the last");
     writer.println("   catalog_janitor and hbck chore runs. If nothing to fix, run is a");
     writer.println("   noop. Otherwise, if 'HBCK Report' UI reports problems, a run of");
-    writer.println("   " + FIX_META +
-        " will clear up hbase:meta issues. See 'HBase HBCK' UI");
+    writer.println("   " + FIX_META + " will clear up hbase:meta issues. See 'HBase HBCK' UI");
     writer.println("   for how to generate new execute.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
   }
@@ -715,8 +704,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   regions dirs in the filesystem, if not existing.");
     writer.println("   An example triggering extra regions report for tables 'table_1'");
     writer.println("   and 'table_2', under default namespace:");
-    writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META +
-      " default:table_1 default:table_2");
+    writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 default:table_2");
     writer.println("   An example triggering missing regions report for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
     writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 ns1");
@@ -730,7 +718,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageReportMissingRegionsInMeta(PrintWriter writer) {
     writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " [<NAMESPACE|"
-        + "NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...]");
+      + "NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of encoded region names");
     writer.println("   To be used when regions missing from hbase:meta but directories");
@@ -739,8 +727,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   method, designed for reporting purposes and doesn't perform any");
     writer.println("   fixes, providing a view of which regions (if any) would get re-added");
     writer.println("   to hbase:meta, grouped by respective table/namespace. To effectively");
-    writer.println("   re-add regions in meta, run " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES +
-        ".");
+    writer
+      .println("   re-add regions in meta, run " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + ".");
     writer.println("   This command needs hbase:meta to be online. For each namespace/table");
     writer.println("   passed as parameter, it performs a diff between regions available in");
     writer.println("   hbase:meta against existing regions dirs on HDFS. Region dirs with no");
@@ -759,17 +747,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Returns list of missing regions for each table passed as parameter, or");
     writer.println("   for each table on namespaces specified as parameter.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.);" +
-            "For example:");
+    writer.println(
+      "   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.);" + "For example:");
     writer.println("     $ HBCK2 " + REPORT_MISSING_REGIONS_IN_META + " -i fileName1 fileName2");
   }
 
   private static void usageSetRegionState(PrintWriter writer) {
-    writer.println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>"
-            +"|-i <INPUT_FILE>...]");
+    writer
+      .println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>" + "|-i <INPUT_FILE>...]");
     writer.println("   Options:");
-    writer.println("    -i,--inputFiles  take one or more files of encoded region names " +
-                    "and states");
+    writer.println(
+      "    -i,--inputFiles  take one or more files of encoded region names " + "and states");
     writer.println("   To set the replica region's state, it needs the primary region's ");
     writer.println("   encoded regionname and replica id. The command will be ");
     writer.println(" " + SET_REGION_STATE + " <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>");
@@ -790,8 +778,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.);" +
-            "For example:");
+    writer.println(
+      "   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.);" + "For example:");
     writer.println("     $ HBCK2 " + SET_REGION_STATE + " -i fileName1 fileName2");
   }
 
@@ -799,8 +787,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println(" " + SET_TABLE_STATE + " [<TABLENAME> <STATE>|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of table names and states");
-    writer.println("   Possible table states: " + Arrays.stream(TableState.State.values()).
-        map(Enum::toString).collect(Collectors.joining(", ")));
+    writer.println("   Possible table states: " + Arrays.stream(TableState.State.values())
+      .map(Enum::toString).collect(Collectors.joining(", ")));
     writer.println("   To read current table state, in the hbase shell run:");
     writer.println("     hbase> get 'hbase:meta', '<TABLENAME>', 'table:state'");
     writer.println("   A value of \\x08\\x00 == ENABLED, \\x08\\x01 == DISABLED, etc.");
@@ -809,8 +797,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains <TABLENAME> <STATE>, one pair per line.);" +
-            "For example:");
+    writer
+      .println("   Each file contains <TABLENAME> <STATE>, one pair per line.);" + "For example:");
     writer.println("     $ HBCK2 " + SET_TABLE_STATE + " -i fileName1 fileName2");
   }
 
@@ -888,10 +876,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
-  static void showUsage(Options options){
+  static void showUsage(Options options) {
     HelpFormatter formatter = new HelpFormatter();
-    formatter.printHelp("HBCK2 [OPTIONS] COMMAND <ARGS>",
-        "Options:", options, getCommandUsage());
+    formatter.printHelp("HBCK2 [OPTIONS] COMMAND <ARGS>", "Options:", options, getCommandUsage());
   }
 
   @Override
@@ -916,19 +903,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     options.addOption(help);
     Option debug = Option.builder("d").longOpt("debug").desc("run with debug output").build();
     options.addOption(debug);
-    Option quorum = Option.builder("q").longOpt(HConstants.ZOOKEEPER_QUORUM).hasArg().
-        desc("hbase ensemble").build();
+    Option quorum = Option.builder("q").longOpt(HConstants.ZOOKEEPER_QUORUM).hasArg()
+      .desc("hbase ensemble").build();
     options.addOption(quorum);
     Option parent = Option.builder("z").longOpt(HConstants.ZOOKEEPER_ZNODE_PARENT).hasArg()
-        .desc("parent znode of hbase ensemble").build();
+      .desc("parent znode of hbase ensemble").build();
     options.addOption(parent);
     Option peerPort = Option.builder("p").longOpt(HConstants.ZOOKEEPER_CLIENT_PORT).hasArg()
-        .desc("port of hbase ensemble").type(Integer.class).build();
+      .desc("port of hbase ensemble").type(Integer.class).build();
     options.addOption(peerPort);
     Option version = Option.builder("v").longOpt(VERSION).desc("this hbck2 version").build();
     options.addOption(version);
-    Option skip = Option.builder("s").longOpt("skip").
-        desc("skip hbase version check (PleaseHoldException)").build();
+    Option skip = Option.builder("s").longOpt("skip")
+      .desc("skip hbase version check (PleaseHoldException)").build();
     options.addOption(skip);
 
     // Parse command-line.
@@ -963,7 +950,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         getConf().setInt(HConstants.ZOOKEEPER_CLIENT_PORT, Integer.parseInt(optionValue));
       } else {
         showErrorMessage(
-            "Invalid client port. Please provide proper port for target hbase ensemble.");
+          "Invalid client port. Please provide proper port for target hbase ensemble.");
         return EXIT_FAILURE;
       }
     }
@@ -973,7 +960,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         getConf().set(HConstants.ZOOKEEPER_ZNODE_PARENT, optionValue);
       } else {
         showErrorMessage("Invalid parent znode. Please provide proper parent znode of target hbase."
-            + " Note that valid znodes must start with \"/\".");
+          + " Note that valid znodes must start with \"/\".");
         return EXIT_FAILURE;
       }
     }
@@ -984,12 +971,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   /**
-   * Create connection.
-   * Needs to be called before we go against remote server.
-   * Be sure to close when done.
+   * Create connection. Needs to be called before we go against remote server. Be sure to close when
+   * done.
    */
   ClusterConnection connect() throws IOException {
-    return (ClusterConnection)ConnectionFactory.createConnection(getConf());
+    return (ClusterConnection) ConnectionFactory.createConnection(getConf());
   }
 
   /**
@@ -1005,8 +991,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       // the feature FIRST, then move to process the command.
       case SET_TABLE_STATE:
         if (commands.length < 2) {
-          showErrorMessage(command +
-            " takes tablename and state arguments: e.g. user ENABLED, or a list of input files");
+          showErrorMessage(command
+            + " takes tablename and state arguments: e.g. user ENABLED, or a list of input files");
           return EXIT_FAILURE;
         }
         try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
@@ -1058,7 +1044,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       case SET_REGION_STATE:
         if (commands.length < 2) {
           showErrorMessage(command + " takes region encoded name and state arguments: e.g. "
-              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING, or a list of input files");
+            + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING, or a list of input files");
           return EXIT_FAILURE;
         }
 
@@ -1073,8 +1059,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
             Pair<CommandLine, List<String>> pair =
               parseCommandWithFixAndInputOptions(purgeFirst(commands));
-            return fsfsck.fsck(pair.getSecond(),
-              pair.getFirst().hasOption("f"))!= 0? EXIT_FAILURE : EXIT_SUCCESS;
+            return fsfsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
+              ? EXIT_FAILURE
+              : EXIT_SUCCESS;
           }
         }
 
@@ -1084,8 +1071,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
             Pair<CommandLine, List<String>> pair =
               parseCommandWithFixAndInputOptions(purgeFirst(commands));
-            return replicationFsck.fsck(pair.getSecond(),
-              pair.getFirst().hasOption("f")) != 0? EXIT_FAILURE : EXIT_SUCCESS;
+            return replicationFsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
+              ? EXIT_FAILURE
+              : EXIT_SUCCESS;
           }
         }
 
@@ -1124,7 +1112,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         break;
 
       case ADD_MISSING_REGIONS_IN_META_FOR_TABLES:
-        if(commands.length < 2){
+        if (commands.length < 2) {
           showErrorMessage(command + " takes one or more table names.");
           return EXIT_FAILURE;
         }
@@ -1132,20 +1120,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           addMissingRegionsInMetaForTables(purgeFirst(commands));
         List<String> regionNames = new ArrayList<>();
         List<Exception> errors = new ArrayList<>();
-        for(Future<List<String>> f : addedRegions){
+        for (Future<List<String>> f : addedRegions) {
           try {
             regionNames.addAll(f.get());
           } catch (InterruptedException | ExecutionException e) {
             errors.add(e);
           }
         }
-        System.out.println(formatReAddedRegionsMessage(regionNames,
-          errors));
+        System.out.println(formatReAddedRegionsMessage(regionNames, errors));
         break;
 
       case REPORT_MISSING_REGIONS_IN_META:
         try {
-          Map<TableName,List<Path>> report =
+          Map<TableName, List<Path>> report =
             reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
           System.out.println(formatMissingRegionsInMetaReport(report));
         } catch (Exception e) {
@@ -1155,8 +1142,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
       case EXTRA_REGIONS_IN_META:
         try {
-          Map<TableName,List<String>> report =
-            extraRegionsInMeta(purgeFirst(commands));
+          Map<TableName, List<String>> report = extraRegionsInMeta(purgeFirst(commands));
           System.out.println(formatExtraRegionsReport(report));
         } catch (Exception e) {
           return EXIT_FAILURE;
@@ -1166,10 +1152,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       case GENERATE_TABLE_INFO:
         List<String> tableNames = Arrays.asList(purgeFirst(commands));
         MissingTableDescriptorGenerator tableInfoGenerator =
-            new MissingTableDescriptorGenerator(getConf());
+          new MissingTableDescriptorGenerator(getConf());
         try (ClusterConnection connection = connect()) {
-          tableInfoGenerator
-              .generateTableDescriptorFileIfMissing(connection.getAdmin(), tableNames);
+          tableInfoGenerator.generateTableDescriptorFileIfMissing(connection.getAdmin(),
+            tableNames);
         } catch (IOException e) {
           showErrorMessage(e.getMessage());
           return EXIT_FAILURE;
@@ -1201,33 +1187,32 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return things.stream().map(Object::toString).collect(Collectors.joining(", "));
   }
 
-  private String formatMissingRegionsInMetaReport(Map<TableName,List<Path>> report) {
-    Function<Path,String> resolver = r -> r.getName();
+  private String formatMissingRegionsInMetaReport(Map<TableName, List<Path>> report) {
+    Function<Path, String> resolver = r -> r.getName();
     String message = "Missing Regions for each table:\n\t";
-    return formatReportMessage(message, (HashMap)report, resolver);
+    return formatReportMessage(message, (HashMap) report, resolver);
   }
 
-  private String formatExtraRegionsReport(Map<TableName,List<String>> report) {
+  private String formatExtraRegionsReport(Map<TableName, List<String>> report) {
     String message = "Regions in Meta but having no equivalent dir, for each table:\n\t";
-    return formatReportMessage(message, (HashMap)report, s -> s);
+    return formatReportMessage(message, (HashMap) report, s -> s);
   }
 
   private String formatReportMessage(String reportMessage, Map<TableName, List<?>> report,
-      Function resolver){
+    Function resolver) {
     final StringBuilder builder = new StringBuilder();
-    if(report.size() < 1) {
-      builder.append("\nNo reports were found. You are likely passing non-existent " +
-        "namespace or table. Note that table names should include the namespace " +
-        "portion even for tables in the default namespace. See also the command usage.\n");
+    if (report.size() < 1) {
+      builder.append("\nNo reports were found. You are likely passing non-existent "
+        + "namespace or table. Note that table names should include the namespace "
+        + "portion even for tables in the default namespace. See also the command usage.\n");
       return builder.toString();
     }
     builder.append(reportMessage);
     report.keySet().forEach(table -> {
       builder.append(table);
-      if (!report.get(table).isEmpty()){
+      if (!report.get(table).isEmpty()) {
         builder.append("->\n\t\t");
-        report.get(table).forEach(region -> builder.append(resolver.apply(region))
-          .append(" "));
+        report.get(table).forEach(region -> builder.append(resolver.apply(region)).append(" "));
       } else {
         builder.append(" -> No mismatching regions. This table is good!");
       }
@@ -1240,31 +1225,27 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     List<Exception> executionErrors) {
     final StringBuilder finalText = new StringBuilder();
     finalText.append("Regions re-added into Meta: ").append(readdedRegionNames.size());
-    if(!readdedRegionNames.isEmpty()){
-      finalText.append("\n")
-        .append("WARNING: \n\t")
-        .append(readdedRegionNames.size()).append(" regions were added ")
+    if (!readdedRegionNames.isEmpty()) {
+      finalText.append("\n").append("WARNING: \n\t").append(readdedRegionNames.size())
+        .append(" regions were added ")
         .append("to META, but these are not yet on Masters cache. \n")
         .append("You need to restart Masters, then run hbck2 'assigns' command below:\n\t\t")
         .append(buildHbck2AssignsCommand(readdedRegionNames));
     }
-    if(!executionErrors.isEmpty()){
-      finalText.append("\n")
-        .append("ERROR: \n\t")
+    if (!executionErrors.isEmpty()) {
+      finalText.append("\n").append("ERROR: \n\t")
         .append("There were following errors on at least one table thread:\n");
       executionErrors.forEach(e -> finalText.append(e.getMessage()).append("\n"));
     }
     return finalText.toString();
   }
 
-  private String formatRemovedRegionsMessage(int totalRemoved,
-    List<Exception> executionErrors) {
+  private String formatRemovedRegionsMessage(int totalRemoved, List<Exception> executionErrors) {
     final StringBuilder finalText = new StringBuilder();
-    finalText.append("Regions that had no dir on the FileSystem and got removed from Meta: ").
-      append(totalRemoved);
-    if(!executionErrors.isEmpty()){
-      finalText.append("\n")
-        .append("ERROR: \n\t")
+    finalText.append("Regions that had no dir on the FileSystem and got removed from Meta: ")
+      .append(totalRemoved);
+    if (!executionErrors.isEmpty()) {
+      finalText.append("\n").append("ERROR: \n\t")
         .append("There were following errors on at least one table thread:\n");
       executionErrors.forEach(e -> finalText.append(e.getMessage()).append("\n"));
     }
@@ -1278,27 +1259,23 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return builder.toString();
   }
 
-  /**
-   * @return A new array with first element dropped.
-   */
+  /** Returns A new array with first element dropped. */
   private static String[] purgeFirst(String[] args) {
     int size = args.length;
     if (size <= 1) {
-      return new String [] {};
+      return new String[] {};
     }
     size--;
-    String [] result = new String [size];
+    String[] result = new String[size];
     System.arraycopy(args, 1, result, 0, size);
     return result;
   }
 
-  /**
-   * @return arguements for SET_REGION_STATE command
-   */
+  /** Returns arguements for SET_REGION_STATE command */
   private String[] formatSetRegionStateCommand(String[] commands) {
     if (commands.length < 2) {
       showErrorMessage("setRegionState takes region encoded name and state arguments: e.g. "
-              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
+        + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING");
       return null;
     }
     RegionState.State state = RegionState.State.valueOf(commands[1]);
@@ -1310,18 +1287,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       replicaId = Integer.getInteger(commands[0].substring(separatorIndex + 1));
     }
     if (replicaId > 0) {
-      System.out.println("Change state for replica reigon " + replicaId +
-              " for primary region " + region);
+      System.out
+        .println("Change state for replica reigon " + replicaId + " for primary region " + region);
     }
 
-    return new String[]{region, replicaId.toString(), state.name()};
+    return new String[] { region, replicaId.toString(), state.name() };
   }
 
   HBCK2(Configuration conf) {
     super(conf);
   }
 
-  public static void main(String [] args) throws Exception {
+  public static void main(String[] args) throws Exception {
     Configuration conf = HBaseConfiguration.create();
     int errCode = org.apache.hadoop.util.ToolRunner.run(new HBCK2(conf), args);
     if (errCode != 0) {
@@ -1343,8 +1320,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     if (commandLine == null) {
       return null;
     }
-    return getFromArgsOrFiles(commandLine.getArgList(),
-            commandLine.hasOption("i"));
+    return getFromArgsOrFiles(commandLine.getArgList(), commandLine.hasOption("i"));
   }
 
   private CommandLine parseCommandWithInputList(String[] args, Options options) {
@@ -1359,22 +1335,20 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return getCommandLine(args, options);
   }
 
-  private Pair<CommandLine,List<String>> parseAndGetCommandLineWithInputOption(String[] args,
+  private Pair<CommandLine, List<String>> parseAndGetCommandLineWithInputOption(String[] args,
     Options options) throws IOException {
     CommandLine commandLine = parseCommandWithInputList(args, options);
-    List<String> params = getFromArgsOrFiles(commandLine.getArgList(),
-      commandLine.hasOption("i"));
+    List<String> params = getFromArgsOrFiles(commandLine.getArgList(), commandLine.hasOption("i"));
     return Pair.newPair(commandLine, params);
   }
 
-  private Pair<CommandLine,List<String>> parseCommandWithFixAndInputOptions(String[] args)
+  private Pair<CommandLine, List<String>> parseCommandWithFixAndInputOptions(String[] args)
     throws IOException {
     Options options = new Options();
     Option fixOption = Option.builder("f").longOpt("fix").build();
     options.addOption(fixOption);
     CommandLine commandLine = parseCommandWithInputList(args, options);
-    List<String> params = getFromArgsOrFiles(commandLine.getArgList(),
-      commandLine.hasOption("i"));
+    List<String> params = getFromArgsOrFiles(commandLine.getArgList(), commandLine.hasOption("i"));
     return Pair.newPair(commandLine, params);
   }
 
@@ -1393,24 +1367,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     return commandLine;
   }
-  /**
-   * @return Read arguments from args or a list of input files
-   */
+
+  /** Returns Read arguments from args or a list of input files */
   private List<String> getFromArgsOrFiles(List<String> args, boolean getFromFile)
-          throws IOException {
+    throws IOException {
     if (!getFromFile || args == null) {
       return args;
     }
     return getFromFiles(args);
   }
 
-  /**
-   * @return Read arguments from a list of input files
-   */
+  /** Returns Read arguments from a list of input files */
   private List<String> getFromFiles(List<String> args) throws IOException {
     List<String> argList = new ArrayList<>();
     for (String filePath : args) {
-      try (InputStream fileStream = new FileInputStream(filePath)){
+      try (InputStream fileStream = new FileInputStream(filePath)) {
         LineIterator it = IOUtils.lineIterator(fileStream, "UTF-8");
         while (it.hasNext()) {
           argList.add(it.nextLine().trim());

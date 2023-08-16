@@ -20,7 +20,6 @@ package org.apache.hbase;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileStatus;
@@ -49,27 +48,25 @@ public class MissingRegionDirsRepairTool extends Configured implements org.apach
   private LoadIncrementalHFiles bulkLoad;
 
   public MissingRegionDirsRepairTool(Configuration conf) {
-    this.conf=conf;
+    this.conf = conf;
     this.hbck = new HBCK2(conf);
     this.bulkLoad = new LoadIncrementalHFiles(conf);
   }
 
   @Override
   public int run(String[] strings) throws Exception {
-    Map<TableName,List<Path>> result = hbck
-      .reportTablesWithMissingRegionsInMeta(new String[]{});
-    Path runPath = new Path(new Path(HBCKFsUtils.getRootDir(conf),
-      WORKING_DIR), "" + System.currentTimeMillis());
+    Map<TableName, List<Path>> result = hbck.reportTablesWithMissingRegionsInMeta(new String[] {});
+    Path runPath = new Path(new Path(HBCKFsUtils.getRootDir(conf), WORKING_DIR),
+      "" + System.currentTimeMillis());
     FileSystem fs = runPath.getFileSystem(conf);
     LOG.info("creating temp dir at: " + runPath.getName());
     fs.mkdirs(runPath);
-    try(Connection conn = ConnectionFactory.createConnection(conf)) {
+    try (Connection conn = ConnectionFactory.createConnection(conf)) {
       Admin admin = conn.getAdmin();
       result.forEach((t, p) -> {
-        if(!p.isEmpty()) {
+        if (!p.isEmpty()) {
           Path tblPath =
-            new Path(runPath, new Path(t.getNameWithNamespaceInclAsString()
-              .replaceAll(":", "_")));
+            new Path(runPath, new Path(t.getNameWithNamespaceInclAsString().replaceAll(":", "_")));
           try {
             fs.mkdirs(tblPath);
             Path sidelined = new Path(tblPath, "sidelined");
@@ -91,8 +88,7 @@ public class MissingRegionDirsRepairTool extends Configured implements org.apach
                     FileStatus[] files = fs.listStatus(cfDir);
                     for (FileStatus file : files) {
                       fs.rename(file.getPath(),
-                        new Path(tempCfDir,
-                          region.getName() + "-" + file.getPath().getName()));
+                        new Path(tempCfDir, region.getName() + "-" + file.getPath().getName()));
                     }
                   } catch (IOException e) {
                     LOG.error("Error trying to move files from inconsistent region dir: ", e);
@@ -117,7 +113,7 @@ public class MissingRegionDirsRepairTool extends Configured implements org.apach
     return 0;
   }
 
-  public static void main(String [] args) throws Exception {
+  public static void main(String[] args) throws Exception {
     Configuration conf = HBaseConfiguration.create();
     int errCode = ToolRunner.run(new MissingRegionDirsRepairTool(conf), args);
     if (errCode != 0) {

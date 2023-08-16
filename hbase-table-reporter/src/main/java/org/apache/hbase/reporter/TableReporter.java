@@ -36,7 +36,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.function.DoubleSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -65,19 +64,18 @@ import org.apache.hadoop.hbase.io.HeapSize;
 import org.apache.hadoop.hbase.util.Bytes;
 
 /**
- * Run a scan against a table reporting on row size, column size and count.
- *
- * So can run against cdh5, uses loads of deprecated API and copies some Cell sizing methods local.
+ * Run a scan against a table reporting on row size, column size and count. So can run against cdh5,
+ * uses loads of deprecated API and copies some Cell sizing methods local.
  */
 public final class TableReporter {
   private static String GNUPLOT_DATA_SUFFIX = ".gnuplotdata";
 
-  private TableReporter(){
+  private TableReporter() {
   }
 
   /**
-   * Quantile sketches. Has a print that dumps out sketches on stdout.
-   * To accumlate Sketches instances, see {@link AccumlatingSketch}
+   * Quantile sketches. Has a print that dumps out sketches on stdout. To accumlate Sketches
+   * instances, see {@link AccumlatingSketch}
    */
   static class Sketches {
     private static final DoubleSupplier IN_POINT_1_INC = new DoubleSupplier() {
@@ -95,13 +93,13 @@ public final class TableReporter {
     /**
      * Make an array of 100 increasing numbers from 0-1.
      */
-    static double [] NORMALIZED_RANKS = DoubleStream.generate(IN_POINT_1_INC).limit(100).toArray();
+    static double[] NORMALIZED_RANKS = DoubleStream.generate(IN_POINT_1_INC).limit(100).toArray();
 
     /**
      * Bins that sort of make sense for the data we're seeing here. After some trial and error.
      */
-    static double [] BINS = new double [] {1, 5, 10, 15, 20, 25, 100, 1024, 5120,
-                                            10240, 20480, 51200, 102400, 1048576};
+    static double[] BINS =
+      new double[] { 1, 5, 10, 15, 20, 25, 100, 1024, 5120, 10240, 20480, 51200, 102400, 1048576 };
 
     /**
      * Size of row.
@@ -133,21 +131,21 @@ public final class TableReporter {
     }
 
     private static void print(String label, final DoublesSketch sketch) {
-      System.out.println(label + " quantiles " +
-              Arrays.toString(sketch.getQuantiles(NORMALIZED_RANKS)));
-      double [] pmfs = sketch.getPMF(BINS);
+      System.out
+        .println(label + " quantiles " + Arrays.toString(sketch.getQuantiles(NORMALIZED_RANKS)));
+      double[] pmfs = sketch.getPMF(BINS);
       // System.out.println(label + " pmfs " + Arrays.toString(pmfs));
-      System.out.println(label + " histo " +
-          (pmfs == null || pmfs.length == 0?
-              "null": Arrays.toString(Arrays.stream(pmfs).map(d -> d * sketch.getN()).toArray())));
-      System.out.println(label + "stats N=" + sketch.getN() + ", min=" + sketch.getMinValue() +
-              ", max=" + sketch.getMaxValue());
+      System.out.println(label + " histo "
+        + (pmfs == null || pmfs.length == 0
+          ? "null"
+          : Arrays.toString(Arrays.stream(pmfs).map(d -> d * sketch.getN()).toArray())));
+      System.out.println(label + "stats N=" + sketch.getN() + ", min=" + sketch.getMinValue()
+        + ", max=" + sketch.getMaxValue());
     }
   }
 
   /**
-   * For aggregating {@link Sketches}
-   * To add sketches, need a DoublesUnion Sketch.
+   * For aggregating {@link Sketches} To add sketches, need a DoublesUnion Sketch.
    */
   static class AccumlatingSketch {
     DoublesUnion rowSizeUnion = DoublesUnion.builder().build();
@@ -158,9 +156,7 @@ public final class TableReporter {
       this.columnSizeUnion.update(other.columnCountSketch);
     }
 
-    /**
-     * @return A Sketches made of current state of aggregation.
-     */
+    /** Returns A Sketches made of current state of aggregation. */
     Sketches get() {
       return new Sketches(rowSizeUnion.getResult(), columnSizeUnion.getResult());
     }
@@ -178,12 +174,9 @@ public final class TableReporter {
     sketches.columnCountSketch.update(columnCount);
   }
 
-  /**
-   * @return First <code>fraction</code> of Table's regions.
-   */
+  /** Returns First <code>fraction</code> of Table's regions. */
   private static List<RegionInfo> getRegions(Connection connection, TableName tableName,
-                                             double fraction, String encodedRegionName)
-                                              throws IOException {
+    double fraction, String encodedRegionName) throws IOException {
     try (Admin admin = connection.getAdmin()) {
       // Use deprecated API because running against old hbase.
       List<RegionInfo> regions = admin.getRegions(tableName);
@@ -191,10 +184,10 @@ public final class TableReporter {
         throw new HBaseIOException("No regions found in " + tableName);
       }
       if (encodedRegionName != null) {
-        return regions.stream().filter(ri -> ri.getEncodedName().equals(encodedRegionName)).
-            collect(Collectors.toCollection(ArrayList::new));
+        return regions.stream().filter(ri -> ri.getEncodedName().equals(encodedRegionName))
+          .collect(Collectors.toCollection(ArrayList::new));
       }
-      return regions.subList(0, (int)(regions.size() * fraction)); // Rounds down.
+      return regions.subList(0, (int) (regions.size() * fraction)); // Rounds down.
     }
   }
 
@@ -268,27 +261,26 @@ public final class TableReporter {
       List<RegionInfo> regions = getRegions(connection, tableName, fraction, encodedRegionName);
       count = regions.size();
       if (count <= 0) {
-        throw new HBaseIOException("Empty regions list; fraction " + fraction +
-            " too severe or communication problems?");
+        throw new HBaseIOException(
+          "Empty regions list; fraction " + fraction + " too severe or communication problems?");
       } else {
-        System.out.println(Instant.now().toString() + " Scanning " + tableNameAsStr +
-            " regions=" + count + ", " + regions);
+        System.out.println(Instant.now().toString() + " Scanning " + tableNameAsStr + " regions="
+          + count + ", " + regions);
       }
-      ExecutorService es =
-          Executors.newFixedThreadPool(threads, new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-              Thread t = new Thread(r);
-              t.setDaemon(true);
-              return t;
-            }
-          });
+      ExecutorService es = Executors.newFixedThreadPool(threads, new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+          Thread t = new Thread(r);
+          t.setDaemon(true);
+          return t;
+        }
+      });
       try {
-        List<SketchRegion> srs = regions.stream().
-                map(ri -> new SketchRegion(connection, tableName, ri, limit)).
-                collect(Collectors.toList());
+        List<SketchRegion> srs =
+          regions.stream().map(ri -> new SketchRegion(connection, tableName, ri, limit))
+            .collect(Collectors.toList());
         List<Future<SketchRegion>> futures = new ArrayList<>(srs.size());
-        for (SketchRegion sr: srs) {
+        for (SketchRegion sr : srs) {
           // Do submit rather than inokeall; invokeall blocks until all done.
           // This way I get control back after all submitted.
           futures.add(es.submit(sr));
@@ -296,12 +288,12 @@ public final class TableReporter {
         // Avoid java.util.ConcurrentModificationException
         List<Future<SketchRegion>> removals = new ArrayList<>();
         while (!futures.isEmpty()) {
-          for (Future<SketchRegion> future: futures) {
+          for (Future<SketchRegion> future : futures) {
             if (future.isDone()) {
               SketchRegion sr = future.get();
-              sr.getSketches().print(Instant.now().toString() +
-                  " region=" + sr.getRegionInfo().getRegionNameAsString() + ", duration=" +
-                  (Duration.ofMillis(sr.getDuration()).toString()));
+              sr.getSketches().print(
+                Instant.now().toString() + " region=" + sr.getRegionInfo().getRegionNameAsString()
+                  + ", duration=" + (Duration.ofMillis(sr.getDuration()).toString()));
               totalSketches.add(sr.getSketches());
               removals.add(future);
             }
@@ -318,9 +310,8 @@ public final class TableReporter {
     }
     Sketches sketches = totalSketches.get();
     String isoDuration = Duration.ofMillis(System.currentTimeMillis() - startTime).toString();
-    sketches.print(Instant.now().toString() + " Totals for " + tableNameAsStr +
-            " regions=" + count + ", limit=" + limit + ", fraction=" + fraction +
-            ", took=" + isoDuration);
+    sketches.print(Instant.now().toString() + " Totals for " + tableNameAsStr + " regions=" + count
+      + ", limit=" + limit + ", fraction=" + fraction + ", took=" + isoDuration);
     // Dump out the gnuplot files. Saves time generating graphs.
     dumpGnuplotDataFiles(isoNow, sketches, tableNameAsStr, count, isoDuration);
   }
@@ -329,8 +320,8 @@ public final class TableReporter {
    * This is an estimate of the heap space occupied by a cell. When the cell is of type
    * {@link HeapSize} we call {@link HeapSize#heapSize()} so cell can give a correct value. In other
    * cases we just consider the bytes occupied by the cell components ie. row, CF, qualifier,
-   * timestamp, type, value and tags.
-   * Note that this can be the JVM heap space (on-heap) or the OS heap (off-heap)
+   * timestamp, type, value and tags. Note that this can be the JVM heap space (on-heap) or the OS
+   * heap (off-heap)
    * @return estimate of the heap space
    */
   public static long estimatedSizeOfCell(final Cell cell) {
@@ -354,15 +345,15 @@ public final class TableReporter {
     }
 
     return getSumOfCellElementLengths(cell) +
-        // Use the KeyValue's infrastructure size presuming that another implementation would have
-        // same basic cost.
-        KeyValue.ROW_LENGTH_SIZE + KeyValue.FAMILY_LENGTH_SIZE +
-        // Serialization is probably preceded by a length (it is in the KeyValueCodec at least).
-        Bytes.SIZEOF_INT;
+    // Use the KeyValue's infrastructure size presuming that another implementation would have
+    // same basic cost.
+      KeyValue.ROW_LENGTH_SIZE + KeyValue.FAMILY_LENGTH_SIZE +
+      // Serialization is probably preceded by a length (it is in the KeyValueCodec at least).
+      Bytes.SIZEOF_INT;
   }
 
   /**
-   * @return Sum of the lengths of all the elements in a Cell; does not count in any infrastructure
+   * Returns Sum of the lengths of all the elements in a Cell; does not count in any infrastructure
    */
   private static int getSumOfCellElementLengths(final Cell cell) {
     return getSumOfCellKeyElementLengths(cell) + cell.getValueLength() + cell.getTagsLength();
@@ -374,34 +365,33 @@ public final class TableReporter {
    */
   private static int getSumOfCellKeyElementLengths(final Cell cell) {
     return cell.getRowLength() + cell.getFamilyLength() + cell.getQualifierLength()
-        + KeyValue.TIMESTAMP_TYPE_SIZE;
+      + KeyValue.TIMESTAMP_TYPE_SIZE;
   }
 
   private static String getFileNamePrefix(String isoNow, String tableName, String sketchName) {
     return "reporter." + isoNow + "." + tableName + "." + sketchName;
   }
 
-  private static String getFileFirstLine(String tableName, int regions,
-                                         String isoDuration, UpdateDoublesSketch sketch) {
-    return "# " + tableName + " regions=" + regions + ", duration=" + isoDuration + ", N=" +
-            sketch.getN() + ", min=" + sketch.getMinValue() + ", max=" + sketch.getMaxValue();
+  private static String getFileFirstLine(String tableName, int regions, String isoDuration,
+    UpdateDoublesSketch sketch) {
+    return "# " + tableName + " regions=" + regions + ", duration=" + isoDuration + ", N="
+      + sketch.getN() + ", min=" + sketch.getMinValue() + ", max=" + sketch.getMaxValue();
   }
 
   private static void dumpPercentilesFile(String prefix, String firstLine,
-                                          UpdateDoublesSketch sketch) throws IOException {
-    dumpFile(File.createTempFile(prefix + ".percentiles.", GNUPLOT_DATA_SUFFIX),
-        firstLine, sketch.getQuantiles(Sketches.NORMALIZED_RANKS));
+    UpdateDoublesSketch sketch) throws IOException {
+    dumpFile(File.createTempFile(prefix + ".percentiles.", GNUPLOT_DATA_SUFFIX), firstLine,
+      sketch.getQuantiles(Sketches.NORMALIZED_RANKS));
   }
 
   private static void dumpHistogramFile(String prefix, String firstLine, UpdateDoublesSketch sketch)
-      throws IOException {
-    double [] pmfs = sketch.getPMF(Sketches.BINS);
-    double [] ds = Arrays.stream(pmfs).map(d -> d * sketch.getN()).toArray();
-    dumpFile(File.createTempFile(prefix + ".histograms.", GNUPLOT_DATA_SUFFIX),
-        firstLine, ds);
+    throws IOException {
+    double[] pmfs = sketch.getPMF(Sketches.BINS);
+    double[] ds = Arrays.stream(pmfs).map(d -> d * sketch.getN()).toArray();
+    dumpFile(File.createTempFile(prefix + ".histograms.", GNUPLOT_DATA_SUFFIX), firstLine, ds);
   }
 
-  private static void dumpFile(File file, String firstLine, double [] ds) throws IOException {
+  private static void dumpFile(File file, String firstLine, double[] ds) throws IOException {
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
       writer.write(firstLine);
       writer.newLine();
@@ -414,24 +404,23 @@ public final class TableReporter {
   }
 
   private static void dumpFiles(String prefix, String firstLine, UpdateDoublesSketch sketch)
-          throws IOException {
+    throws IOException {
     dumpPercentilesFile(prefix, firstLine, sketch);
     dumpHistogramFile(prefix, firstLine, sketch);
   }
 
   /**
-   * Write four files, a histogram and percentiles,
-   * one each for each of the row size and column count sketches.
-   * Tie the four files with isoNow time.
+   * Write four files, a histogram and percentiles, one each for each of the row size and column
+   * count sketches. Tie the four files with isoNow time.
    */
   private static void dumpGnuplotDataFiles(String isoNow, Sketches sketches, String tableName,
-                                           int regions, String isoDuration) throws IOException {
+    int regions, String isoDuration) throws IOException {
     UpdateDoublesSketch sketch = sketches.columnCountSketch;
     dumpFiles(getFileNamePrefix(isoNow, tableName, "columnCount"),
-        getFileFirstLine(tableName, regions, isoDuration, sketch), sketch);
+      getFileFirstLine(tableName, regions, isoDuration, sketch), sketch);
     sketch = sketches.rowSizeSketch;
     dumpFiles(getFileNamePrefix(isoNow, tableName, "rowSize"),
-        getFileFirstLine(tableName, regions, isoDuration, sketch), sketch);
+      getFileFirstLine(tableName, regions, isoDuration, sketch), sketch);
   }
 
   static void usage(Options options) {
@@ -451,20 +440,19 @@ public final class TableReporter {
     System.out.println("OPTIONS:");
     System.out.println(" -h,--help        Output this help message");
     System.out.println(" -l,--limit       Scan row limit (per thread): default none");
-    System.out.println(" -f,--fraction    " +
-            "Fraction of table Regions to read; between 0 and 1: default 1.0 (all)");
-    System.out.println(" -r,--region      " +
-            "Scan this Region only; pass encoded name; 'fraction' is ignored.");
+    System.out.println(" -f,--fraction    "
+      + "Fraction of table Regions to read; between 0 and 1: default 1.0 (all)");
+    System.out.println(
+      " -r,--region      " + "Scan this Region only; pass encoded name; 'fraction' is ignored.");
     System.out.println(" -t,--threads     Concurrent thread count (thread per Region); default 1");
     System.out.println(" -Dproperty=value Properties such as the zookeeper to connect to; e.g:");
     System.out.println("                  -Dhbase.zookeeper.quorum=ZK0.remote.cluster.example.org");
   }
 
-  public static void main(String [] args)
+  public static void main(String[] args)
     throws ParseException, IOException, ExecutionException, InterruptedException {
     Options options = new Options();
-    Option help = Option.builder("h").longOpt("help").
-        desc("output this help message").build();
+    Option help = Option.builder("h").longOpt("help").desc("output this help message").build();
     options.addOption(help);
     Option limitOption = Option.builder("l").longOpt("limit").hasArg().build();
     options.addOption(limitOption);
@@ -474,8 +462,8 @@ public final class TableReporter {
     options.addOption(regionOption);
     Option threadsOption = Option.builder("t").longOpt("threads").hasArg().build();
     options.addOption(threadsOption);
-    Option configOption = Option.builder("D").valueSeparator().argName("property=value").
-        hasArgs().build();
+    Option configOption =
+      Option.builder("D").valueSeparator().argName("property=value").hasArgs().build();
     options.addOption(configOption);
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
@@ -522,7 +510,7 @@ public final class TableReporter {
     if (commandLine.hasOption(opt)) {
       // If many options, they all show up here in the keyValues
       // array, one after the other.
-      String [] keyValues = commandLine.getOptionValues(opt);
+      String[] keyValues = commandLine.getOptionValues(opt);
       for (int i = 0; i < keyValues.length;) {
         configuration.set(keyValues[i], keyValues[i + 1]);
         i += 2; // Skip over this key and value to next one.
@@ -530,7 +518,7 @@ public final class TableReporter {
     }
 
     // Now process commands.
-    String [] commands = commandLine.getArgs();
+    String[] commands = commandLine.getArgs();
     if (commands.length < 1) {
       usage(options, "No TABLENAME: " + Arrays.toString(commands));
       System.exit(1);

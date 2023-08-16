@@ -31,12 +31,12 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.Properties;
-
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
 /**
  * Does command-line parsing tests. No clusters.
  * @see TestHBCK2 for cluster-tests.
@@ -70,39 +70,39 @@ public class TestHBCKCommandLineParsing {
     assertTrue(output, output.startsWith("usage: HBCK2"));
 
     // Passing -h/--help does the same
-    output = retrieveOptionOutput(new String[]{"-h"});
+    output = retrieveOptionOutput(new String[] { "-h" });
     assertTrue(output, output.startsWith("usage: HBCK2"));
   }
 
   @Test
-  public void testErrorMessage() throws IOException{
+  public void testErrorMessage() throws IOException {
     // just chose some of the commands to test for
-    String[] cmds = new String[]{"setTableState", "bypass", "scheduleRecoveries"};
+    String[] cmds = new String[] { "setTableState", "bypass", "scheduleRecoveries" };
     String output;
-    for(String cmd: cmds){
-      output = retrieveOptionOutput(new String[]{cmd});
+    for (String cmd : cmds) {
+      output = retrieveOptionOutput(new String[] { cmd });
       assertTrue(output, output.startsWith("ERROR: "));
       assertTrue(output, output.contains("FOR USAGE, use the -h or --help option"));
     }
   }
 
-  @Test (expected=NumberFormatException.class)
+  @Test(expected = NumberFormatException.class)
   public void testCommandWithOptions() throws IOException {
     // The 'x' below should cause the NumberFormatException. The Options should all be good.
-    this.hbck2.run(new String[]{"bypass", "--lockWait=3", "--override", "--recursive", "x"});
+    this.hbck2.run(new String[] { "bypass", "--lockWait=3", "--override", "--recursive", "x" });
   }
 
-  @Test (expected=FileNotFoundException.class)
+  @Test(expected = FileNotFoundException.class)
   public void testInputFileOption() throws IOException {
     // The 'x' below should cause the io exception for file not found.
     // The Options should all be good.
-    this.hbck2.run(new String[]{"bypass", "--override", "--inputFile", "x"});
+    this.hbck2.run(new String[] { "bypass", "--override", "--inputFile", "x" });
   }
 
-  @Test (expected=IllegalArgumentException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testSetRegionStateCommandInvalidState() throws IOException {
     // The 'INVALID_STATE' below should cause the IllegalArgumentException.
-    this.hbck2.run(new String[]{"setRegionState", "region_encoded", "INVALID_STATE"});
+    this.hbck2.run(new String[] { "setRegionState", "region_encoded", "INVALID_STATE" });
   }
 
   @Test
@@ -113,27 +113,26 @@ public class TestHBCKCommandLineParsing {
     properties.load(inputStream);
     String expectedVersionOutput = properties.getProperty("version");
     // Get hbck version option output.
-    String actualVersionOutput = retrieveOptionOutput(new String[]{"-v"}).trim();
+    String actualVersionOutput = retrieveOptionOutput(new String[] { "-v" }).trim();
     assertEquals(expectedVersionOutput, actualVersionOutput);
   }
 
   @Test
   public void testReplicationNoOption() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"replication"});
+    String output = retrieveOptionOutput(new String[] { "replication" });
     assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
 
   @Test
   public void testReplicationFixShortOption() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"replication",  "-f"});
+    String output = retrieveOptionOutput(new String[] { "replication", "-f" });
     assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
 
   @Test
   public void testReplicationFixShortOptionTable() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"replication",  "-f", "table"});
-    assertTrue(
-      output.contains("ERROR: No replication barrier(s) on table: table\n"));
+    String output = retrieveOptionOutput(new String[] { "replication", "-f", "table" });
+    assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
     assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
   }
 
@@ -144,8 +143,7 @@ public class TestHBCKCommandLineParsing {
       input = createInputFile();
       String output =
         retrieveOptionOutput(new String[] { "replication", "-f", "-i", input.getPath() });
-      assertTrue(
-        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
       assertFalse(output.contains("ERROR: Unrecognized option: -f"));
       assertFalse(output.contains("ERROR: Unrecognized option: -i"));
     } finally {
@@ -155,13 +153,13 @@ public class TestHBCKCommandLineParsing {
 
   @Test
   public void testReplicationFixLongOption() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"replication",  "--fix"});
+    String output = retrieveOptionOutput(new String[] { "replication", "--fix" });
     assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
   }
 
   @Test
   public void testReplicationFixLongOptionTable() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"replication",  "--fix", "table"});
+    String output = retrieveOptionOutput(new String[] { "replication", "--fix", "table" });
     assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
     assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
@@ -173,8 +171,7 @@ public class TestHBCKCommandLineParsing {
       input = createInputFile();
       String output =
         retrieveOptionOutput(new String[] { "replication", "--fix", "-i", input.getPath() });
-      assertTrue(
-        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
       assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
       assertFalse(output.contains("ERROR: Unrecognized option: -i"));
     } finally {
@@ -189,8 +186,7 @@ public class TestHBCKCommandLineParsing {
       input = createInputFile();
       String output =
         retrieveOptionOutput(new String[] { "replication", "-f", "--inputFiles", input.getPath() });
-      assertTrue(
-        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
       assertFalse(output.contains("ERROR: Unrecognized option: -f"));
       assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
     } finally {
@@ -203,11 +199,9 @@ public class TestHBCKCommandLineParsing {
     File input = null;
     try {
       input = createInputFile();
-      String output =
-        retrieveOptionOutput(new String[] { "replication", "--fix", "--inputFiles",
-          input.getPath() });
-      assertTrue(
-        output.contains("ERROR: No replication barrier(s) on table: table\n"));
+      String output = retrieveOptionOutput(
+        new String[] { "replication", "--fix", "--inputFiles", input.getPath() });
+      assertTrue(output.contains("ERROR: No replication barrier(s) on table: table\n"));
       assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
       assertFalse(output.contains("ERROR: Unrecognized option: --inoutFiles"));
     } finally {
@@ -234,8 +228,7 @@ public class TestHBCKCommandLineParsing {
     File input = null;
     try {
       input = createInputFile();
-      String output =
-        retrieveOptionOutput(new String[] { "replication", "-i", input.getPath() });
+      String output = retrieveOptionOutput(new String[] { "replication", "-i", input.getPath() });
       assertFalse(output.contains("ERROR: Unrecognized option: -i"));
     } finally {
       input.delete();
@@ -244,8 +237,8 @@ public class TestHBCKCommandLineParsing {
 
   private File createInputFile() throws Exception {
     File f = new File("input");
-    try(BufferedWriter writer = new BufferedWriter(
-      new OutputStreamWriter(new FileOutputStream(f)))) {
+    try (
+      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(f)))) {
       writer.write("table");
       writer.flush();
     }
@@ -254,13 +247,13 @@ public class TestHBCKCommandLineParsing {
 
   @Test
   public void testFilesystemFixShortOption() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"filesystem",  "-f"});
+    String output = retrieveOptionOutput(new String[] { "filesystem", "-f" });
     assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
 
   @Test
   public void testFilesystemFixShortOptionTable() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"filesystem",  "-f", "table"});
+    String output = retrieveOptionOutput(new String[] { "filesystem", "-f", "table" });
     assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
   }
 
@@ -280,13 +273,13 @@ public class TestHBCKCommandLineParsing {
 
   @Test
   public void testFilesystemFixLongOption() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"filesystem",  "--fix"});
+    String output = retrieveOptionOutput(new String[] { "filesystem", "--fix" });
     assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
   }
 
   @Test
   public void testFilesystemFixLongOptionTable() throws IOException {
-    String output = retrieveOptionOutput(new String[]{"filesystem",  "--fix", "table"});
+    String output = retrieveOptionOutput(new String[] { "filesystem", "--fix", "table" });
     assertFalse(output.contains("ERROR: Unrecognized option: -f"));
   }
 
@@ -323,9 +316,8 @@ public class TestHBCKCommandLineParsing {
     File input = null;
     try {
       input = createInputFile();
-      String output =
-        retrieveOptionOutput(new String[] { "filesystem", "--fix", "--inputFiles",
-          input.getPath() });
+      String output = retrieveOptionOutput(
+        new String[] { "filesystem", "--fix", "--inputFiles", input.getPath() });
       assertFalse(output.contains("ERROR: Unrecognized option: --fix"));
       assertFalse(output.contains("ERROR: Unrecognized option: --inputFiles"));
     } finally {
@@ -351,8 +343,7 @@ public class TestHBCKCommandLineParsing {
     File input = null;
     try {
       input = createInputFile();
-      String output =
-        retrieveOptionOutput(new String[] { "filesystem", "-i", input.getPath() });
+      String output = retrieveOptionOutput(new String[] { "filesystem", "-i", input.getPath() });
       assertFalse(output.contains("ERROR: Unrecognized option: -i"));
     } finally {
       input.delete();

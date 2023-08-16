@@ -31,7 +31,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -43,17 +42,16 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.regionserver.HRegionFileSystem;
 import org.apache.hadoop.hbase.util.FSUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * This class implements the inner works required for checking and recovering regions that wrongly
- * went missing in META, or are left present in META but with no equivalent FS dir.
- * Normally HBCK2 fix options rely on Master self-contained information to recover/fix
- * inconsistencies, but this an exception case where META table is in a broken state.
- * So, it assumes HDFS state as the source of truth, in other words, methods provided here consider
- * meta information found on HDFS region dirs as the valid ones.
+ * went missing in META, or are left present in META but with no equivalent FS dir. Normally HBCK2
+ * fix options rely on Master self-contained information to recover/fix inconsistencies, but this an
+ * exception case where META table is in a broken state. So, it assumes HDFS state as the source of
+ * truth, in other words, methods provided here consider meta information found on HDFS region dirs
+ * as the valid ones.
  */
 public class FsRegionsMetaRecoverer implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(FsRegionsMetaRecoverer.class);
@@ -67,8 +65,9 @@ public class FsRegionsMetaRecoverer implements Closeable {
     this.conn = ConnectionFactory.createConnection(configuration);
   }
 
-  /*Initially defined for test only purposes */
-  FsRegionsMetaRecoverer(Configuration configuration, Connection connection, FileSystem fileSystem){
+  /* Initially defined for test only purposes */
+  FsRegionsMetaRecoverer(Configuration configuration, Connection connection,
+    FileSystem fileSystem) {
     this.config = configuration;
     this.conn = connection;
     this.fs = fileSystem;
@@ -80,14 +79,14 @@ public class FsRegionsMetaRecoverer implements Closeable {
     return FSUtils.getRegionDirs(fs, tableDir);
   }
 
-  public Map<TableName,List<Path>> reportTablesMissingRegions(final List<String> namespacesOrTables)
-      throws IOException {
+  public Map<TableName, List<Path>>
+    reportTablesMissingRegions(final List<String> namespacesOrTables) throws IOException {
     InternalMetaChecker<Path> missingChecker = new InternalMetaChecker<>();
     return missingChecker.reportTablesRegions(namespacesOrTables, this::findMissingRegionsInMETA);
   }
 
-  public Map<TableName,List<HBCKMetaEntry>>
-      reportTablesExtraRegions(final List<String> namespacesOrTables) throws IOException {
+  public Map<TableName, List<HBCKMetaEntry>>
+    reportTablesExtraRegions(final List<String> namespacesOrTables) throws IOException {
     InternalMetaChecker<HBCKMetaEntry> extraChecker = new InternalMetaChecker<>();
     return extraChecker.reportTablesRegions(namespacesOrTables, this::findExtraRegionsInMETA);
   }
@@ -102,7 +101,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   List<HBCKMetaEntry> findExtraRegionsInMETA(String table) throws IOException {
     InternalMetaChecker<HBCKMetaEntry> extraChecker = new InternalMetaChecker<>();
-    return extraChecker.checkRegionsInMETA(table, (regions,dirs) -> {
+    return extraChecker.checkRegionsInMETA(table, (regions, dirs) -> {
       ListUtils<HBCKMetaEntry, Path> utils = new ListUtils<>();
       return utils.complement(regions, dirs, r -> r.getEncodedRegionName(), d -> d.getName());
     });
@@ -115,23 +114,23 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   List<String> addMissingRegionsInMeta(List<Path> regionsPath) throws IOException {
     List<String> reAddedRegionsEncodedNames = new ArrayList<>();
-    for(Path regionPath : regionsPath){
+    for (Path regionPath : regionsPath) {
       this.putRegionInfoFromHdfsInMeta(regionPath);
       reAddedRegionsEncodedNames.add(regionPath.getName());
     }
     return reAddedRegionsEncodedNames;
   }
 
-  public List<Future<List<String>>> addMissingRegionsInMetaForTables(
-      List<String> nameSpaceOrTable) throws IOException {
+  public List<Future<List<String>>> addMissingRegionsInMetaForTables(List<String> nameSpaceOrTable)
+    throws IOException {
     InternalMetaChecker<Path> missingChecker = new InternalMetaChecker<>();
     return missingChecker.processRegionsMetaCleanup(this::reportTablesMissingRegions,
       this::addMissingRegionsInMeta, nameSpaceOrTable);
   }
 
-  public List<Future<List<String>>> removeExtraRegionsFromMetaForTables(
-    List<String> nameSpaceOrTable) throws IOException {
-    if(nameSpaceOrTable.size()>0) {
+  public List<Future<List<String>>>
+    removeExtraRegionsFromMetaForTables(List<String> nameSpaceOrTable) throws IOException {
+    if (nameSpaceOrTable.size() > 0) {
       InternalMetaChecker<HBCKMetaEntry> extraChecker = new InternalMetaChecker<>();
       return extraChecker.processRegionsMetaCleanup(this::reportTablesExtraRegions,
         this::deleteAllRegions, nameSpaceOrTable);
@@ -141,7 +140,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
 
   private List<String> deleteAllRegions(List<HBCKMetaEntry> regions) throws IOException {
     List<String> resulting = new ArrayList<>();
-    for(HBCKMetaEntry r : regions){
+    for (HBCKMetaEntry r : regions) {
       HBCKMetaTableAccessor.deleteRegion(conn, r);
       resulting.add(r.getEncodedRegionName());
     }
@@ -156,30 +155,30 @@ public class FsRegionsMetaRecoverer implements Closeable {
   private class InternalMetaChecker<T> {
 
     List<T> checkRegionsInMETA(String table,
-        CheckingFunction<List<HBCKMetaEntry>, List<Path>, T> checkingFunction) throws IOException {
+      CheckingFunction<List<HBCKMetaEntry>, List<Path>, T> checkingFunction) throws IOException {
       final List<Path> regionsDirs = getTableRegionsDirs(table);
       TableName tableName = TableName.valueOf(table);
-      List<HBCKMetaEntry> regions = HBCKMetaTableAccessor.
-        getTableRegionsAsMetaEntries(FsRegionsMetaRecoverer.this.conn, tableName);
+      List<HBCKMetaEntry> regions = HBCKMetaTableAccessor
+        .getTableRegionsAsMetaEntries(FsRegionsMetaRecoverer.this.conn, tableName);
       return checkingFunction.check(regions, regionsDirs);
     }
 
-    Map<TableName,List<T>> reportTablesRegions(final List<String> namespacesOrTables,
+    Map<TableName, List<T>> reportTablesRegions(final List<String> namespacesOrTables,
       ExecFunction<List<T>, String> checkingFunction) throws IOException {
-      final Map<TableName,List<T>> result = new HashMap<>();
-      List<TableName> tableNames = HBCKMetaTableAccessor.
-        getTables(FsRegionsMetaRecoverer.this.conn).stream()
-          .filter(tableName -> {
-            if(namespacesOrTables==null || namespacesOrTables.isEmpty()){
-              return true;
-            } else {
-              Optional<String> findings = namespacesOrTables.stream().filter(
-                name -> (name.indexOf(":") > 0) ?
-                  tableName.equals(TableName.valueOf(name)) :
-                  tableName.getNamespaceAsString().equals(name)).findFirst();
-              return findings.isPresent();
-            }
-          }).collect(Collectors.toList());
+      final Map<TableName, List<T>> result = new HashMap<>();
+      List<TableName> tableNames = HBCKMetaTableAccessor.getTables(FsRegionsMetaRecoverer.this.conn)
+        .stream().filter(tableName -> {
+          if (namespacesOrTables == null || namespacesOrTables.isEmpty()) {
+            return true;
+          } else {
+            Optional<String> findings = namespacesOrTables.stream()
+              .filter(name -> (name.indexOf(":") > 0)
+                ? tableName.equals(TableName.valueOf(name))
+                : tableName.getNamespaceAsString().equals(name))
+              .findFirst();
+            return findings.isPresent();
+          }
+        }).collect(Collectors.toList());
       tableNames.stream().forEach(tableName -> {
         try {
           result.put(tableName,
@@ -192,28 +191,27 @@ public class FsRegionsMetaRecoverer implements Closeable {
     }
 
     List<Future<List<String>>> processRegionsMetaCleanup(
-        ExecFunction<Map<TableName, List<T>>, List<String>> reportFunction,
-        ExecFunction<List<String>, List<T>> execFunction,
-        List<String> nameSpaceOrTable) throws IOException {
-      ExecutorService executorService = Executors.newFixedThreadPool(
-        (nameSpaceOrTable == null ||
-          nameSpaceOrTable.size() > Runtime.getRuntime().availableProcessors()) ?
-          Runtime.getRuntime().availableProcessors() :
-          nameSpaceOrTable.size());
+      ExecFunction<Map<TableName, List<T>>, List<String>> reportFunction,
+      ExecFunction<List<String>, List<T>> execFunction, List<String> nameSpaceOrTable)
+      throws IOException {
+      ExecutorService executorService = Executors.newFixedThreadPool((nameSpaceOrTable == null
+        || nameSpaceOrTable.size() > Runtime.getRuntime().availableProcessors())
+          ? Runtime.getRuntime().availableProcessors()
+          : nameSpaceOrTable.size());
       List<Future<List<String>>> futures =
         new ArrayList<>(nameSpaceOrTable == null ? 1 : nameSpaceOrTable.size());
       try {
-        try(final Admin admin = conn.getAdmin()) {
-          Map<TableName,List<T>> report = reportFunction.execute(nameSpaceOrTable);
-          if(report.size() < 1) {
-            LOG.info("\nNo mismatches found in meta. Worth using related reporting function " +
-              "first.\nYou are likely passing non-existent " +
-              "namespace or table. Note that table names should include the namespace " +
-              "portion even for tables in the default namespace. " +
-              "See also the command usage.\n");
+        try (final Admin admin = conn.getAdmin()) {
+          Map<TableName, List<T>> report = reportFunction.execute(nameSpaceOrTable);
+          if (report.size() < 1) {
+            LOG.info("\nNo mismatches found in meta. Worth using related reporting function "
+              + "first.\nYou are likely passing non-existent "
+              + "namespace or table. Note that table names should include the namespace "
+              + "portion even for tables in the default namespace. "
+              + "See also the command usage.\n");
           }
           for (TableName tableName : report.keySet()) {
-            if(admin.tableExists(tableName)) {
+            if (admin.tableExists(tableName)) {
               futures.add(executorService.submit(new Callable<List<String>>() {
                 @Override
                 public List<String> call() throws Exception {
@@ -232,7 +230,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
             for (Future<List<String>> f : futures) {
               allDone &= f.isDone();
             }
-          } while(!allDone);
+          } while (!allDone);
         }
       } finally {
         executorService.shutdown();
@@ -242,7 +240,7 @@ public class FsRegionsMetaRecoverer implements Closeable {
   }
 
   @FunctionalInterface
-  interface CheckingFunction <RegionsList, DirList, T> {
+  interface CheckingFunction<RegionsList, DirList, T> {
     List<T> check(RegionsList regions, DirList dirs) throws IOException;
   }
 
@@ -252,13 +250,13 @@ public class FsRegionsMetaRecoverer implements Closeable {
   }
 
   public class ListUtils<T1, T2> {
-    public List<T1> complement(List<T1> list1, List<T2> list2,
-        Function<T1, String> convertT1, Function<T2, String> convertT2) {
+    public List<T1> complement(List<T1> list1, List<T2> list2, Function<T1, String> convertT1,
+      Function<T2, String> convertT2) {
       final List<T1> extraRegions = new ArrayList<>();
-      HashSet<String> baseSet = list2.stream().map(info ->
-        convertT2.apply(info)).collect(Collectors.toCollection(HashSet::new));
+      HashSet<String> baseSet = list2.stream().map(info -> convertT2.apply(info))
+        .collect(Collectors.toCollection(HashSet::new));
       list1.forEach(region -> {
-        if(!baseSet.contains(convertT1.apply(region))) {
+        if (!baseSet.contains(convertT1.apply(region))) {
           extraRegions.add(region);
         }
       });

@@ -21,7 +21,6 @@ import static org.apache.hadoop.hbase.shaded.junit.framework.TestCase.assertEqua
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellBuilderFactory;
 import org.apache.hadoop.hbase.CellBuilderType;
@@ -30,19 +29,16 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 public class TestTableReporter {
-  private static final byte [] CF = Bytes.toBytes("cf");
-  private static final byte [] Q = Bytes.toBytes("q");
+  private static final byte[] CF = Bytes.toBytes("cf");
+  private static final byte[] Q = Bytes.toBytes("q");
 
-  private List<Cell> makeCells(byte [] row, int columns, int versions) {
+  private List<Cell> makeCells(byte[] row, int columns, int versions) {
     List<Cell> cells = new ArrayList<Cell>(columns);
     for (int j = 0; j < columns; j++) {
       for (int k = versions; k > 0; k--) {
-        Cell cell = CellBuilderFactory.create(CellBuilderType.DEEP_COPY).
-            setRow(row).setFamily(CF).
-            setQualifier(Bytes.toBytes(j)).
-            setType(Cell.Type.Put).
-            setTimestamp(k).
-            setValue(row).build();
+        Cell cell = CellBuilderFactory.create(CellBuilderType.DEEP_COPY).setRow(row).setFamily(CF)
+          .setQualifier(Bytes.toBytes(j)).setType(Cell.Type.Put).setTimestamp(k).setValue(row)
+          .build();
         cells.add(cell);
       }
     }
@@ -56,14 +52,14 @@ public class TestTableReporter {
     final int columns = 3;
     final int versions = 2;
     for (int i = 0; i < rows; i++) {
-      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i),
-              columns, versions)), sketches);
+      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i), columns, versions)),
+        sketches);
     }
     sketches.print();
     // Just check the column counts. Should be 2.
-    double [] columnCounts = sketches.columnCountSketch.getQuantiles(new double [] {1});
+    double[] columnCounts = sketches.columnCountSketch.getQuantiles(new double[] { 1 });
     assertEquals(columnCounts.length, 1);
-    assertEquals((int)columnCounts[0], columns * versions);
+    assertEquals((int) columnCounts[0], columns * versions);
   }
 
   @Test
@@ -73,14 +69,14 @@ public class TestTableReporter {
     final int columns = 3;
     final int versions = 2;
     for (int i = 0; i < rows; i++) {
-      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i),
-              columns, versions)), sketches);
+      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i), columns, versions)),
+        sketches);
     }
     sketches.print();
     TableReporter.Sketches sketches2 = new TableReporter.Sketches();
     for (int i = 0; i < rows; i++) {
-      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i),
-              columns, versions)), sketches2);
+      TableReporter.processRowResult(Result.create(makeCells(Bytes.toBytes(i), columns, versions)),
+        sketches2);
     }
     sketches2.print();
     TableReporter.AccumlatingSketch accumlator = new TableReporter.AccumlatingSketch();
@@ -89,9 +85,9 @@ public class TestTableReporter {
     TableReporter.Sketches sum = accumlator.get();
 
     // Just check the column counts. Should be 2.
-    double [] columnCounts = sum.columnCountSketch.getQuantiles(new double [] {1});
+    double[] columnCounts = sum.columnCountSketch.getQuantiles(new double[] { 1 });
     assertEquals(columnCounts.length, 1);
-    assertEquals((int)columnCounts[0], columns * versions);
+    assertEquals((int) columnCounts[0], columns * versions);
     sum.print();
   }
 }

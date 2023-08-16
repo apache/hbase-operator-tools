@@ -15,23 +15,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hbase;
-
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.yetus.audience.InterfaceAudience;
-import org.apache.yetus.audience.InterfaceStability;
-
-/**
- * COPIED from org.apache.hadoop.hbase.util.FileStatusFilter because the original class was tagged
- * with @InterfaceAudience.Private.
- */
-@InterfaceAudience.Private
-@InterfaceStability.Evolving
-public interface HBCKFileStatusFilter {
-  /**
-   * Tests whether or not the specified filestatus should be included in a filestatus list.
-   * @param f The filestatus to be tested
-   * @return <code>true</code> if and only if the filestatus should be included
-   */
-  boolean accept(FileStatus f);
-}
