@@ -100,9 +100,12 @@ Options:
  -z,--zookeeper.znode.parent <arg>                parent znode of hbase
                                                   ensemble
 Command:
- addFsRegionsMissingInMeta <NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...
+ addFsRegionsMissingInMeta [OPTIONS]
+[<NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]
    Options:
-    -i,--inputFiles  take one or more input files of namespace of table names
+    -i,--inputFiles  take one or more files of namespace or table names
+    -o,--outputFile  name/prefix of the file(s) to dump region names
+    -n,--numLines  number of lines to be written to each output file
    To be used when regions missing from hbase:meta but directories
    are present still in HDFS. Can happen if user has run _hbck1_
    'OfflineMetaRepair' against an hbase-2.x cluster. Needs hbase:meta
@@ -121,12 +124,23 @@ Command:
    namespace 'n2':
      $ HBCK2 addFsRegionsMissingInMeta default:tbl_1 n1:tbl_2 n2
    Returns HBCK2  an 'assigns' command with all re-inserted regions.
-   If -i or --inputFiles is specified, pass one or more input file names.
-   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line. For example:
-    For example:
-     $ HBCK2 addFsRegionsMissingInMeta -i fileName1 fileName2
    SEE ALSO: reportMissingRegionsInMeta
    SEE ALSO: fixMeta
+   If -i or --inputFiles is specified, pass one or more input file names.
+   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.
+   For example:
+     $ HBCK2 addFsRegionsMissingInMeta -i fileName1 fileName2
+   If -o or --outputFile is specified, the output file(s) can be passed as
+    input to assigns command via -i or -inputFiles option.
+   If -n or --numLines is specified, and say it is  set to 100, this will
+   create files with prefix as value passed by -o or --outputFile option.
+   Each file will have 100 region names (max.), one per line.
+   For example:
+     $ HBCK2 addFsRegionsMissingInMeta -o outputFilePrefix -n 100
+     -i fileName1 fileName2
+   But if -n is not specified, but -o is specified, it will dump all
+   region names in a single file, one per line.
+   NOTE: -n option is applicable only if -o option is specified.
 
  assigns [OPTIONS] <ENCODED_REGIONNAME/INPUTFILES_FOR_REGIONNAMES>...
    Options:
