@@ -591,6 +591,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageGenerateMissingTableInfo(writer);
     writer.println();
+    usageRecoverUnknown(writer);
+    writer.println();
+    usageRegioninfoMismatch(writer);
+    writer.println();
     usageReplication(writer);
     writer.println();
     usageReportMissingRegionsInMeta(writer);
@@ -601,18 +605,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println();
     usageScheduleRecoveries(writer);
     writer.println();
-    usageRecoverUnknown(writer);
-    writer.println();
     usageUnassigns(writer);
-    writer.println();
-    usageRegioninfoMismatch(writer);
     writer.println();
     writer.close();
     return sw.toString();
   }
 
   private static void usageAddFsRegionsMissingInMeta(PrintWriter writer) {
-    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [OPTIONS] [<NAMESPACE|"
+    writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [OPTIONS]");
+    writer.println("      [<NAMESPACE|"
       + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
@@ -681,7 +682,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("    -o,--override   override if procedure is running/stuck");
     writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
     writer.println("    -w,--lockWait   milliseconds to wait before giving up; default=1");
-    writer.println("    -i,--inputFiles  take one or more files of pids");
+    writer.println("    -i,--inputFiles  take one or more input files of PID's");
     writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent");
     writer.println("   of bypassed procedure will also be skipped to the finish. Entities will");
     writer.println("   be left in an inconsistent state and will require manual fixup. May");
@@ -690,7 +691,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   to finish parent and children. This is SLOW, and dangerous so use");
     writer.println("   selectively. Does not always work.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains pids, one per line. For example:");
+    writer.println("   Each file contains PID's, one per line. For example:");
     writer.println("     $ HBCK2 " + BYPASS + " -i fileName1 fileName2");
   }
 
@@ -698,7 +699,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println(" " + FILESYSTEM + " [OPTIONS] [<TABLENAME>...|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    sideline corrupt hfiles, bad links, and references.");
-    writer.println("    -i,--inputFiles  take one or more files of table names");
+    writer.println("    -i,--inputFiles  take one or more input files of table names");
     writer.println("   Report on corrupt hfiles, references, broken links, and integrity.");
     writer.println("   Pass '--fix' to sideline corrupt files and links. '--fix' does NOT");
     writer.println("   fix integrity issues; i.e. 'holes' or 'orphan' regions. Pass one or");
@@ -724,7 +725,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   catalog_janitor and hbck chore runs. If nothing to fix, run is a");
     writer.println("   noop. Otherwise, if 'HBCK Report' UI reports problems, a run of");
     writer.println("   " + FIX_META + " will clear up hbase:meta issues. See 'HBase HBCK' UI");
-    writer.println("   for how to generate new execute.");
+    writer.println("   for how to generate new report.");
     writer.println("   SEE ALSO: " + REPORT_MISSING_REGIONS_IN_META);
   }
 
@@ -748,28 +749,31 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   .tableinfo file to the file system. Orphan tables can cause e.g.");
     writer.println("   ServerCrashProcedures to stuck, you might need to fix these still");
     writer.println("   after you generated the missing table info files. If no tables are ");
-    writer.println("   specified, .tableinfo will be genrated for all missing table descriptors.");
+    writer.println("   specified, .tableinfo will be generated for all missing table ");
+    writer.println("   descriptors.");
   }
 
   private static void usageReplication(PrintWriter writer) {
     writer.println(" " + REPLICATION + " [OPTIONS] [<TABLENAME>...|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    fix any replication issues found.");
-    writer.println("    -i,--inputFiles  take one or more files of table names");
+    writer.println("    -i,--inputFiles  take one or more input files of table names");
     writer.println("   Looks for undeleted replication queues and deletes them if passed the");
     writer.println("   '--fix' option. Pass a table name to check for replication barrier and");
     writer.println("   purge if '--fix'.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains table names, one per line. For example:");
+    writer.println("   Each file contains <TABLENAME>, one per line. For example:");
     writer.println("     $ HBCK2 " + REPLICATION + " -i fileName1 fileName2");
   }
 
   private static void usageExtraRegionsInMeta(PrintWriter writer) {
     writer.println(" " + EXTRA_REGIONS_IN_META + " [<NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...]");
+      + "NAMESPACE:TABLENAME>...|");
+    writer.println("      -i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    fix meta by removing all extra regions found.");
-    writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
+    writer.println("    -i,--inputFiles  take one or more input files of namespace or");
+    writer.println("   table names");
     writer.println("   Reports regions present on hbase:meta, but with no related ");
     writer.println("   directories on the file system. Needs hbase:meta to be online. ");
     writer.println("   For each table name passed as parameter, performs diff");
@@ -784,7 +788,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   An example triggering extra regions report for tables 'table_1'");
     writer.println("   and 'table_2', under default namespace:");
     writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 default:table_2");
-    writer.println("   An example triggering missing regions report for table 'table_1'");
+    writer.println("   An example triggering extra regions report for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
     writer.println("     $ HBCK2 " + EXTRA_REGIONS_IN_META + " default:table_1 ns1");
     writer.println("   Returns list of extra regions for each table passed as parameter, or");
@@ -797,9 +801,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageReportMissingRegionsInMeta(PrintWriter writer) {
     writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " [<NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...|-i <INPUT_FILE>...]");
+      + "NAMESPACE:TABLENAME>...|");
+    writer.println("      -i <INPUT_FILE>...]");
     writer.println("   Options:");
-    writer.println("    -i,--inputFiles  take one or more files of encoded region names");
+    writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
     writer.println("   To be used when regions missing from hbase:meta but directories");
     writer.println("   are present still in HDFS. Can happen if user has run _hbck1_");
     writer.println("   'OfflineMetaRepair' against an hbase-2.x cluster. This is a CHECK only");
@@ -817,17 +822,18 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   It accepts a combination of multiple namespace and tables. Table names");
     writer.println("   should include the namespace portion, even for tables in the default");
     writer.println("   namespace, otherwise it will assume as a namespace value.");
-    writer.println("   An example triggering missing regions execute for tables 'table_1'");
+    writer.println("   An example triggering missing regions report for tables 'table_1'");
     writer.println("   and 'table_2', under default namespace:");
     writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 default:table_2");
-    writer.println("   An example triggering missing regions execute for table 'table_1'");
+    writer.println("   An example triggering missing regions report for table 'table_1'");
     writer.println("   under default namespace, and for all tables from namespace 'ns1':");
     writer.println("     $ HBCK2 reportMissingRegionsInMeta default:table_1 ns1");
     writer.println("   Returns list of missing regions for each table passed as parameter, or");
     writer.println("   for each table on namespaces specified as parameter.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println(
-      "   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.);" + "For example:");
+      "   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 " + REPORT_MISSING_REGIONS_IN_META + " -i fileName1 fileName2");
   }
 
@@ -836,10 +842,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       .println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>" + "|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println(
-      "    -i,--inputFiles  take one or more files of encoded region names " + "and states");
+      "    -i,--inputFiles  take one or more input files of encoded region names ");
+    writer.println("   and states.");
     writer.println("   To set the replica region's state, it needs the primary region's ");
     writer.println("   encoded regionname and replica id. The command will be ");
-    writer.println(" " + SET_REGION_STATE + " <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>");
+    writer.println("   " + SET_REGION_STATE + " <PRIMARY_ENCODED_REGIONNAME>,<replicaId> <STATE>");
     writer.println("   Possible region states:");
     writer.println("    OFFLINE, OPENING, OPEN, CLOSING, CLOSED, SPLITTING, SPLIT,");
     writer.println("    FAILED_OPEN, FAILED_CLOSE, MERGING, MERGED, SPLITTING_NEW,");
@@ -858,7 +865,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println(
-      "   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.);" + "For example:");
+      "   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 " + SET_REGION_STATE + " -i fileName1 fileName2");
   }
 
@@ -877,14 +885,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Returns whatever the previous table state was.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer
-      .println("   Each file contains <TABLENAME> <STATE>, one pair per line.);" + "For example:");
+      .println("   Each file contains <TABLENAME> <STATE>, one pair per line.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 " + SET_TABLE_STATE + " -i fileName1 fileName2");
   }
 
   private static void usageScheduleRecoveries(PrintWriter writer) {
     writer.println(" " + SCHEDULE_RECOVERIES + " [<SERVERNAME>...|-i <INPUT_FILE>...]");
     writer.println("   Options:");
-    writer.println("    -i,--inputFiles  take one or more files of server names");
+    writer.println("    -i,--inputFiles  take one or more input files of server names");
     writer.println("   Schedule ServerCrashProcedure(SCP) for list of RegionServers. Format");
     writer.println("   server name as '<HOSTNAME>,<PORT>,<STARTCODE>' (See HBase UI/logs).");
     writer.println("   Example using RegionServer 'a.example.org,29100,1540348649479':");
@@ -893,7 +902,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   no procedure created (see master logs for why not).");
     writer.println("   Command support added in hbase versions 2.0.3, 2.1.2, 2.2.0 or newer.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println("   Each file contains server names, one per line. For example:");
+    writer.println("   Each file contains <SERVERNAME>, one per line. For example:");
     writer.println("     $ HBCK2 " + SCHEDULE_RECOVERIES + " -i fileName1 fileName2");
   }
 
@@ -911,7 +920,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println(" " + UNASSIGNS + " [<ENCODED_REGIONNAME>...|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
-    writer.println("    -i,--inputFiles  take one or more files of encoded region names");
+    writer.println("    -i,--inputFiles  take one or more input files of encoded region names");
     writer.println("   A 'raw' unassign that can be used even during Master initialization");
     writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one or");
     writer.println("   more encoded region names. 1588230740 is the hard-coded name for the");
