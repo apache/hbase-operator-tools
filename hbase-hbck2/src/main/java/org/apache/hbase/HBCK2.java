@@ -137,6 +137,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final long DEFAULT_LOCK_WAIT = 1;
 
   /**
+   * Value which would represent no batching.
+   */
+  private static final int NO_BATCH_SIZE = -1;
+
+  /**
+   * Number of units to process in a single call. By default, it is set to -1, that is no batching
+   * would be done.
+   */
+  private static final int DEFAULT_BATCH_SIZE = NO_BATCH_SIZE;
+
+  /**
    * Check for HBCK support. Expects created connection.
    * @param supportedVersions list of zero or more supported versions.
    */
@@ -450,42 +461,82 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   List<Long> assigns(Hbck hbck, String[] args) throws IOException {
+    // Init
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
+    Option batchOpt = Option.builder("b").longOpt("batchSize").hasArg().type(Integer.class).build();
     options.addOption(override);
     options.addOption(inputFile);
-    // Parse command-line.
+    options.addOption(batchOpt);
+
+    // Parse command-line
     CommandLine commandLine = getCommandLine(args, options);
     if (commandLine == null) {
       return null;
     }
+
+    int batchSize = getBatchSize(batchOpt, commandLine);
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
+
     List<String> argList = commandLine.getArgList();
-    return hbck.assigns(getFromArgsOrFiles(argList, inputFileFlag), overrideFlag);
+    List<String> regionList = getFromArgsOrFiles(argList, inputFileFlag);
+
+    // Process here
+    if (batchSize == NO_BATCH_SIZE) {
+      return hbck.assigns(regionList, overrideFlag);
+    } else {
+      List<Long> pidList = new ArrayList<>(argList.size());
+      final List<List<String>> batch = Lists.partition(regionList, batchSize);
+      for (int i = 0; i < batch.size(); i++) {
+        LOG.info("Processing batch #" + i);
+        pidList.addAll(hbck.assigns(batch.get(i), overrideFlag));
+      }
+      return pidList;
+    }
   }
 
   List<Long> unassigns(Hbck hbck, String[] args) throws IOException {
+    // Init
     Options options = new Options();
     Option override = Option.builder("o").longOpt("override").build();
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
+    Option batchOpt = Option.builder("b").longOpt("batchSize").hasArg().type(Integer.class).build();
     options.addOption(override);
     options.addOption(inputFile);
-    // Parse command-line.
+    options.addOption(batchOpt);
+
+    // Parse command-line
     CommandLine commandLine = getCommandLine(args, options);
     if (commandLine == null) {
       return null;
     }
+
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
+    int batchSize = getBatchSize(batchOpt, commandLine);
+
     List<String> argList = commandLine.getArgList();
-    return hbck.unassigns(getFromArgsOrFiles(argList, inputFileFlag), overrideFlag);
+    List<String> regionList = getFromArgsOrFiles(argList, inputFileFlag);
+
+    // Process here
+    if (batchSize == NO_BATCH_SIZE) {
+      return hbck.unassigns(regionList, overrideFlag);
+    } else {
+      List<Long> pidList = new ArrayList<>(argList.size());
+      final List<List<String>> batch = Lists.partition(regionList, batchSize);
+      for (int i = 0; i < batch.size(); i++) {
+        LOG.info("Processing batch #" + i);
+        pidList.addAll(hbck.unassigns(batch.get(i), overrideFlag));
+      }
+      return pidList;
+    }
   }
 
   /** Returns List of results OR null if failed to run. */
   List<Boolean> bypass(String[] args) throws IOException {
-    // Bypass has two options....
+    // Init
     Options options = new Options();
     // See usage for 'help' on these options.
     Option override = Option.builder("o").longOpt("override").build();
@@ -496,7 +547,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     options.addOption(wait);
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(inputFile);
-    // Parse command-line.
+    Option batchOpt = Option.builder("b").longOpt("batchSize").hasArg().type(Integer.class).build();
+    options.addOption(batchOpt);
+
+    // Parse command-line
     CommandLine commandLine = getCommandLine(args, options);
     if (commandLine == null) {
       return null;
@@ -508,6 +562,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean recursiveFlag = commandLine.hasOption(recursive.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
+    int batchSize = getBatchSize(batchOpt, commandLine);
 
     String[] pidStrs =
       getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag).toArray(new String[0]);
@@ -517,9 +572,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
 
+    // Process here
     try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
       checkFunctionSupported(connection, BYPASS);
-      return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
+      if (batchSize == NO_BATCH_SIZE) {
+        return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
+      } else {
+        List<Boolean> statusList = new ArrayList<>(pids.size());
+        final List<List<Long>> batch = Lists.partition(pids, batchSize);
+        for (int i = 0; i < batch.size(); i++) {
+          LOG.info("Processing batch #" + i);
+          statusList
+            .addAll(hbck.bypassProcedure(batch.get(i), lockWait, overrideFlag, recursiveFlag));
+        }
+        return statusList;
+      }
     }
   }
 
@@ -663,16 +730,21 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
     writer.println("    -i,--inputFiles  take one or more files of encoded region names");
+    writer.println("    -b,--batchSize   number of regions to process in a batch");
     writer.println("   A 'raw' assign that can be used even during Master initialization (if");
     writer.println("   the -skip flag is specified). Skirts Coprocessors. Pass one or more");
     writer.println("   encoded region names. 1588230740 is the hard-coded name for the");
     writer.println("   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example of");
     writer.println("   what a user-space encoded region name looks like. For example:");
-    writer.println("     $ HBCK2 assigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("     $ HBCK2 " + ASSIGNS + " 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created AssignProcedure(s) or -1 if none.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println("   Each file contains encoded region names, one per line. For example:");
-    writer.println("     $ HBCK2 assigns -i fileName1 fileName2");
+    writer.println("     $ HBCK2 " + ASSIGNS + " -i fileName1 fileName2");
+    writer.println("   If -b or --batchSize is specified, the command processes those many");
+    writer.println("   regions at a time in a batch-ed manner; Consider using this option,");
+    writer.println("   if the list of regions is huge, to avoid CallTimeoutException.");
+    writer.println("     $ HBCK2 " + ASSIGNS + " -i fileName1 fileName2 -b 500");
   }
 
   private static void usageBypass(PrintWriter writer) {
@@ -682,6 +754,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
     writer.println("    -w,--lockWait   milliseconds to wait before giving up; default=1");
     writer.println("    -i,--inputFiles  take one or more input files of PID's");
+    writer.println("    -b,--batchSize   number of procedure to process in a batch");
     writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent");
     writer.println("   of bypassed procedure will also be skipped to the finish. Entities will");
     writer.println("   be left in an inconsistent state and will require manual fixup. May");
@@ -692,6 +765,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println("   Each file contains PID's, one per line. For example:");
     writer.println("     $ HBCK2 " + BYPASS + " -i fileName1 fileName2");
+    writer.println("   If -b or --batchSize is specified, the command processes those many");
+    writer.println("   procedures at a time in a batch-ed manner; Consider using this option,");
+    writer.println("   if the list of procedures is huge, to avoid CallTimeoutException.");
+    writer.println("     $ HBCK2 " + BYPASS + " -i fileName1 fileName2 -b 500");
   }
 
   private static void usageFilesystem(PrintWriter writer) {
@@ -909,16 +986,17 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageUnassigns(PrintWriter writer) {
-    writer.println(" " + UNASSIGNS + " [<ENCODED_REGIONNAME>...|-i <INPUT_FILE>...]");
+    writer.println(" " + UNASSIGNS + " [OPTIONS] [<ENCODED_REGIONNAME>...|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -o,--override  override ownership by another procedure");
     writer.println("    -i,--inputFiles  take one or more input files of encoded region names");
+    writer.println("    -b,--batchSize   number of regions to process in a batch");
     writer.println("   A 'raw' unassign that can be used even during Master initialization");
     writer.println("   (if the -skip flag is specified). Skirts Coprocessors. Pass one or");
     writer.println("   more encoded region names. 1588230740 is the hard-coded name for the");
     writer.println("   hbase:meta region and de00010733901a05f5a2a3a382e27dd4 is an example");
     writer.println("   of what a userspace encoded region name looks like. For example:");
-    writer.println("     $ HBCK2 unassigns 1588230740 de00010733901a05f5a2a3a382e27dd4");
+    writer.println("     $ HBCK2 " + UNASSIGNS + " 1588230740 de00010733901a05f5a2a3a382e27dd4");
     writer.println("   Returns the pid(s) of the created UnassignProcedure(s) or -1 if none.");
     writer.println();
     writer.println("   SEE ALSO, org.apache.hbase.hbck1.OfflineMetaRepair, the offline");
@@ -926,6 +1004,10 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
     writer.println("   Each file contains encoded region names, one per line. For example:");
     writer.println("     $ HBCK2 " + UNASSIGNS + " -i fileName1 fileName2");
+    writer.println("   If -b or --batchSize is specified, the tool processes those many");
+    writer.println("   regions at a time in a batch-ed manner; Consider using this option,");
+    writer.println("   if the list of regions is huge, to avoid CallTimeoutException.");
+    writer.println("     $ HBCK2 " + UNASSIGNS + " -i fileName1 fileName2 -b 500");
   }
 
   private static void usageRegioninfoMismatch(PrintWriter writer) {
@@ -1364,7 +1446,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     if (replicaId > 0) {
       System.out
-        .println("Change state for replica reigon " + replicaId + " for primary region " + region);
+        .println("Change state for replica region " + replicaId + " for primary region " + region);
     }
 
     return new String[] { region, replicaId.toString(), state.name() };
@@ -1409,13 +1491,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(inputFile);
     return getCommandLine(args, options);
-  }
-
-  private Pair<CommandLine, List<String>> parseAndGetCommandLineWithInputOption(String[] args,
-    Options options) throws IOException {
-    CommandLine commandLine = parseCommandWithInputList(args, options);
-    List<String> params = getFromArgsOrFiles(commandLine.getArgList(), commandLine.hasOption("i"));
-    return Pair.newPair(commandLine, params);
   }
 
   private Pair<CommandLine, List<String>> parseCommandWithFixAndInputOptions(String[] args)
@@ -1466,4 +1541,22 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
     return argList;
   }
+
+  static int getBatchSize(Option batchOpt, CommandLine commandLine)
+    throws IllegalArgumentException {
+    int batchSize = DEFAULT_BATCH_SIZE;
+    try {
+      if (commandLine.hasOption(batchOpt.getOpt())) {
+        batchSize = Integer.parseInt(commandLine.getOptionValue(batchOpt.getOpt()));
+        if (batchSize <= 0) {
+          throw new IllegalArgumentException("Batch size should be greater than 0!");
+        }
+      }
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException("Batch size should be an integer!");
+    }
+    LOG.info("Batch size set to: " + batchSize);
+    return batchSize;
+  }
+
 }
