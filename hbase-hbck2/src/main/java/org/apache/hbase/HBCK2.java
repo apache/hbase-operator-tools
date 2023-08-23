@@ -480,14 +480,13 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean overrideFlag = commandLine.hasOption(override.getOpt());
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
 
-    List<String> argList = commandLine.getArgList();
-    List<String> regionList = getFromArgsOrFiles(argList, inputFileFlag);
+    List<String> regionList = getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
 
     // Process here
     if (batchSize == NO_BATCH_SIZE) {
       return hbck.assigns(regionList, overrideFlag);
     } else {
-      List<Long> pidList = new ArrayList<>(argList.size());
+      List<Long> pidList = new ArrayList<>(regionList.size());
       final List<List<String>> batch = Lists.partition(regionList, batchSize);
       for (int i = 0; i < batch.size(); i++) {
         LOG.info("Processing batch #" + i);
@@ -517,14 +516,13 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     boolean inputFileFlag = commandLine.hasOption(inputFile.getOpt());
     int batchSize = getBatchSize(batchOpt, commandLine);
 
-    List<String> argList = commandLine.getArgList();
-    List<String> regionList = getFromArgsOrFiles(argList, inputFileFlag);
+    List<String> regionList = getFromArgsOrFiles(commandLine.getArgList(), inputFileFlag);
 
     // Process here
     if (batchSize == NO_BATCH_SIZE) {
       return hbck.unassigns(regionList, overrideFlag);
     } else {
-      List<Long> pidList = new ArrayList<>(argList.size());
+      List<Long> pidList = new ArrayList<>(regionList.size());
       final List<List<String>> batch = Lists.partition(regionList, batchSize);
       for (int i = 0; i < batch.size(); i++) {
         LOG.info("Processing batch #" + i);
@@ -744,7 +742,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   If -b or --batchSize is specified, the command processes those many");
     writer.println("   regions at a time in a batch-ed manner; Consider using this option,");
     writer.println("   if the list of regions is huge, to avoid CallTimeoutException.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 " + ASSIGNS + " -i fileName1 fileName2 -b 500");
+    writer.println("   By default, batchSize is set to -1 i.e. no batching is done.");
   }
 
   private static void usageBypass(PrintWriter writer) {
@@ -754,7 +754,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("    -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!");
     writer.println("    -w,--lockWait   milliseconds to wait before giving up; default=1");
     writer.println("    -i,--inputFiles  take one or more input files of PID's");
-    writer.println("    -b,--batchSize   number of procedure to process in a batch");
+    writer.println("    -b,--batchSize   number of procedures to process in a batch");
     writer.println("   Pass one (or more) procedure 'pid's to skip to procedure finish. Parent");
     writer.println("   of bypassed procedure will also be skipped to the finish. Entities will");
     writer.println("   be left in an inconsistent state and will require manual fixup. May");
@@ -768,7 +768,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   If -b or --batchSize is specified, the command processes those many");
     writer.println("   procedures at a time in a batch-ed manner; Consider using this option,");
     writer.println("   if the list of procedures is huge, to avoid CallTimeoutException.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 " + BYPASS + " -i fileName1 fileName2 -b 500");
+    writer.println("   By default, batchSize is set to -1 i.e. no batching is done.");
   }
 
   private static void usageFilesystem(PrintWriter writer) {
@@ -1007,7 +1009,9 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   If -b or --batchSize is specified, the tool processes those many");
     writer.println("   regions at a time in a batch-ed manner; Consider using this option,");
     writer.println("   if the list of regions is huge, to avoid CallTimeoutException.");
+    writer.println("   For example:");
     writer.println("     $ HBCK2 " + UNASSIGNS + " -i fileName1 fileName2 -b 500");
+    writer.println("   By default, batchSize is set to -1 i.e. no batching is done.");
   }
 
   private static void usageRegioninfoMismatch(PrintWriter writer) {

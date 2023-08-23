@@ -160,7 +160,9 @@ Command:
    If -b or --batchSize is specified, the command processes those many
    regions at a time in a batch-ed manner; Consider using this option,
    if the list of regions is huge, to avoid CallTimeoutException.
+   For example:
      $ HBCK2 assigns -i fileName1 fileName2 -b 500
+   By default, batchSize is set to -1 i.e. no batching is done.
 
  bypass [OPTIONS] [<PID>...|-i <INPUT_FILE>...]
    Options:
@@ -168,7 +170,7 @@ Command:
     -r,--recursive  bypass parent and its children. SLOW! EXPENSIVE!
     -w,--lockWait   milliseconds to wait before giving up; default=1
     -i,--inputFiles  take one or more input files of PID's
-    -b,--batchSize   number of procedure to process in a batch
+    -b,--batchSize   number of procedures to process in a batch
    Pass one (or more) procedure 'pid's to skip to procedure finish. Parent
    of bypassed procedure will also be skipped to the finish. Entities will
    be left in an inconsistent state and will require manual fixup. May
@@ -182,7 +184,9 @@ Command:
    If -b or --batchSize is specified, the command processes those many
    procedures at a time in a batch-ed manner; Consider using this option,
    if the list of procedures is huge, to avoid CallTimeoutException.
+   For example:
      $ HBCK2 bypass -i fileName1 fileName2 -b 500
+   By default, batchSize is set to -1 i.e. no batching is done.
 
  extraRegionsInMeta [<NAMESPACE|NAMESPACE:TABLENAME>...|
       -i <INPUT_FILE>...]
@@ -416,7 +420,9 @@ Command:
    If -b or --batchSize is specified, the tool processes those many
    regions at a time in a batch-ed manner; Consider using this option,
    if the list of regions is huge, to avoid CallTimeoutException.
+   For example:
      $ HBCK2 unassigns -i fileName1 fileName2 -b 500
+   By default, batchSize is set to -1 i.e. no batching is done.
 
 ```
 Note that when you pass `bin/hbase` the `hbck` argument, it will by
