@@ -613,8 +613,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageAddFsRegionsMissingInMeta(PrintWriter writer) {
     writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [OPTIONS]");
-    writer.println("      [<NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
+    writer.println("      [<NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
     writer.println("    -o,--outputFile  name/prefix of the file(s) to dump region names");
@@ -767,8 +766,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageExtraRegionsInMeta(PrintWriter writer) {
-    writer.println(" " + EXTRA_REGIONS_IN_META + " [<NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...|");
+    writer.println(" " + EXTRA_REGIONS_IN_META + " [<NAMESPACE|NAMESPACE:TABLENAME>...|");
     writer.println("      -i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    fix meta by removing all extra regions found.");
@@ -800,8 +798,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageReportMissingRegionsInMeta(PrintWriter writer) {
-    writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " [<NAMESPACE|"
-      + "NAMESPACE:TABLENAME>...|");
+    writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " [<NAMESPACE|NAMESPACE:TABLENAME>...|");
     writer.println("      -i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
@@ -831,18 +828,15 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("   Returns list of missing regions for each table passed as parameter, or");
     writer.println("   for each table on namespaces specified as parameter.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println(
-      "   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.");
+    writer.println("   Each file contains <NAMESPACE|NAMESPACE:TABLENAME>, one per line.");
     writer.println("   For example:");
     writer.println("     $ HBCK2 " + REPORT_MISSING_REGIONS_IN_META + " -i fileName1 fileName2");
   }
 
   private static void usageSetRegionState(PrintWriter writer) {
-    writer
-      .println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>" + "|-i <INPUT_FILE>...]");
+    writer.println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>|-i <INPUT_FILE>...]");
     writer.println("   Options:");
-    writer.println(
-      "    -i,--inputFiles  take one or more input files of encoded region names ");
+    writer.println("    -i,--inputFiles  take one or more input files of encoded region names ");
     writer.println("   and states.");
     writer.println("   To set the replica region's state, it needs the primary region's ");
     writer.println("   encoded regionname and replica id. The command will be ");
@@ -864,8 +858,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("     $ HBCK2 setRegionState de00010733901a05f5a2a3a382e27dd4 CLOSING");
     writer.println("   Returns \"0\" if region state changed and \"1\" otherwise.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer.println(
-      "   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.");
+    writer.println("   Each file contains <ENCODED_REGIONNAME> <STATE>, one pair per line.");
     writer.println("   For example:");
     writer.println("     $ HBCK2 " + SET_REGION_STATE + " -i fileName1 fileName2");
   }
@@ -884,8 +877,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     writer.println("     $ HBCK2 setTableState users ENABLED");
     writer.println("   Returns whatever the previous table state was.");
     writer.println("   If -i or --inputFiles is specified, pass one or more input file names.");
-    writer
-      .println("   Each file contains <TABLENAME> <STATE>, one pair per line.");
+    writer.println("   Each file contains <TABLENAME> <STATE>, one pair per line.");
     writer.println("   For example:");
     writer.println("     $ HBCK2 " + SET_TABLE_STATE + " -i fileName1 fileName2");
   }
