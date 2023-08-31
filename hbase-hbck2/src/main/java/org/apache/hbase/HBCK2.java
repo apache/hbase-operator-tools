@@ -613,7 +613,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
 
   private static void usageAddFsRegionsMissingInMeta(PrintWriter writer) {
     writer.println(" " + ADD_MISSING_REGIONS_IN_META_FOR_TABLES + " [OPTIONS]");
-    writer.println("      [<NAMESPACE|" + "NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
+    writer.println("      [<NAMESPACE|NAMESPACE:TABLENAME>...|-i <INPUTFILES>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
     writer.println("    -o,--outputFile  name/prefix of the file(s) to dump region names");
@@ -766,7 +766,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageExtraRegionsInMeta(PrintWriter writer) {
-    writer.println(" " + EXTRA_REGIONS_IN_META + " [<NAMESPACE|" + "NAMESPACE:TABLENAME>...|");
+    writer.println(" " + EXTRA_REGIONS_IN_META + " [<NAMESPACE|NAMESPACE:TABLENAME>...|");
     writer.println("      -i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -f, --fix    fix meta by removing all extra regions found.");
@@ -798,8 +798,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageReportMissingRegionsInMeta(PrintWriter writer) {
-    writer
-      .println(" " + REPORT_MISSING_REGIONS_IN_META + " [<NAMESPACE|" + "NAMESPACE:TABLENAME>...|");
+    writer.println(" " + REPORT_MISSING_REGIONS_IN_META + " [<NAMESPACE|NAMESPACE:TABLENAME>...|");
     writer.println("      -i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more files of namespace or table names");
@@ -835,8 +834,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   private static void usageSetRegionState(PrintWriter writer) {
-    writer
-      .println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>" + "|-i <INPUT_FILE>...]");
+    writer.println(" " + SET_REGION_STATE + " [<ENCODED_REGIONNAME> <STATE>|-i <INPUT_FILE>...]");
     writer.println("   Options:");
     writer.println("    -i,--inputFiles  take one or more input files of encoded region names ");
     writer.println("   and states.");
