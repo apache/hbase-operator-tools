@@ -49,6 +49,7 @@ pipeline {
         YETUS_DRIVER = "${WORKDIR}/${YETUS_DRIVER_REL}"
         YETUSDIR = "${WORKDIR}/${YETUS_REL}"
         PLUGINS = 'all'
+        PERSONALITY = "${WORKDIR}/${SRC_REL}/dev-support/jenkins/hbase-personality.sh"
     }
 
     parameters {
