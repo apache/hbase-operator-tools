@@ -137,12 +137,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   private static final long DEFAULT_LOCK_WAIT = 1;
 
   /**
-   * Value which would represent no batching.
+   * Value which represents no batching.
    */
   private static final int NO_BATCH_SIZE = -1;
 
   /**
-   * Number of units to process in a single call. By default, it is set to -1, that is no batching
+   * Number of batches to process in a single call. By default, it is set to -1, that is no batching
    * would be done.
    */
   private static final int DEFAULT_BATCH_SIZE = NO_BATCH_SIZE;
@@ -489,7 +489,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       List<Long> pidList = new ArrayList<>(regionList.size());
       final List<List<String>> batch = Lists.partition(regionList, batchSize);
       for (int i = 0; i < batch.size(); i++) {
-        LOG.info("Processing batch #" + i);
+        LOG.info("Processing batch #{}", i + 1);
         pidList.addAll(hbck.assigns(batch.get(i), overrideFlag));
       }
       return pidList;
@@ -525,7 +525,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       List<Long> pidList = new ArrayList<>(regionList.size());
       final List<List<String>> batch = Lists.partition(regionList, batchSize);
       for (int i = 0; i < batch.size(); i++) {
-        LOG.info("Processing batch #" + i);
+        LOG.info("Processing batch #{}", i + 1);
         pidList.addAll(hbck.unassigns(batch.get(i), overrideFlag));
       }
       return pidList;
@@ -579,7 +579,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         List<Boolean> statusList = new ArrayList<>(pids.size());
         final List<List<Long>> batch = Lists.partition(pids, batchSize);
         for (int i = 0; i < batch.size(); i++) {
-          LOG.info("Processing batch #" + i);
+          LOG.info("Processing batch #{}", i + 1);
           statusList
             .addAll(hbck.bypassProcedure(batch.get(i), lockWait, overrideFlag, recursiveFlag));
         }
