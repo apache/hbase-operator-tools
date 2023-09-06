@@ -63,6 +63,12 @@ import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.hbase.thirdparty.org.apache.commons.cli.CommandLine;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.DefaultParser;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
+import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
+
 /**
  * Tests commands. For command-line parsing, see adjacent test.
  * @see TestHBCKCommandLineParsing
@@ -769,5 +775,31 @@ public class TestHBCK2 {
     for (boolean rs : result) {
       assertFalse(rs);
     }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testParsingOfBatchSizeWithInvalidDatatype() throws Exception {
+    String value = "2A";
+    parseAndGetBatchSize(value);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testParsingOfBatchSizeWithInvalidValue() throws Exception {
+    parseAndGetBatchSize("-2");
+  }
+
+  @Test
+  public void testParsingOfBatchSize() throws Exception {
+    assertEquals(200, parseAndGetBatchSize("200"));
+  }
+
+  private int parseAndGetBatchSize(String value) throws ParseException {
+    Options options = new Options();
+    Option batchOpt = Option.builder("b").longOpt("batchSize").hasArg().type(Integer.class).build();
+    options.addOption(batchOpt);
+
+    CommandLine commandLine =
+      new DefaultParser().parse(options, new String[] { "-b", value }, false);
+    return HBCK2.getBatchSize(batchOpt, commandLine);
   }
 }

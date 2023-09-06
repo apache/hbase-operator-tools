@@ -365,4 +365,14 @@ public class TestHBCKCommandLineParsing {
     System.setOut(oldOut);
     return os.toString();
   }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testAssignsParsingOfBatchSizeWithInvalidDatatype() throws Exception {
+    retrieveOptionOutput(new String[] { "assigns", "-b", "2A", "r1", "r2", "r3" });
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testUnassignsParsingOfBatchSizeWithInvalidValue() throws Exception {
+    retrieveOptionOutput(new String[] { "unassigns", "-b", "-2", "r1", "r2", "r3" });
+  }
 }
