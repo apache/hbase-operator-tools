@@ -22,17 +22,17 @@ _HBCK2_ is the repair tool for Apache HBase clusters.
 
 Problems in operation are bugs. The need for an _HBCK2_ fix
 is meant as workaround until the bug is fixed and deployed
-in a new hbase version.
+in a new HBase version.
 
 ## _HBCK2_ vs _hbck1_
 HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth),
-the repair tool that shipped with _hbase-1.x_ (A.K.A _hbck1_).  Use _HBCK2_ in place of
+the repair tool that shipped with _HBase 1.x_ (A.K.A _hbck1_). Use _HBCK2_ in place of
 _hbck1_ making repairs against hbase-2.x clusters. _hbck1_ should not be run against an
-hbase-2.x install. It may do damage. While _hbck1_ is still bundled inside hbase-2.x
--- to minimize surprise -- it is deprecated, to be removed in _hbase-3.x_. Its
-write-facility (`-fix`) has been removed. It can report on the state of an hbase-2.x
-cluster but its assessments will be inaccurate since it does not understand the internal
-workings of an hbase-2.x.
+HBase 2.x installation. It may do damage. While _hbck1_ is still included in HBase 2.x 
+to avoid surprises, it is now deprecated and will be removed in _HBase 3.x_.
+The write-facility (`-fix`) of _hbck1_ has been removed.
+It can report on the state of a HBase 2.x cluster but its assessments will be inaccurate since it does not understand all internals
+workings of HBase 2.x.
 
 _HBCK2_ does not work the way _hbck1_ used to, even for the case where commands are
 similarly named across the two versions. See the next section for how the tools
@@ -544,16 +544,15 @@ $ echo "list_procedures"| hbase shell &> /tmp/procedures.txt
 ```
 
 #### Master UI: The 'HBCK Report'
-An `HBCK Report` page was added to the Master in versions hbase 2.3.0/2.1.6/2.2.1
-at `/hbck.jsp`
-which shows output from two inspections run by the master on an interval; one
-is output by the CatalogJanitor whenever it runs. If overlaps or holes in
-`hbase:meta`, the CatalogJanitor half of the page will list what it has found
-(otherwise it is quiet). Another background 'chore' process was added to compare
-`hbase:meta` and filesystem content making compare; if anomaly, it will make
-note in its `HBCK Report` section.
+Starting with HBase 2.3.0/2.1.6/2.2.1, the Master UI now includes a `HBCK Report` page located at `/hbck.jsp`.
+This pages displays the output from two inspections run by the Master at regular intervals.
 
-See the 'HBCK Report' page itself for how to force runs of the inspectors.
+1. The first is performed by the `CatalogJanitor` and reports any overlaps in regions or holes in `hbase:meta`.
+2. The second inspection is a background 'chore' process that compares `hbase:meta` and filesystem content, and makes a note of any anomalies in the HBCK Report section.
+ 
+If you want to force a run of these inspectors, refer to the HBCK Report page for instructions.
+                                                                         
+Look at the `fixMeta` command to fix overlaps and holes found by these inspections.
 
 
 #### The [HBase Canary Tool](http://hbase.apache.org/book.html#_canary)
