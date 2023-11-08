@@ -25,14 +25,12 @@ is meant as workaround until the bug is fixed and deployed
 in a new HBase version.
 
 ## _HBCK2_ vs _hbck1_
-HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth),
-the repair tool that shipped with _HBase 1.x_ (A.K.A _hbck1_). Use _HBCK2_ in place of
-_hbck1_ making repairs against hbase-2.x clusters. _hbck1_ should not be run against an
-HBase 2.x installation. It may do damage. While _hbck1_ is still included in HBase 2.x 
-to avoid surprises, it is now deprecated and will be removed in _HBase 3.x_.
+HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth), the repair tool that shipped with _HBase 1.x_ (A.K.A _hbck1_).
+Use _HBCK2_ in place of _hbck1_ making repairs against hbase-2.x clusters.
+_hbck1_ should not be run against an HBase 2.x installation as it may to damage.
+While _hbck1_ is still included in HBase 2.x to avoid surprises, it is now deprecated and will be removed in _HBase 3.x_.
 The write-facility (`-fix`) of _hbck1_ has been removed.
-It can report on the state of a HBase 2.x cluster but its assessments will be inaccurate since it does not understand all internals
-workings of HBase 2.x.
+It can report on the state of a HBase 2.x cluster but its assessments will be inaccurate since it does not understand all internal workings of HBase 2.x.
 
 _HBCK2_ does not work the way _hbck1_ used to, even for the case where commands are
 similarly named across the two versions. See the next section for how the tools
