@@ -58,13 +58,13 @@ Run:
 ```
 $ mvn install
 ```
-The built _HBCK2_ jar will be in the `target` sub-directory.
+The built _HBCK2_ jar will be in the `target` subdirectory.
 
 ## Running _HBCK2_
 The _HBCK2_ jar does not include dependencies; it is not built as a 'fat' jar.
 Dependencies must be `provided`. Building, adjusting the target hbase version in the
-top-level pom to match your deploy will make for the smoothest operation when run
-against your deploy (See the parent pom.xml `hbase-operator-tools` for the
+top-level pom to match your deployment will make for the smoothest operation when run
+against your deployment (See the parent pom.xml `hbase-operator-tools` for the
 [hbase.version to set](https://github.com/apache/hbase-operator-tools/blob/master/pom.xml#L126)).
 
 Where runtime interaction between _HBCK2_ and running cluster can get interesting is
@@ -75,15 +75,14 @@ it should fail gracefully. Use an older release or upgrade your cluster (if you 
 The easiest means of 'providing' _HBCK2_ its dependencies is by launching
 _HBCK2_ via the `$HBASE_HOME/bin/hbase` script. The `bin/hbase` script natively
 makes mention of `hbck` -- there is a `hbck` option listed in the help output.
-By default, running `bin/hbase hbck`, the built-in _hbck1_ tooling will be run.
+By default, running `bin/hbase hbck`, will run the built-in _hbck1_ tool.
 To run _HBCK2_, you need to point at a built _HBCK2_ jar using the `-j` option
 as in:
 ~~~~
  $  ${HBASE_HOME}/bin/hbase --config /etc/hbase-conf hbck -j ~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar
 ~~~~
-where in the above, `/etc/hbase-conf` is where the deploy's configuration lives.
-The _HBCK2_ jar is at
-`~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar`.
+`/etc/hbase-conf` is where the deployment's configuration lives.
+The _HBCK2_ jar is at `~/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar`.
 The above command with no options or arguments passed will dump out the _HBCK2_ help:
 ```
 usage: HBCK2 [OPTIONS] COMMAND <ARGS>
@@ -443,13 +442,13 @@ Exception in thread "main" java.io.IOException: No FileSystem for scheme: hdfs
 ```
 ... it is because the HDFS jars are not on the CLASSPATH. The default is NOT
 to bundle HDFS jars on the CLASSPATH when running `hbck` via `bin/hbase`. Define
-`HADOOP_HOME` in the environment so `bin/hbase` can find your local hadoop
-install and then it will load its HDFS jars.
+`HADOOP_HOME` in the environment so `bin/hbase` can find your local Hadoop
+installation, and then it will load its HDFS jars.
 
 ## _HBCK2_ Overview
 _HBCK2_ is currently a simple tool that does one thing at a time only.
 
-In hbase-2.x, the Master is the final arbiter of all state, so a general principal for most
+In hbase-2.x, the Master is the final arbiter of all state, so a general principle for most
 _HBCK2_ commands is that it asks the Master to effect all repair. This means a Master must be
 up before you can run _HBCK2_ commands.
 
@@ -496,7 +495,7 @@ its _pid_ but also its _ppid_; its parent's _pid_.
 
 Generally all run problem free but if some unforeseen circumstance
 arises, the assignment framework may sustain damage requiring
-operator intervention.  Below we will discuss some such scenarios
+operator intervention.  Below we will discuss some such scenarios,
 but they can manifest in the Master log as a Region being _STUCK_ or
 a Procedure transitioning an entity -- a Region or a Table --
 may be blocked because another Procedure holds the exclusive lock
@@ -529,10 +528,8 @@ Procedures and Locks as well as the current set of Master Procedure WALs
 directory in your hbase install). On startup, on a large
 cluster when furious assigning is afoot, this page is
 filled with lists of Procedures and Locks. The count of
-MasterProcWALs will bloat too. If after the cluster settles,
-there is a stuck Lock or Procedure or the count of WALs
-doesn't ever come down but only grows, then operator intervention
-is needed to alieve the blockage.
+MasterProcWALs will bloat too.
+If after the cluster settles, there is a stuck Lock or Procedure or the count of WALs doesn't ever come down but only grows, then operator intervention is needed to remove the blockage.
 
 Lists of locks and procedures can also be obtained via the hbase shell:
 
@@ -594,7 +591,7 @@ $ echo " scan 'hbase:meta', {ROWPREFIXFILTER => 'IntegrationTestBigLinkedList_20
 
 ...then grep for _OPENING_ or _CLOSING_ Regions.
 
-To move an _OPENING_ issue to _OPEN_ so it agrees with a table's
+To move an _OPENING_ issue to _OPEN,_ so it agrees with a table's
 _ENABLED_ state, use the `assign` command in the hbase shell to
 queue a new Assign Procedure (watch the Master logs to see the
 Assign run). If many Regions to assign, use the _HBCK2_ tool. It
@@ -602,7 +599,7 @@ can do bulk assigning.
 
 ## Fixing Problems
 
-### Some General Principals
+### Some General principles
 When making repair, make sure hbase:meta is consistent first
 before you go about fixing any other issue type such as a filesystem
 deviance. Deviance in the filesystem or problems with assign should
@@ -610,7 +607,7 @@ be addressed after the hbase:meta has been put in order. If hbase:meta
 is out of whack, the Master cannot make proper placements when adopting orphan
 filesystem data or making region assignments.
 
-Other general principles to keep in mind include a Region can not be assigned if
+Other general principles to keep in mind include a Region cannot be assigned if
 it is in _CLOSING_ state (or the inverse, unassigned if in _OPENING_ state) without
 first transitioning via _CLOSED_: Regions must always move from _CLOSED_, to _OPENING_,
 to _OPEN_, and then to _CLOSING_, _CLOSED_.
@@ -626,12 +623,11 @@ _CLOSED_ state so it agrees with the table's _DISABLED_
 state. In this situation, you may have to temporarily set
 the table status to _ENABLED_, just so you can do the
 assign, and then set it back again after the unassign.
-_HBCK2_ has facility to allow you do this. See the
+_HBCK2_ has facility to allow you to do this. See the
 _HBCK2_ usage output.
 
 What follows is a mix of notes and prescription that comes of experience running hbase-2.x so far.
-The root issues that brought on states described below has been fixed in later versions of hbase
-so upgrade if you can so as to avoid scenarios described.
+The root issues that brought on states described below has been fixed in later versions of HBase so upgrade if you can to avoid scenarios described.
 
 ### Assigning/Unassigning
 
@@ -717,7 +713,7 @@ echo "scan 'hbase:meta', {COLUMN=>'info:regioninfo'}" | hbase shell
 ```
 
 _HBCK2_ _addFsRegionsMissingInMeta_ can be used if the above does not show any errors. It reads region
-metadata info available on the FS region directories in order to recreate regions
+metadata info available on the FS region directories to recreate regions
 in hbase:meta. Since it can run with hbase partially operational, it attempts to disable online tables
 that are affected by the reported problem and it is going to readd regions to _hbase:meta_.
 It can check for specific tables/namespaces, or all tables from all namespaces.
@@ -728,7 +724,7 @@ An example below shows adding missing regions for tables 'tbl_1' in the default 
 $ HBCK2 addFsRegionsMissingInMeta default:tbl_1 n1:tbl_2 n2
 ```
 
-As it operates independently from Master, once it finishes successfully, additional steps are
+As it operates independently of Master, once it finishes successfully, additional steps are
 required to actually have the re-added regions assigned. These are listed below:
 
 1. _addFsRegionsMissingInMeta_ outputs an _assigns_ command with all regions that got re-added. This
@@ -761,14 +757,14 @@ Start the cluster up. It won’t come up fully. It will be stuck because the _na
 2019-07-10 18:30:51,090 WARN  [master/localhost:16000:becomeActiveMaster] master.HMaster: hbase:namespace,,1562808216225.725a0fe6c2c869d3d0a9ed82bfa80fa3. is NOT online; state={725a0fe6c2c869d3d0a9ed82bfa80fa3 state=CLOSED, ts=1562808619952, server=null}; ServerCrashProcedures=false. Master startup cannot progress, in holding-pattern until region onlined.
 ```
 
-To assign the namespace table region, you cannot use the shell. If you use the shell, it will fail with a `PleaseHoldException` because the master is not yet up (it is waiting for the namepace table to come online before it declares itself ‘up’). You have to use the `HBCK2` _assigns_ command. To assign, you will need the namespace encoded name. It shows in the log quoted above: i.e. _725a0fe6c2c869d3d0a9ed82bfa80fa3_ in this case. You will also have to pass the -skip command to ‘skip’ the master version check (without it, your `HBCK2` invocation will also elicit the above `PleaseHoldException` because the master is not yet up). Here is an example adding an assign of the namespace table:
+To assign the namespace table region, you cannot use the shell. If you use the shell, it will fail with a `PleaseHoldException` because the master is not yet up (it is waiting for the namespace table to come online before it declares itself ‘up’). You have to use the `HBCK2` _assigns_ command. To assign, you will need the namespace encoded name. It shows in the log quoted above: i.e. _725a0fe6c2c869d3d0a9ed82bfa80fa3_ in this case. You will also have to pass the -skip command to ‘skip’ the master version check (without it, your `HBCK2` invocation will also elicit the above `PleaseHoldException` because the master is not yet up). Here is an example adding an assign of the namespace table:
 ```
 $ HBASE_CLASSPATH_PREFIX=~/checkouts/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2 -skip assigns 725a0fe6c2c869d3d0a9ed82bfa80fa3
 ```
 
 If the invocation comes back with ‘Connection refused’, is the Master up? The Master will shut down after a while if it can’t initialize itself. Just restart the cluster/master and rerun the above assigns command.
 
-When the assigns runs successfully, you’ll see it emit the likes of the following. The ‘48’ on the end is the pid of the assign procedure schedule. If the pid returned is ‘-1’, then the  master startup has not progressed sufficently… retry. Or, the encoded regionname is incorrect. Check.
+When the assigns runs successfully, you’ll see it emit the likes of the following. The ‘48’ on the end is the pid of the assign procedure schedule. If the pid returned is ‘-1’, then the  master startup has not progressed sufficiently… retry. Or, the encoded regionname is incorrect. Check.
 ```
 $  HBASE_CLASSPATH_PREFIX=~/checkouts/hbase-operator-tools/hbase-hbck2/target/hbase-hbck2-1.0.0-SNAPSHOT.jar ./bin/hbase org.apache.hbase.HBCK2 -skip assigns 725a0fe6c2c869d3d0a9ed82bfa80fa3
 18:40:43.817 [main] WARN  org.apache.hadoop.util.NativeCodeLoader - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
@@ -782,14 +778,14 @@ master.HMaster: Master has completed initialization 132.515sec
 ```
 It might take a while to appear.
 
-The rebuild of _hbase:meta_ adds the user tables in _DISABLED_ state and the regions in _CLOSED_ mode. Reenable tables via the shell to bring all table regions back online.
+The rebuild of _hbase:meta_ adds the user tables in _DISABLED_ state and the regions in _CLOSED_ mode. Re-enable tables via the shell to bring all table regions back online.
 Do it one-at-a-time or see the `enable_all ".*"` command to enable all tables in one shot.
 
 The rebuild meta will likely be missing edits and may need subsequent repair and cleaning using facility outlined higher up in this README.
 
 ### Dropped reference files, missing hbase.version file, and corrupted hfiles
 
-_HBCK2_ can check for hanging references and corrupt hfiles. You can ask it to sideline bad files which may be needed to get over humps where regions won't online or reads are failing. See the _filesystem_ command in the _HBCK2_ listing. Pass one or more tablename (or 'none' to check all tables). It will report bad files. Pass the _--fix_ option to effect repairs.
+_HBCK2_ can check for hanging references and corrupt HFiles. You can ask it to sideline bad files, which may be needed to get over humps where regions won't online or reads are failing. See the _filesystem_ command in the _HBCK2_ listing. Pass one or more tablename (or 'none' to check all tables). It will report bad files. Pass the _--fix_ option to effect repairs.
 
 ### Procedure Start-over
 
