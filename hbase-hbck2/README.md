@@ -27,7 +27,7 @@ in a new HBase version.
 ## _HBCK2_ vs _hbck1_
 HBCK2 is the successor to [hbck](https://hbase.apache.org/book.html#hbck.in.depth), the repair tool that shipped with _HBase 1.x_ (A.K.A _hbck1_).
 Use _HBCK2_ in place of _hbck1_ making repairs against hbase-2.x clusters.
-_hbck1_ should not be run against an HBase 2.x installation as it may to damage.
+_hbck1_ should not be run against an HBase 2.x installation as it may do damage.
 While _hbck1_ is still included in HBase 2.x to avoid surprises, it is now deprecated and will be removed in _HBase 3.x_.
 The write-facility (`-fix`) of _hbck1_ has been removed.
 It can report on the state of a HBase 2.x cluster but its assessments will be inaccurate since it does not understand all internal workings of HBase 2.x.
@@ -547,9 +547,9 @@ This pages displays the output from two inspections run by the Master at regular
 
 1. The first is performed by the `CatalogJanitor` and reports any overlaps in regions or holes in `hbase:meta`.
 2. The second inspection is a background 'chore' process that compares `hbase:meta` and filesystem content, and makes a note of any anomalies in the HBCK Report section.
- 
+
 If you want to force a run of these inspectors, refer to the HBCK Report page for instructions.
-                                                                         
+
 Look at the `fixMeta` command to fix overlaps and holes found by these inspections.
 
 
