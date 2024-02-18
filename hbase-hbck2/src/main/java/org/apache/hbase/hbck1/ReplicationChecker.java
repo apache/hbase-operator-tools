@@ -17,6 +17,9 @@
  */
 package org.apache.hbase.hbck1;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hadoop.hbase.replication.ReplicationPeerStorage;
@@ -55,9 +59,32 @@ public class ReplicationChecker {
 
   public ReplicationChecker(Configuration conf, ZKWatcher zkw,
     HBaseFsck.ErrorReporter errorReporter) {
-    this.peerStorage = ReplicationStorageFactory.getReplicationPeerStorage(zkw, conf);
+    this.peerStorage = getReplicationPeerStorage(conf, zkw);
     this.queueStorage = ReplicationStorageFactory.getReplicationQueueStorage(zkw, conf);
     this.errorReporter = errorReporter;
+  }
+
+  private ReplicationPeerStorage getReplicationPeerStorage(Configuration conf, ZKWatcher zkw)
+    throws AssertionError {
+    ReplicationPeerStorage peerStorage;
+    try {
+      // Case HBase >= 2.6.0: Invoke the method that requires three parameters
+      Method method = ReplicationStorageFactory.class.getMethod("getReplicationPeerStorage",
+        FileSystem.class, ZKWatcher.class, Configuration.class);
+      FileSystem fileSystem = FileSystem.get(conf);
+      peerStorage = (ReplicationPeerStorage) method.invoke(null, fileSystem, zkw, conf);
+    } catch (IOException | NoSuchMethodException | IllegalAccessException
+      | InvocationTargetException e1) {
+      // Case HBase < 2.6.0: Fall back to the method that requires only two parameters
+      try {
+        Method method = ReplicationStorageFactory.class.getMethod("getReplicationPeerStorage",
+          ZKWatcher.class, Configuration.class);
+        peerStorage = (ReplicationPeerStorage) method.invoke(null, zkw, conf);
+      } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e2) {
+        throw new AssertionError("should not happen", e2);
+      }
+    }
+    return peerStorage;
   }
 
   public boolean hasUnDeletedQueues() {
