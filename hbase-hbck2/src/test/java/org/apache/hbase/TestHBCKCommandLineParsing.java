@@ -72,6 +72,15 @@ public class TestHBCKCommandLineParsing {
     // Passing -h/--help does the same
     output = retrieveOptionOutput(new String[] { "-h" });
     assertTrue(output, output.startsWith("usage: HBCK2"));
+
+    // passing -h after the command, should print usage for that command
+    output = retrieveOptionOutput(new String[] { "addFsRegionsMissingInMeta", "-h" });
+    assertFalse(output.contains("ERROR:"));
+    assertTrue(output.contains("Options:"));
+
+    // invalid argument -h should print error
+    output = retrieveOptionOutput(new String[] { "invalidArg", "-h" });
+    assertTrue(output.contains("ERROR:"));
   }
 
   @Test

@@ -1152,6 +1152,11 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     // Now process command.
     String[] commands = commandLine.getArgs();
     String command = commands[0];
+
+    if (commandHasHelpOption(commands)) {
+      return showUsagePerCommand(command, options);
+    }
+
     switch (command) {
       // Case handlers all have same format. Check first that the server supports
       // the feature FIRST, then move to process the command.
@@ -1345,6 +1350,69 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return EXIT_SUCCESS;
   }
 
+  static int showUsagePerCommand(String command, Options options) throws IOException {
+    boolean invalidCommand = false;
+    try (StringWriter sw = new StringWriter(); PrintWriter writer = new PrintWriter(sw)) {
+      writer.println("Command:");
+      switch (command) {
+        case ADD_MISSING_REGIONS_IN_META_FOR_TABLES:
+          usageAddFsRegionsMissingInMeta(writer);
+          break;
+        case ASSIGNS:
+          usageAssigns(writer);
+          break;
+        case BYPASS:
+          usageBypass(writer);
+          break;
+        case FILESYSTEM:
+          usageFilesystem(writer);
+          break;
+        case FIX_META:
+          usageFixMeta(writer);
+          break;
+        case GENERATE_TABLE_INFO:
+          usageGenerateMissingTableInfo(writer);
+          break;
+        case REPLICATION:
+          usageReplication(writer);
+          break;
+        case EXTRA_REGIONS_IN_META:
+          usageExtraRegionsInMeta(writer);
+          break;
+        case REPORT_MISSING_REGIONS_IN_META:
+          usageReportMissingRegionsInMeta(writer);
+          break;
+        case SET_REGION_STATE:
+          usageSetRegionState(writer);
+          break;
+        case SET_TABLE_STATE:
+          usageSetTableState(writer);
+          break;
+        case SCHEDULE_RECOVERIES:
+          usageScheduleRecoveries(writer);
+          break;
+        case RECOVER_UNKNOWN:
+          usageRecoverUnknown(writer);
+          break;
+        case UNASSIGNS:
+          usageUnassigns(writer);
+          break;
+        case REGIONINFO_MISMATCH:
+          usageRegioninfoMismatch(writer);
+          break;
+        default:
+          showErrorMessage("Invalid arg: " + command);
+          invalidCommand = true;
+          break;
+      }
+      if (!invalidCommand) {
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp("HBCK2 [OPTIONS] COMMAND <ARGS>", "Options:", options, sw.toString());
+      }
+      return invalidCommand ? EXIT_FAILURE : EXIT_SUCCESS;
+    }
+  }
+
   private static String toString(List<?> things) {
     return things.stream().map(Object::toString).collect(Collectors.joining(", "));
   }
@@ -1507,20 +1575,37 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return Pair.newPair(commandLine, params);
   }
 
+  private boolean commandHasHelpOption(String[] args) {
+    args = purgeFirst(args);
+    Options options = new Options();
+    Option helpOption =
+      Option.builder("h").longOpt("help").desc("help message for a command").build();
+
+    options.addOption(helpOption);
+    CommandLine test = getCommandLine(args, options, false);
+    return test != null && test.hasOption(helpOption.getOpt());
+  }
+
   /**
    * Get a commandLine object with options and a arg list
    */
-  private CommandLine getCommandLine(String[] args, Options options) {
+  private CommandLine getCommandLine(String[] args, Options options, boolean showException) {
     // Parse command-line.
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine;
     try {
       commandLine = parser.parse(options, args, false);
     } catch (ParseException e) {
-      showErrorMessage(e.getMessage());
+      if (showException) {
+        showErrorMessage(e.getMessage());
+      }
       return null;
     }
     return commandLine;
+  }
+
+  private CommandLine getCommandLine(String[] args, Options options) {
+    return getCommandLine(args, options, true);
   }
 
   /** Returns Read arguments from args or a list of input files */
