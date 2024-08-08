@@ -17,7 +17,7 @@
  */
 package org.apache.hbase.reporter;
 
-import static org.apache.hadoop.hbase.shaded.junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
