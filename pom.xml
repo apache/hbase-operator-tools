@@ -147,7 +147,10 @@
     <hbase-surefire.argLine>-Djava.security.manager=allow</hbase-surefire.argLine>
     <!-- Currently, all of these options are known to be required by the test cases -->
     <hbase-surefire.jdk11.flags>--add-opens java.base/java.lang=ALL-UNNAMED
-      --add-opens java.base/java.lang.reflect=ALL-UNNAMED</hbase-surefire.jdk11.flags>
+      --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+      --add-opens java.base/java.nio=ALL-UNNAMED
+      --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+    </hbase-surefire.jdk11.flags>
     <hbase-surefire.jdk17.flags/>
   </properties>
   <dependencyManagement>
