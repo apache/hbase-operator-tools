@@ -145,11 +145,21 @@
 
     <jacocoArgLine/>
     <hbase-surefire.argLine>-Djava.security.manager=allow</hbase-surefire.argLine>
-    <!-- Currently, all of these options are known to be required by the test cases -->
-    <hbase-surefire.jdk11.flags>--add-opens java.base/java.lang=ALL-UNNAMED
-      --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+    <!-- Keep in sync with jvm flags in bin/hbase in main repo; Copied from there! -->
+    <hbase-surefire.jdk11.flags>-Dorg.apache.hbase.thirdparty.io.netty.tryReflectionSetAccessible=true
+      --add-modules jdk.unsupported
+      --add-opens java.base/java.io=ALL-UNNAMED
       --add-opens java.base/java.nio=ALL-UNNAMED
-      --add-opens java.base/sun.nio.ch=ALL-UNNAMED</hbase-surefire.jdk11.flags>
+      --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+      --add-opens java.base/java.lang=ALL-UNNAMED
+      --add-opens java.base/jdk.internal.ref=ALL-UNNAMED
+      --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+      --add-opens java.base/java.util=ALL-UNNAMED
+      --add-opens java.base/java.util.concurrent=ALL-UNNAMED
+      --add-exports java.base/jdk.internal.misc=ALL-UNNAMED
+      --add-exports java.security.jgss/sun.security.krb5=ALL-UNNAMED
+      --add-exports java.base/sun.net.dns=ALL-UNNAMED
+      --add-exports java.base/sun.net.util=ALL-UNNAMED</hbase-surefire.jdk11.flags>
     <hbase-surefire.jdk17.flags/>
   </properties>
   <dependencyManagement>
