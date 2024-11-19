@@ -374,7 +374,7 @@ public class HBaseFsck extends Configured implements Closeable {
   private static ExecutorService createThreadPool(Configuration conf) {
     int numThreads = conf.getInt("hbasefsck.numthreads", MAX_NUM_THREADS);
     return new ScheduledThreadPoolExecutor(numThreads,
-      new ThreadFactoryBuilder().setNameFormat("hbasefsck-%d")
+      new ThreadFactoryBuilder().setNameFormat("hbasefsck-%d").setDaemon(true)
         .setUncaughtExceptionHandler(Threads.LOGGING_EXCEPTION_HANDLER).build());
   }
 
@@ -4988,6 +4988,10 @@ public class HBaseFsck extends Configured implements Closeable {
 
   Set<TableName> getIncludedTables() {
     return new HashSet<>(tablesIncluded);
+  }
+
+  public void includeTableDir(Path tableDir) {
+    tableDirs.add(tableDir);
   }
 
   /**

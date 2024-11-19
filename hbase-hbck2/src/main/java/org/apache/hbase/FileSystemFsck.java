@@ -77,6 +77,12 @@ public class FileSystemFsck implements Closeable {
        * hbaseFsck.setFixHdfsOrphans(fix); hbaseFsck.setFixHdfsHoles(fix);
        * hbaseFsck.setFixHdfsOverlaps(fix); hbaseFsck.setFixTableOrphans(fix);
        */
+      if (!tables.isEmpty()) {
+        tables.stream().map(TableName::valueOf).forEach(hbaseFsck::includeTable);
+      }
+      if (!tableDirs.isEmpty()) {
+        tableDirs.forEach(hbaseFsck::includeTableDir);
+      }
       hbaseFsck.offlineHbck();
     } catch (ClassNotFoundException | InterruptedException e) {
       throw new IOException(e);

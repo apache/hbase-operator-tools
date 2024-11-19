@@ -32,6 +32,9 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.Properties;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
+import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -61,6 +64,10 @@ public class TestHBCKCommandLineParsing {
   @Before
   public void before() throws Exception {
     this.hbck2 = new HBCK2(TEST_UTIL.getConfiguration());
+    if (!TEST_UTIL.getAdmin().tableExists(TableName.valueOf("table"))) {
+      TEST_UTIL.getAdmin().createTable(TableDescriptorBuilder.newBuilder(TableName.valueOf("table"))
+        .setColumnFamily(ColumnFamilyDescriptorBuilder.of("f")).build());
+    }
   }
 
   @Test
