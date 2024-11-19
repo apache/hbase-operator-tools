@@ -1225,15 +1225,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         }
 
       case FILESYSTEM:
-        try (ClusterConnection connection = connect()) {
-          checkHBCKSupport(connection, command);
-          try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
-            Pair<CommandLine, List<String>> pair =
-              parseCommandWithFixAndInputOptions(purgeFirst(commands));
-            return fsfsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
-              ? EXIT_FAILURE
-              : EXIT_SUCCESS;
-          }
+        try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
+          Pair<CommandLine, List<String>> pair =
+            parseCommandWithFixAndInputOptions(purgeFirst(commands));
+          return fsfsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
+            ? EXIT_FAILURE
+            : EXIT_SUCCESS;
         }
 
       case REPLICATION:
