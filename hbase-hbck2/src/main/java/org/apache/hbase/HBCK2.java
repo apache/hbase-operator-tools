@@ -798,196 +798,240 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
 
     switch (command) {
-      // Case handlers all have same format. Check first that the server supports
-      // the feature FIRST, then move to process the command.
       case SET_TABLE_STATE:
-        if (commands.length < 2) {
-          showErrorMessage(command
-            + " takes tablename and state arguments: e.g. user ENABLED, or a list of input files");
-          return EXIT_FAILURE;
-        }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          setTableState(hbck, purgeFirst(commands));
-        }
-        break;
-
+        return handleSetTableState(commands);
       case ASSIGNS:
-        if (commands.length < 2) {
-          showErrorMessage(command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          System.out.println(assigns(hbck, purgeFirst(commands)));
-        }
-        break;
-
+        return handleAssigns(commands);
       case BYPASS:
-        if (commands.length < 2) {
-          showErrorMessage(command + " takes one or more pids");
-          return EXIT_FAILURE;
-        }
-        // bypass does the connection setup and the checkFunctionSupported down
-        // inside in the bypass method delaying connection setup until last
-        // moment. It does this because it has another set of command options
-        // to process and wants to do that before setting up connection.
-        // This is why it is not like the other command processings.
-        List<Boolean> bs = bypass(purgeFirst(commands));
-        if (bs == null) {
-          // Something went wrong w/ the parse and command didn't run.
-          return EXIT_FAILURE;
-        }
-        System.out.println(toString(bs));
-        break;
-
+        return handleBypass(commands);
       case UNASSIGNS:
-        if (commands.length < 2) {
-          showErrorMessage(command + " takes one or more encoded region names");
-          return EXIT_FAILURE;
-        }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          System.out.println(toString(unassigns(hbck, purgeFirst(commands))));
-        }
-        break;
-
+        return handleUnassigns(commands);
       case SET_REGION_STATE:
-        if (commands.length < 2) {
-          showErrorMessage(command + " takes region encoded name and state arguments: e.g. "
-            + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING, or a list of input files");
-          return EXIT_FAILURE;
-        }
-
-        try (ClusterConnection connection = connect()) {
-          checkHBCKSupport(connection, command);
-          return setRegionState(connection, purgeFirst(commands));
-        }
-
+        return handleSetRegionState(commands);
       case FILESYSTEM:
-        try (ClusterConnection connection = connect()) {
-          checkHBCKSupport(connection, command);
-          try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
-            Pair<CommandLine, List<String>> pair =
-              parseCommandWithFixAndInputOptions(purgeFirst(commands));
-            return fsfsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
-              ? EXIT_FAILURE
-              : EXIT_SUCCESS;
-          }
-        }
-
+        return handleFileSystem(commands);
       case REPLICATION:
-        try (ClusterConnection connection = connect()) {
-          checkHBCKSupport(connection, command, "2.1.1", "2.2.0", "3.0.0");
-          try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
-            Pair<CommandLine, List<String>> pair =
-              parseCommandWithFixAndInputOptions(purgeFirst(commands));
-            return replicationFsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
-              ? EXIT_FAILURE
-              : EXIT_SUCCESS;
-          }
-        }
-
+        return handleReplication(commands);
       case SCHEDULE_RECOVERIES:
-        if (commands.length < 2) {
-          showErrorMessage(command + " takes one or more serverNames");
-          return EXIT_FAILURE;
-        }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
-        }
-        break;
-
+        return handleScheduleRecoveries(commands);
       case RECOVER_UNKNOWN:
-        if (commands.length > 1) {
-          showErrorMessage(command + " doesn't take any arguments");
-          return EXIT_FAILURE;
-        }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          System.out.println(toString(recoverUnknown(hbck)));
-        }
-        break;
-
+        return handleRecoverUnknown(commands);
       case FIX_META:
-        if (commands.length > 1) {
-          showErrorMessage(command + " doesn't take any arguments");
-          return EXIT_FAILURE;
-        }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
-          checkFunctionSupported(connection, command);
-          hbck.fixMeta();
-          System.out.println("Server-side processing of fixMeta triggered.");
-        }
-        break;
-
+        return handleFixMeta(commands);
       case ADD_MISSING_REGIONS_IN_META_FOR_TABLES:
-        if (commands.length < 2) {
-          showErrorMessage(command + " takes one or more table names.");
-          return EXIT_FAILURE;
-        }
-
-        try {
-          Pair<List<String>, List<Exception>> result =
-            addMissingRegionsInMetaForTablesWrapper(purgeFirst(commands));
-          System.out.println(formatReAddedRegionsMessage(result.getFirst(), result.getSecond()));
-        } catch (Exception e) {
-          return EXIT_FAILURE;
-        }
-        break;
-
+        return handleAddMissingRegionsInMetaForTables(commands);
       case REPORT_MISSING_REGIONS_IN_META:
-        try {
-          Map<TableName, List<Path>> report =
-            reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
-          System.out.println(formatMissingRegionsInMetaReport(report));
-        } catch (Exception e) {
-          return EXIT_FAILURE;
-        }
-        break;
-
+        return handleReportMissingRegionsInMeta(commands);
       case EXTRA_REGIONS_IN_META:
-        try {
-          Map<TableName, List<String>> report = extraRegionsInMeta(purgeFirst(commands));
-          System.out.println(formatExtraRegionsReport(report));
-        } catch (Exception e) {
-          return EXIT_FAILURE;
-        }
-        break;
-
+        return handleExtraRegionsInMeta(commands);
       case GENERATE_TABLE_INFO:
-        List<String> tableNames = Arrays.asList(purgeFirst(commands));
-        MissingTableDescriptorGenerator tableInfoGenerator =
-          new MissingTableDescriptorGenerator(getConf());
-        try (ClusterConnection connection = connect()) {
-          tableInfoGenerator.generateTableDescriptorFileIfMissing(connection.getAdmin(),
-            tableNames);
-        } catch (IOException e) {
-          showErrorMessage(e.getMessage());
-          return EXIT_FAILURE;
-        }
-        break;
-
+        return handleGenerateTableInfo(commands);
       case REGIONINFO_MISMATCH:
-        // `commands` includes the `regionInfoMismatch` argument.
-        if (commands.length > 2) {
-          showErrorMessage(command + " takes one optional argument, got more than one.");
-          return EXIT_FAILURE;
-        }
-        try {
-          regionInfoMismatch(commands);
-        } catch (Exception e) {
-          e.printStackTrace();
-          return EXIT_FAILURE;
-        }
-        break;
-
+        return handleRegionInfoMismatch(commands);
       default:
         showErrorMessage("Unsupported command: " + command);
         return EXIT_FAILURE;
     }
+  }
+
+  private int handleSetTableState(String[] commands) throws IOException {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0]
+              + " takes tablename and state arguments: e.g. user ENABLED, or a list of input files");
+      return EXIT_FAILURE;
+    }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkFunctionSupported(connection, commands[0]);
+      setTableState(hbck, purgeFirst(commands));
+    }
     return EXIT_SUCCESS;
+  }
+
+  private int handleAssigns(String[] commands) throws IOException {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0] + " takes one or more encoded region names");
+      return EXIT_FAILURE;
+    }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkFunctionSupported(connection, commands[0]);
+      System.out.println(assigns(hbck, purgeFirst(commands)));
+    }
+    return EXIT_SUCCESS;
+  }
+
+  private int handleBypass(String[] commands) throws IOException {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0] + " takes one or more pids");
+      return EXIT_FAILURE;
+    }
+    // bypass does the connection setup and the checkFunctionSupported down
+    // inside in the bypass method delaying connection setup until last
+    // moment. It does this because it has another set of command options
+    // to process and wants to do that before setting up connection.
+    // This is why it is not like the other command processings.
+    List<Boolean> bs = bypass(purgeFirst(commands));
+    if (bs == null) {
+      // Something went wrong w/ the parse and command didn't run.
+      return EXIT_FAILURE;
+    }
+    System.out.println(toString(bs));
+    return EXIT_SUCCESS;
+  }
+
+  private int handleUnassigns(String[] commands) throws IOException {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0] + " takes one or more encoded region names");
+      return EXIT_FAILURE;
+    }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkFunctionSupported(connection, commands[0]);
+      System.out.println(toString(unassigns(hbck, purgeFirst(commands))));
+    }
+    return EXIT_SUCCESS;
+  }
+
+  private int handleSetRegionState(String[] commands) throws IOException {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0] + " takes region encoded name and state arguments: e.g. "
+              + "35f30b0ce922c34bf5c284eff33ba8b3 CLOSING, or a list of input files");
+      return EXIT_FAILURE;
+    }
+
+    try (ClusterConnection connection = connect()) {
+      checkHBCKSupport(connection, commands[0]);
+      return setRegionState(connection, purgeFirst(commands));
+    }
+  }
+
+  private int handleFileSystem(String[] commands) throws IOException {
+    try (ClusterConnection connection = connect()) {
+      checkHBCKSupport(connection, commands[0]);
+      try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
+        Pair<CommandLine, List<String>> pair =
+                parseCommandWithFixAndInputOptions(purgeFirst(commands));
+        return fsfsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
+                ? EXIT_FAILURE
+                : EXIT_SUCCESS;
+      }
+    }
+  }
+
+  private int handleReplication(String[] commands) throws IOException {
+    try (ClusterConnection connection = connect()) {
+      checkHBCKSupport(connection, commands[0], "2.1.1", "2.2.0", "3.0.0");
+      try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
+        Pair<CommandLine, List<String>> pair =
+                parseCommandWithFixAndInputOptions(purgeFirst(commands));
+        return replicationFsck.fsck(pair.getSecond(), pair.getFirst().hasOption("f")) != 0
+                ? EXIT_FAILURE
+                : EXIT_SUCCESS;
+      }
+    }
+  }
+
+  private int handleScheduleRecoveries(String[] commands) throws IOException {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0] + " takes one or more serverNames");
+      return EXIT_FAILURE;
+    }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkFunctionSupported(connection, commands[0]);
+      System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
+    }
+    return EXIT_SUCCESS;
+  }
+
+  private int handleRecoverUnknown(String[] commands) throws IOException {
+    if (commands.length > 1) {
+      showErrorMessage(commands[0] + " doesn't take any arguments");
+      return EXIT_FAILURE;
+    }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkFunctionSupported(connection, commands[0]);
+      System.out.println(toString(recoverUnknown(hbck)));
+    }
+    return EXIT_SUCCESS;
+  }
+
+  private int handleFixMeta(String[] commands) throws IOException {
+    if (commands.length > 1) {
+      showErrorMessage(commands[0] + " doesn't take any arguments");
+      return EXIT_FAILURE;
+    }
+    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+      checkFunctionSupported(connection, commands[0]);
+      hbck.fixMeta();
+      System.out.println("Server-side processing of fixMeta triggered.");
+    }
+    return EXIT_SUCCESS;
+  }
+
+  private int handleAddMissingRegionsInMetaForTables(String[] commands) {
+    if (commands.length < 2) {
+      showErrorMessage(commands[0] + " takes one or more table names.");
+      return EXIT_FAILURE;
+    }
+
+    try {
+      Pair<List<String>, List<Exception>> result =
+              addMissingRegionsInMetaForTablesWrapper(purgeFirst(commands));
+      System.out.println(formatReAddedRegionsMessage(result.getFirst(), result.getSecond()));
+      return EXIT_SUCCESS;
+    } catch (Exception e) {
+      return EXIT_FAILURE;
+    }
+  }
+
+  private int handleReportMissingRegionsInMeta(String[] commands) {
+    try {
+      Map<TableName, List<Path>> report =
+              reportTablesWithMissingRegionsInMeta(purgeFirst(commands));
+      System.out.println(formatMissingRegionsInMetaReport(report));
+      return EXIT_SUCCESS;
+    } catch (Exception e) {
+      return EXIT_FAILURE;
+    }
+  }
+
+  private int handleExtraRegionsInMeta(String[] commands) {
+    try {
+      Map<TableName, List<String>> report = extraRegionsInMeta(purgeFirst(commands));
+      System.out.println(formatExtraRegionsReport(report));
+      return EXIT_SUCCESS;
+    } catch (Exception e) {
+      return EXIT_FAILURE;
+    }
+  }
+
+  private int handleGenerateTableInfo(String[] commands) {
+    try {
+      List<String> tableNames = Arrays.asList(purgeFirst(commands));
+      MissingTableDescriptorGenerator tableInfoGenerator =
+              new MissingTableDescriptorGenerator(getConf());
+      try (ClusterConnection connection = connect()) {
+        tableInfoGenerator.generateTableDescriptorFileIfMissing(connection.getAdmin(),
+                tableNames);
+        return EXIT_SUCCESS;
+      }
+    } catch (IOException e) {
+      showErrorMessage(e.getMessage());
+      return EXIT_FAILURE;
+    }
+  }
+
+  private int handleRegionInfoMismatch(String[] commands) {
+    // `commands` includes the `regionInfoMismatch` argument.
+    if (commands.length > 2) {
+      showErrorMessage(commands[0] + " takes one optional argument, got more than one.");
+      return EXIT_FAILURE;
+    }
+    try {
+      regionInfoMismatch(commands);
+      return EXIT_SUCCESS;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return EXIT_FAILURE;
+    }
   }
 
   static int showUsagePerCommand(String command, Options options) throws IOException {
