@@ -191,46 +191,60 @@ public class FsRegionsMetaRecoverer implements Closeable {
     }
 
     List<Future<List<String>>> processRegionsMetaCleanup(
-      ExecFunction<Map<TableName, List<T>>, List<String>> reportFunction,
-      ExecFunction<List<String>, List<T>> execFunction, List<String> nameSpaceOrTable)
-      throws IOException {
-      ExecutorService executorService = Executors.newFixedThreadPool((nameSpaceOrTable == null
-        || nameSpaceOrTable.size() > Runtime.getRuntime().availableProcessors())
-          ? Runtime.getRuntime().availableProcessors()
-          : nameSpaceOrTable.size());
+            ExecFunction<Map<TableName, List<T>>, List<String>> reportFunction,
+            ExecFunction<List<String>, List<T>> execFunction, List<String> nameSpaceOrTable)
+            throws IOException {
+
+      // Determine the number of available processors
+      int availableProcessors = Runtime.getRuntime().availableProcessors();
+
+      // Decide on the thread pool size based on the provided list size
+      int threadPoolSize;
+      if (nameSpaceOrTable == null || nameSpaceOrTable.size() > availableProcessors) {
+        threadPoolSize = availableProcessors;
+      } else {
+        threadPoolSize = nameSpaceOrTable.size();
+      }
+
+      // Create the executor service using the determined thread pool size
+      ExecutorService executorService = Executors.newFixedThreadPool(threadPoolSize);
       List<Future<List<String>>> futures =
-        new ArrayList<>(nameSpaceOrTable == null ? 1 : nameSpaceOrTable.size());
+              new ArrayList<>(nameSpaceOrTable == null ? 1 : nameSpaceOrTable.size());
+
       try {
         try (final Admin admin = conn.getAdmin()) {
           Map<TableName, List<T>> report = reportFunction.execute(nameSpaceOrTable);
-          if (report.size() < 1) {
+          if (report.isEmpty()) {
             LOG.info("\nNo mismatches found in meta. Worth using related reporting function "
-              + "first.\nYou are likely passing non-existent "
-              + "namespace or table. Note that table names should include the namespace "
-              + "portion even for tables in the default namespace. "
-              + "See also the command usage.\n");
+                    + "first.\nYou are likely passing non-existent "
+                    + "namespace or table. Note that table names should include the namespace "
+                    + "portion even for tables in the default namespace. "
+                    + "See also the command usage.\n");
           }
           for (TableName tableName : report.keySet()) {
             if (admin.tableExists(tableName)) {
               futures.add(executorService.submit(new Callable<List<String>>() {
                 @Override
                 public List<String> call() throws Exception {
-                  LOG.debug("running thread for {}", tableName.getNameWithNamespaceInclAsString());
+                  LOG.debug("running thread for {}",
+                          tableName.getNameWithNamespaceInclAsString());
                   return execFunction.execute(report.get(tableName));
                 }
               }));
             } else {
               LOG.warn("Table {} does not exist! Skipping...",
-                tableName.getNameWithNamespaceInclAsString());
+                      tableName.getNameWithNamespaceInclAsString());
             }
           }
-          boolean allDone;
-          do {
-            allDone = true;
-            for (Future<List<String>> f : futures) {
-              allDone &= f.isDone();
+
+          // Wait for each future to complete.
+          for (Future<List<String>> future : futures) {
+            try {
+              future.get();
+            } catch (Exception e) {
+              LOG.error("Exception while waiting for future completion", e);
             }
-          } while (!allDone);
+          }
         }
       } finally {
         executorService.shutdown();

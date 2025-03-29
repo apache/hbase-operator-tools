@@ -1647,5 +1647,5 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     LOG.info("Batch size set to: " + batchSize);
     return batchSize;
   }
-
 }
+
