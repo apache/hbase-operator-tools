@@ -36,19 +36,14 @@ import org.apache.hadoop.util.ToolRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MissingRegionDirsRepairTool extends Configured implements org.apache.hadoop.util.Tool {
-
-  private static final Logger LOG =
-    LoggerFactory.getLogger(MissingRegionDirsRepairTool.class.getName());
-
+public class MissingRegionDirsRepairTool extends BaseHBaseMaintenanceTool {
   private static final String WORKING_DIR = ".missing_dirs_repair";
 
-  private Configuration conf;
   private HBCK2 hbck;
   private LoadIncrementalHFiles bulkLoad;
 
-  public MissingRegionDirsRepairTool(Configuration conf) {
-    this.conf = conf;
+  public MissingRegionDirsRepairTool(Configuration conf) throws IOException {
+    super(conf); // Initialize base class
     this.hbck = new HBCK2(conf);
     this.bulkLoad = new LoadIncrementalHFiles(conf);
   }
@@ -114,10 +109,6 @@ public class MissingRegionDirsRepairTool extends Configured implements org.apach
   }
 
   public static void main(String[] args) throws Exception {
-    Configuration conf = HBaseConfiguration.create();
-    int errCode = ToolRunner.run(new MissingRegionDirsRepairTool(conf), args);
-    if (errCode != 0) {
-      System.exit(errCode);
-    }
+    System.exit(launchTool(args, new MissingRegionDirsRepairTool(HBaseConfiguration.create())));
   }
 }
