@@ -26,9 +26,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -59,32 +58,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * HBase maintenance tool for merging regions of a specific table, until a target number of regions
- * for the table is reached, or no more merges can complete due to limit in resulting merged region
- * size.
+ * HBase maintenance tool for merging regions of a specific table, until a target number
+ * of regions is reached, or no more merges can complete due to limit in resulting merged
+ * region size.
  */
-public class RegionsMerger extends Configured implements org.apache.hadoop.util.Tool {
-
-  private static final Logger LOG = LoggerFactory.getLogger(RegionsMerger.class.getName());
+public class RegionsMerger extends BaseHBaseMaintenanceTool {
+  // Keep ALL original constants
   public static final String RESULTING_REGION_UPPER_MARK = "hbase.tools.merge.upper.mark";
   public static final String SLEEP = "hbase.tools.merge.sleep";
   public static final String MAX_ROUNDS_IDLE = "hbase.tools.max.iterations.blocked";
 
-  private final Configuration conf;
-  private final FileSystem fs;
   private final double resultSizeThreshold;
   private final int sleepBetweenCycles;
   private final long maxRoundsStuck;
 
   public RegionsMerger(Configuration conf) throws IOException {
-    this.conf = conf;
-    Path basePath = new Path(conf.get(HConstants.HBASE_DIR));
-    fs = basePath.getFileSystem(conf);
-    resultSizeThreshold = this.conf.getDouble(RESULTING_REGION_UPPER_MARK, 0.9)
-      * this.conf.getLong(HConstants.HREGION_MAX_FILESIZE, HConstants.DEFAULT_MAX_FILE_SIZE);
-    sleepBetweenCycles = this.conf.getInt(SLEEP, 2000);
+    super(conf); // Initialize base class
+    // Keep original initialization logic
+    this.resultSizeThreshold = this.conf.getDouble(RESULTING_REGION_UPPER_MARK, 0.9)
+            * this.conf.getLong(HConstants.HREGION_MAX_FILESIZE, HConstants.DEFAULT_MAX_FILE_SIZE);
+    this.sleepBetweenCycles = this.conf.getInt(SLEEP, 2000);
     this.maxRoundsStuck = this.conf.getInt(MAX_ROUNDS_IDLE, 10);
   }
+
 
   private Path getTablePath(TableName table) {
     Path basePath = new Path(conf.get(HConstants.HBASE_DIR));
@@ -111,9 +107,9 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     Table metaTbl = connection.getTable(META_TABLE_NAME);
     String tblName = table.getNameAsString();
     RowFilter rowFilter =
-      new RowFilter(CompareOperator.EQUAL, new SubstringComparator(tblName + ","));
+            new RowFilter(CompareOperator.EQUAL, new SubstringComparator(tblName + ","));
     SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY, STATE_QUALIFIER,
-      CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
+            CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
     colFilter.setFilterIfMissing(true);
     Scan scan = new Scan();
     FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
@@ -130,14 +126,14 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     return regions;
   }
 
-  private boolean canMerge(Path path, RegionInfo region1, RegionInfo region2,
-    Collection<Pair<RegionInfo, RegionInfo>> alreadyMerging) throws IOException {
-    if (
-      alreadyMerging.stream()
-        .anyMatch(regionPair -> region1.equals(regionPair.getFirst())
-          || region2.equals(regionPair.getFirst()) || region1.equals(regionPair.getSecond())
-          || region2.equals(regionPair.getSecond()))
-    ) {
+  /**
+   * Determines if two regions can be merged. It checks that neither region is already
+   * involved in a merge, that the regions are adjacent, and that the combined size does not
+   * exceed the upper size threshold.
+   */
+  public boolean canMerge(Path path, RegionInfo region1, RegionInfo region2,
+                          Collection<RegionInfo> alreadyMerging) throws IOException {
+    if (alreadyMerging.stream().anyMatch(region -> region1.equals(region) || region2.equals(region))) {
       return false;
     }
     if (RegionInfo.areAdjacent(region1, region2)) {
@@ -145,16 +141,15 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       long size2 = sumSizeInFS(new Path(path, region2.getEncodedName()));
       boolean mergeable = (resultSizeThreshold > (size1 + size2));
       if (!mergeable) {
-        LOG.warn(
-          "Not merging regions {} and {} because resulting region size would get close to "
-            + "the {} limit. {} total size: {}; {} total size:{}",
-          region1.getEncodedName(), region2.getEncodedName(), resultSizeThreshold,
-          region1.getEncodedName(), size1, region2.getEncodedName(), size2);
+        LOG.warn("Not merging regions {} and {} because resulting region size would get close to "
+                        + "the {} limit. {} total size: {}; {} total size:{}",
+                region1.getEncodedName(), region2.getEncodedName(), resultSizeThreshold,
+                region1.getEncodedName(), size1, region2.getEncodedName(), size2);
       }
       return mergeable;
     } else {
       LOG.warn("WARNING: Can't merge regions {} and {} because those are not adjacent.",
-        region1.getEncodedName(), region2.getEncodedName());
+              region1.getEncodedName(), region2.getEncodedName());
       return false;
     }
   }
@@ -166,13 +161,17 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     Result r = meta.get(get);
     boolean result = HBCKMetaTableAccessor.getMergeRegions(r.rawCells()) != null;
     if (result) {
-      LOG.warn("Region {} has an existing merge qualifier and can't be merged until for now. \n "
-        + "RegionsMerger will skip this region until merge qualifier is cleaned away. \n "
-        + "Consider major compact this region.", region.getEncodedName());
+      LOG.warn("Region {} has an existing merge qualifier and can't be merged until for now. \n"
+              + "RegionsMerger will skip this region until merge qualifier is cleaned away. \n"
+              + "Consider major compact this region.", region.getEncodedName());
     }
     return result;
   }
 
+  /**
+   * Attempts to merge regions until the number of regions is reduced to targetRegions or no
+   * further progress can be made.
+   */
   public void mergeRegions(String tblName, int targetRegions) throws Exception {
     TableName table = TableName.valueOf(tblName);
     Path tableDir = getTablePath(table);
@@ -182,69 +181,54 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       LongAdder lastTimeProgessed = new LongAdder();
       // need to get all regions for the table, regardless of region state
       List<RegionInfo> regions = admin.getRegions(table);
-      Map<Future, Pair<RegionInfo, RegionInfo>> regionsMerging = new ConcurrentHashMap<>();
+      // use a Set to track regions currently merging
+      Set<RegionInfo> mergingRegions = ConcurrentHashMap.newKeySet();
       long roundsNoProgress = 0;
+      RegionMergeStrategy strategy = new DefaultMergeStrategy(this, tableDir, mergingRegions);
       while (regions.size() > targetRegions) {
         LOG.info("Iteration: {}", counter);
         RegionInfo previous = null;
         int regionSize = regions.size();
-        LOG.info("Attempting to merge {} regions to reach the target {} ...", regionSize,
-          targetRegions);
+        LOG.info("Attempting to merge {} regions to reach the target {} ...", regionSize, targetRegions);
         // to request merge, regions must be OPEN, though
         regions = getOpenRegions(conn, table);
         for (RegionInfo current : regions) {
-          if (!current.isSplit()) {
-            if (
-              previous != null && canMerge(tableDir, previous, current, regionsMerging.values())
-            ) {
-              // Before submitting a merge request, we need to check if any of the region candidates
-              // still have merge references from previous cycle
-              boolean hasMergeRef =
-                hasPreviousMergeRef(conn, previous) || hasPreviousMergeRef(conn, current);
-              if (!hasMergeRef) {
-                Future f = admin.mergeRegionsAsync(current.getEncodedNameAsBytes(),
-                  previous.getEncodedNameAsBytes(), true);
-                Pair<RegionInfo, RegionInfo> regionPair = new Pair<>(previous, current);
-                regionsMerging.put(f, regionPair);
-                if ((regionSize - regionsMerging.size()) <= targetRegions) {
-                  break;
-                }
-              } else {
-                LOG.info("Skipping merge of candidates {} and {} because of existing merge "
-                  + "qualifiers.", previous.getEncodedName(), current.getEncodedName());
-              }
-              previous = null;
-            } else {
-              previous = current;
-            }
+          // Delegate decision to appropriate strategy
+          if (current.isSplit()) {
+            strategy = new SkipSplitRegionStrategy();
           } else {
-            LOG.debug("Skipping split region: {}", current.getEncodedName());
+            strategy = new DefaultMergeStrategy(this, tableDir, mergingRegions);
+          }
+          if (previous != null && strategy.canMerge(previous, current)) {
+            boolean hasMergeRef = hasPreviousMergeRef(conn, previous) || hasPreviousMergeRef(conn, current);
+            if (!hasMergeRef) {
+              admin.mergeRegionsAsync(current.getEncodedNameAsBytes(),
+                      previous.getEncodedNameAsBytes(), true);
+              mergingRegions.add(previous);
+              mergingRegions.add(current);
+              if ((regionSize - mergingRegions.size()) <= targetRegions) {
+                break;
+              }
+            } else {
+              LOG.info("Skipping merge of candidates {} and {} because of existing merge qualifiers.",
+                      previous.getEncodedName(), current.getEncodedName());
+            }
+            previous = null;
+          } else {
+            previous = current;
           }
         }
         counter.increment();
         LOG.info("Sleeping for {} seconds before next iteration...", (sleepBetweenCycles / 1000));
         Thread.sleep(sleepBetweenCycles);
-        regionsMerging.forEach((f, currentPair) -> {
-          if (f.isDone()) {
-            LOG.info("Merged regions {} and {} together.", currentPair.getFirst().getEncodedName(),
-              currentPair.getSecond().getEncodedName());
-            regionsMerging.remove(f);
-            lastTimeProgessed.reset();
-            lastTimeProgessed.add(counter.longValue());
-          } else {
-            LOG.warn("Merge of regions {} and {} isn't completed yet.", currentPair.getFirst(),
-              currentPair.getSecond());
-          }
-        });
+        // Clear tracking of merging regions for the next iteration.
+        mergingRegions.clear();
         roundsNoProgress = counter.longValue() - lastTimeProgessed.longValue();
         if (roundsNoProgress == this.maxRoundsStuck) {
-          LOG.warn("Reached {} iterations without progressing with new merges. Aborting...",
-            roundsNoProgress);
+          LOG.warn("Reached {} iterations without progressing with new merges. Aborting...", roundsNoProgress);
           break;
         }
-
-        // again, get all regions, regardless of the state,
-        // in order to avoid breaking the loop prematurely
+        // Re-read regions from HBase for the next iteration.
         regions = admin.getRegions(table);
       }
     }
@@ -252,9 +236,9 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
 
   @Override
   public int run(String[] args) {
+    // Keep original run() implementation exactly as is
     if (args.length != 2) {
-      LOG.error(
-        "Wrong number of arguments. " + "Arguments are: <TABLE_NAME> <TARGET_NUMBER_OF_REGIONS>");
+      LOG.error("Wrong number of arguments. Arguments are: <TABLE_NAME> <TARGET_NUMBER_OF_REGIONS>");
       return 1;
     }
     try {
@@ -266,11 +250,16 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
     return 0;
   }
 
-  public static void main(String[] args) throws Exception {
-    Configuration conf = HBaseConfiguration.create();
-    int errCode = ToolRunner.run(new RegionsMerger(conf), args);
-    if (errCode != 0) {
-      System.exit(errCode);
-    }
+  public void main(String[] args) throws Exception {
+    System.exit(launchTool(args, new RegionsMerger(HBaseConfiguration.create())));
   }
 }
+
+//  public static void main(String[] args) throws Exception {
+//    Configuration conf = HBaseConfiguration.create();
+//    int errCode = ToolRunner.run(new RegionsMerger(conf), args);
+//    if (errCode != 0) {
+//      System.exit(errCode);
+//    }
+//  }
+//}
