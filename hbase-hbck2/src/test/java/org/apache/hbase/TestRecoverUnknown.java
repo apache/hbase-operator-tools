@@ -22,7 +22,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.util.List;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
-import org.apache.hadoop.hbase.client.ClusterConnection;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Hbck;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -55,7 +55,7 @@ public class TestRecoverUnknown {
 
   @Test
   public void testKnownServersNotRecovered() throws IOException {
-    try (ClusterConnection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
+    try (Connection connection = this.hbck2.connect(); Hbck hbck = connection.getHbck()) {
       List<Long> pids = this.hbck2.recoverUnknown(hbck);
       assertEquals(0, pids.size());
     }
