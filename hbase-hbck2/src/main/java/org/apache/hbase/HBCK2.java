@@ -51,7 +51,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.ClusterConnection;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Hbck;
 import org.apache.hadoop.hbase.client.Put;
@@ -151,7 +151,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
    * Check for HBCK support. Expects created connection.
    * @param supportedVersions list of zero or more supported versions.
    */
-  void checkHBCKSupport(ClusterConnection connection, String cmd, String... supportedVersions)
+  void checkHBCKSupport(Connection connection, String cmd, String... supportedVersions)
     throws IOException {
     if (skipCheck) {
       LOG.info("Skipped {} command version check; 'skip' set", cmd);
@@ -172,7 +172,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
-  void checkFunctionSupported(ClusterConnection connection, String cmd) throws IOException {
+  void checkFunctionSupported(Connection connection, String cmd) throws IOException {
     if (skipCheck) {
       LOG.info("Skipped {} command version check; 'skip' set", cmd);
       return;
@@ -234,12 +234,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return hbck.setTableStateInMeta(new TableState(tableName, state));
   }
 
-  int setRegionState(ClusterConnection connection, String region, RegionState.State newState)
+  int setRegionState(Connection connection, String region, RegionState.State newState)
     throws IOException {
     return setRegionState(connection, region, 0, newState);
   }
 
-  int setRegionState(ClusterConnection connection, String[] args) throws IOException {
+  int setRegionState(Connection connection, String[] args) throws IOException {
     Options options = new Options();
     Option inputFile = Option.builder("i").longOpt("inputFiles").build();
     options.addOption(inputFile);
@@ -267,7 +267,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     }
   }
 
-  int setRegionStateByArgs(ClusterConnection connection, String[] args) throws IOException {
+  int setRegionStateByArgs(Connection connection, String[] args) throws IOException {
     if (args == null || args.length < 3) {
       return EXIT_FAILURE;
     }
@@ -276,7 +276,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     return setRegionState(connection, args[0], replicaId, state);
   }
 
-  int setRegionState(ClusterConnection connection, String region, int replicaId,
+  int setRegionState(Connection connection, String region, int replicaId,
     RegionState.State newState) throws IOException {
     if (newState == null) {
       throw new IllegalArgumentException("State can't be null.");
@@ -571,7 +571,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     List<Long> pids = Arrays.stream(pidStrs).map(Long::valueOf).collect(Collectors.toList());
 
     // Process here
-    try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+    try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
       checkFunctionSupported(connection, BYPASS);
       if (batchSize == NO_BATCH_SIZE) {
         return hbck.bypassProcedure(pids, lockWait, overrideFlag, recursiveFlag);
@@ -615,7 +615,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     CommandLineParser parser = new DefaultParser();
     CommandLine commandLine = parser.parse(options, args, false);
     final boolean fix = commandLine.hasOption(dryRunOption.getOpt());
-    try (ClusterConnection connection = connect()) {
+    try (Connection connection = connect()) {
       new RegionInfoMismatchTool(connection).run(fix);
     }
   }
@@ -1140,8 +1140,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
    * Create connection. Needs to be called before we go against remote server. Be sure to close when
    * done.
    */
-  ClusterConnection connect() throws IOException {
-    return (ClusterConnection) ConnectionFactory.createConnection(getConf());
+  Connection connect() throws IOException {
+    return ConnectionFactory.createConnection(getConf());
   }
 
   /**
@@ -1166,7 +1166,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
             + " takes tablename and state arguments: e.g. user ENABLED, or a list of input files");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+        try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           setTableState(hbck, purgeFirst(commands));
         }
@@ -1177,7 +1177,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+        try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           System.out.println(assigns(hbck, purgeFirst(commands)));
         }
@@ -1206,7 +1206,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more encoded region names");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+        try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           System.out.println(toString(unassigns(hbck, purgeFirst(commands))));
         }
@@ -1219,13 +1219,13 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           return EXIT_FAILURE;
         }
 
-        try (ClusterConnection connection = connect()) {
+        try (Connection connection = connect()) {
           checkHBCKSupport(connection, command);
           return setRegionState(connection, purgeFirst(commands));
         }
 
       case FILESYSTEM:
-        try (ClusterConnection connection = connect()) {
+        try (Connection connection = connect()) {
           checkHBCKSupport(connection, command);
           try (FileSystemFsck fsfsck = new FileSystemFsck(getConf())) {
             Pair<CommandLine, List<String>> pair =
@@ -1237,7 +1237,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         }
 
       case REPLICATION:
-        try (ClusterConnection connection = connect()) {
+        try (Connection connection = connect()) {
           checkHBCKSupport(connection, command, "2.1.1", "2.2.0", "3.0.0");
           try (ReplicationFsck replicationFsck = new ReplicationFsck(getConf())) {
             Pair<CommandLine, List<String>> pair =
@@ -1253,7 +1253,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " takes one or more serverNames");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+        try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           System.out.println(toString(scheduleRecoveries(hbck, purgeFirst(commands))));
         }
@@ -1264,7 +1264,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " doesn't take any arguments");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+        try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           System.out.println(toString(recoverUnknown(hbck)));
         }
@@ -1275,7 +1275,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
           showErrorMessage(command + " doesn't take any arguments");
           return EXIT_FAILURE;
         }
-        try (ClusterConnection connection = connect(); Hbck hbck = connection.getHbck()) {
+        try (Connection connection = connect(); Hbck hbck = connection.getHbck()) {
           checkFunctionSupported(connection, command);
           hbck.fixMeta();
           System.out.println("Server-side processing of fixMeta triggered.");
@@ -1320,7 +1320,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         List<String> tableNames = Arrays.asList(purgeFirst(commands));
         MissingTableDescriptorGenerator tableInfoGenerator =
           new MissingTableDescriptorGenerator(getConf());
-        try (ClusterConnection connection = connect()) {
+        try (Connection connection = connect()) {
           tableInfoGenerator.generateTableDescriptorFileIfMissing(connection.getAdmin(),
             tableNames);
         } catch (IOException e) {
