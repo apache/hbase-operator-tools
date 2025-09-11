@@ -136,6 +136,7 @@
     <checkstyle.version>8.45.1</checkstyle.version>
     <junit.version>4.12</junit.version>
     <maven.checkstyle.version>3.2.1</maven.checkstyle.version>
+    <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
     <hbase.checkstyle.version>2.5.0</hbase.checkstyle.version>
     <enforcer.version>3.0.0-M2</enforcer.version>
     <extra.enforcer.version>1.0-beta-9</extra.enforcer.version>
@@ -217,6 +218,11 @@
             <useIncrementalCompilation>false</useIncrementalCompilation>
             <compilerArgument>-Xlint:-options</compilerArgument>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>${maven-shade-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
