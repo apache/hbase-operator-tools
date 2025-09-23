@@ -131,6 +131,7 @@
     <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
     <log4j2.version>2.17.2</log4j2.version>
     <slf4j.version>1.7.33</slf4j.version>
+    <surefire.version>3.5.3</surefire.version>
     <surefire.provider>surefire-junit47</surefire.provider>
     <test.output.tofile>true</test.output.tofile>
     <checkstyle.version>8.45.1</checkstyle.version>
@@ -138,8 +139,8 @@
     <maven.checkstyle.version>3.2.1</maven.checkstyle.version>
     <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
     <hbase.checkstyle.version>2.5.0</hbase.checkstyle.version>
-    <enforcer.version>3.0.0-M2</enforcer.version>
-    <extra.enforcer.version>1.0-beta-9</extra.enforcer.version>
+    <enforcer.version>3.6.1</enforcer.version>
+    <extra.enforcer.version>1.10.0</extra.enforcer.version>
     <findbugs-annotations.version>1.3.9-1</findbugs-annotations.version>
     <!--code coverage properties-->
     <clover-maven-plugin.version>4.4.1</clover-maven-plugin.version>
@@ -232,6 +233,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
+          <version>${surefire.version}</version>
           <!-- Generic testing configuration for all packages -->
           <configuration>
             <failIfNoTests>false</failIfNoTests>
