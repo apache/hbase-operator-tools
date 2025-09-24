@@ -1,4 +1,3 @@
-# HBASE Operator Tools Changelog
 
 <!---
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -16,10 +15,69 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+-->
+# HBASE Changelog
 
-# Be careful doing manual edits in this file. Do not change format
-# of release header or remove the below marker. This file is generated.
-# DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
+## Release hbase-operator-tools-1.3.0 - Unreleased (as of 2025-09-24)
+
+
+
+### IMPROVEMENTS:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-26656](https://issues.apache.org/jira/browse/HBASE-26656) | [operator-tools] Provide a utility to detect and correct incorrect RegionInfo's in hbase:meta |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-24587](https://issues.apache.org/jira/browse/HBASE-24587) | hbck2 command should accept one or more files containing a list of region names/table names/namespaces |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-25610](https://issues.apache.org/jira/browse/HBASE-25610) | Support multiple tables as input in generateMissingTableDescriptorFile command in HBCK2 |  Minor | hbase-operator-tools, hbck2 |
+| [HBASE-27808](https://issues.apache.org/jira/browse/HBASE-27808) | Change flatten mode for oss in our pom file |  Major | community, pom |
+| [HBASE-27724](https://issues.apache.org/jira/browse/HBASE-27724) | [HBCK2]  addFsRegionsMissingInMeta command should support dumping region list into a file which can be passed as input to assigns command |  Minor | hbase-operator-tools, hbck2 |
+| [HBASE-28768](https://issues.apache.org/jira/browse/HBASE-28768) | hbase-table-reporter shoud use the hbase.version declared in the parent pom.xml and use junit for UT |  Major | hbase-operator-tools |
+| [HBASE-28532](https://issues.apache.org/jira/browse/HBASE-28532) | Remove vulnerable dependencies: slf4j-log4j12 and log4j:log4j |  Major | hbase-operator-tools |
+
+
+### BUG FIXES:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-26687](https://issues.apache.org/jira/browse/HBASE-26687) | Account for HBASE-24500 in regionInfoMismatch tool |  Minor | hbck2 |
+| [HBASE-27147](https://issues.apache.org/jira/browse/HBASE-27147) | [HBCK2] extraRegionsInMeta does not work If RegionInfo is null |  Major | hbck2 |
+| [HBASE-27754](https://issues.apache.org/jira/browse/HBASE-27754) | [HBCK2] generateMissingTableDescriptorFile should throw write permission error and fail |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-27751](https://issues.apache.org/jira/browse/HBASE-27751) | [hbase-operator-tools] TestMissingTableDescriptorGenerator fails with HBase 2.5.3 |  Minor | hbase-operator-tools |
+| [HBASE-27961](https://issues.apache.org/jira/browse/HBASE-27961) | [HBCK2] Running assigns/unassigns command with large number of files/regions throws CallTimeoutException |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-28375](https://issues.apache.org/jira/browse/HBASE-28375) | HBase Operator Tools fails to compile with hbase 2.6.0 |  Major | hbase-operator-tools |
+| [HBASE-28632](https://issues.apache.org/jira/browse/HBASE-28632) | Make -h arg respected by hbck2 and exit if unrecognized arguments are passed |  Major | . |
+| [HBASE-28531](https://issues.apache.org/jira/browse/HBASE-28531) | IndexOutOfBoundsException when executing HBCK2 |  Major | hbck2 |
+| [HBASE-29583](https://issues.apache.org/jira/browse/HBASE-29583) | Fix Shading issue with JDK17 |  Major | hbck2 |
+| [HBASE-29624](https://issues.apache.org/jira/browse/HBASE-29624) | [hbase-operator-tools] Upgrade some maven plugin versions |  Major | hbase-operator-tools |
+
+
+### SUB-TASKS:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-27977](https://issues.apache.org/jira/browse/HBASE-27977) | [hbase-operator-tools] Add spotless plugin to hbase-operator-tools |  Major | hbase-operator-tools |
+| [HBASE-28057](https://issues.apache.org/jira/browse/HBASE-28057) | [hbase-operator-tools] Run spotless:apply and fix any existing spotless issues |  Major | build, hbase-operator-tools |
+| [HBASE-27978](https://issues.apache.org/jira/browse/HBASE-27978) | [hbase-operator-tools] Add spotless in hbase-operator-tools pre-commit check |  Major | build, hbase-operator-tools |
+| [HBASE-28381](https://issues.apache.org/jira/browse/HBASE-28381) | Support building hbase-operator-tools with JDK17 |  Major | hbase-operator-tools, java |
+| [HBASE-28773](https://issues.apache.org/jira/browse/HBASE-28773) | Failed to start HBase MiniCluster when running UT with JDK 17 in hbase-hbck2 |  Major | hbase-operator-tools |
+| [HBASE-22712](https://issues.apache.org/jira/browse/HBASE-22712) | [HBCK2] Remove ClusterConnection dependency in hbck2 |  Blocker | hbck2 |
+
+
+### OTHER:
+
+| JIRA | Summary | Priority | Component |
+|:---- |:---- | :--- |:---- |
+| [HBASE-27976](https://issues.apache.org/jira/browse/HBASE-27976) | [hbase-operator-tools] Add spotless for hbase-operator-tools |  Major | build, community, hbase-operator-tools |
+| [HBASE-26653](https://issues.apache.org/jira/browse/HBASE-26653) | [hbase-operator-tools] Upgrade log4j to 2.17.1 |  Major | hbase-operator-tools, logging, security |
+| [HBASE-26934](https://issues.apache.org/jira/browse/HBASE-26934) | Publish code coverage reports to SonarQube |  Minor | hbase-operator-tools |
+| [HBASE-27665](https://issues.apache.org/jira/browse/HBASE-27665) | Update checkstyle in hbase-operator-tools |  Major | hbase-operator-tools |
+| [HBASE-27696](https://issues.apache.org/jira/browse/HBASE-27696) | [hbase-operator-tools] Use $revision as placeholder for maven version |  Major | build, pom |
+| [HBASE-27804](https://issues.apache.org/jira/browse/HBASE-27804) | [HBCK2] Correct sample usage of -skip with assigns in HBCK2 docs |  Trivial | hbase-operator-tools, hbck2 |
+| [HBASE-27856](https://issues.apache.org/jira/browse/HBASE-27856) | Add hadolint binary to operator-tools yetus environment |  Major | build |
+| [HBASE-27980](https://issues.apache.org/jira/browse/HBASE-27980) | Sync the hbck2 README page and hbck2 command help output |  Major | hbase-operator-tools, hbck2 |
+| [HBASE-28795](https://issues.apache.org/jira/browse/HBASE-28795) | [hbase-operator-tools] Enable infra automation: autolink to Jira and 'pull-request-available' label |  Minor | community |
+
+
 ## Release hbase-operator-tools-1.2.0 - Unreleased (as of 2021-12-14)
 
 ### NEW FEATURES:

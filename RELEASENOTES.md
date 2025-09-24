@@ -1,5 +1,4 @@
 # RELEASENOTES
-
 <!---
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -16,10 +15,72 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+-->
+# HBASE  hbase-operator-tools-1.3.0 Release Notes
 
-# Be careful doing manual edits in this file. Do not change format
-# of release header or remove the below marker. This file is generated.
-# DO NOT REMOVE THIS MARKER; FOR INTERPOLATING CHANGES!-->
+These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.
+
+
+---
+
+* [HBASE-26653](https://issues.apache.org/jira/browse/HBASE-26653) | *Major* | **[hbase-operator-tools] Upgrade log4j to 2.17.1**
+
+Upgrade log4j to 2.17.1 to address CVE-2021-44832.
+
+
+---
+
+* [HBASE-26656](https://issues.apache.org/jira/browse/HBASE-26656) | *Major* | **[operator-tools] Provide a utility to detect and correct incorrect RegionInfo's in hbase:meta**
+
+This tool will read hbase:meta and report any regions whose rowkey and cell value differ in their encoded region name. HBASE-23328 illustrates a problem for read-replica enabled tables in which the encoded region name (the MD5 hash) does not match between the rowkey and the value. This problem is generally harmless for normal operation, but can break other HBCK2 tools.
+
+
+---
+
+* [HBASE-24587](https://issues.apache.org/jira/browse/HBASE-24587) | *Major* | **hbck2 command should accept one or more files containing a list of region names/table names/namespaces**
+
+HBCK2 is now able to accept subcommand argument lists via input file. See help output for details.
+
+
+---
+
+* [HBASE-25610](https://issues.apache.org/jira/browse/HBASE-25610) | *Minor* | **Support multiple tables as input in generateMissingTableDescriptorFile command in HBCK2**
+
+The generateMissingTableDescriptorFile command accepts multiple table names or generates the missing .tableinfo files for all tables when no table name is specified.
+
+
+---
+
+* [HBASE-27696](https://issues.apache.org/jira/browse/HBASE-27696) | *Major* | **[hbase-operator-tools] Use $revision as placeholder for maven version**
+
+Use \`${revision}\` as placeholder for maven version in pom, so later you can use \`mvn install -Drevision=xxx\` to specify the version at build time.
+After this change, you can not use \`mvn versions:set\` to bump the version, instead. you should instead use \`mvn versions:set-property\` to update the value of the \`revision\` property in the properties section.
+
+
+---
+
+* [HBASE-27808](https://issues.apache.org/jira/browse/HBASE-27808) | *Major* | **Change flatten mode for oss in our pom file**
+
+Changed the flatten mode from default to oss. It will include these extra section in the published pom files:
+
+name, description, url, developers, scm, inceptionYear, organization, mailingLists, issueManagement, distributionManagement.
+
+
+---
+
+* [HBASE-27976](https://issues.apache.org/jira/browse/HBASE-27976) | *Major* | **[hbase-operator-tools] Add spotless for hbase-operator-tools**
+
+Before creating a PR for hbase-operator-tools repo, developers can now run 'mvn spotless:apply' to fix code formatting issues .
+
+
+---
+
+* [HBASE-27961](https://issues.apache.org/jira/browse/HBASE-27961) | *Major* | **[HBCK2] Running assigns/unassigns command with large number of files/regions throws CallTimeoutException**
+
+Add support for batching in the following commands: assigns, unassigns and bypass
+
+
+
 # HBASE  hbase-operator-tools-1.2.0 Release Notes
 
 These release notes cover new developer and user-facing incompatibilities, important issues, features, and major improvements.
