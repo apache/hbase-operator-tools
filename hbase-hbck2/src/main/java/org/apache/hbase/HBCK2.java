@@ -115,8 +115,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       {
         put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
         put(BYPASS, Arrays.asList("bypassProcedure"));
-        put(SCHEDULE_RECOVERIES,
-          Arrays.asList("scheduleServerCrashProcedures"));
+        put(SCHEDULE_RECOVERIES, Arrays.asList("scheduleServerCrashProcedures"));
         put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
       }
     });
