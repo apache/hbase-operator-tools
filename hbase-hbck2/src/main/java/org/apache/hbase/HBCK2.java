@@ -78,8 +78,6 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
-import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
-
 /**
  * HBase fixup tool version 2, for hbase-2.0.0+ clusters. Supercedes hbck1.
  */
@@ -118,7 +116,7 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
         put(BYPASS, Arrays.asList("bypassProcedure"));
         put(SCHEDULE_RECOVERIES,
-          Arrays.asList("scheduleServerCrashProcedure", "scheduleServerCrashProcedures"));
+          Arrays.asList("scheduleServerCrashProcedures"));
         put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
       }
     });
@@ -589,14 +587,14 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
   }
 
   List<Long> scheduleRecoveries(Hbck hbck, String[] args) throws IOException {
-    List<HBaseProtos.ServerName> serverNames = new ArrayList<>();
+    List<ServerName> serverNames = new ArrayList<>();
     List<String> inputList = getInputList(args);
     if (inputList != null) {
       for (String serverName : inputList) {
-        serverNames.add(parseServerName(serverName));
+        serverNames.add(ServerName.parseServerName(serverName));
       }
     }
-    return hbck.scheduleServerCrashProcedure(serverNames);
+    return hbck.scheduleServerCrashProcedures(serverNames);
   }
 
   List<Long> recoverUnknown(Hbck hbck) throws IOException {
@@ -618,12 +616,6 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try (Connection connection = connect()) {
       new RegionInfoMismatchTool(connection).run(fix);
     }
-  }
-
-  private HBaseProtos.ServerName parseServerName(String serverName) {
-    ServerName sn = ServerName.parseServerName(serverName);
-    return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).setPort(sn.getPort())
-      .setStartCode(sn.getStartcode()).build();
   }
 
   /**
