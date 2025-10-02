@@ -78,6 +78,8 @@ import org.apache.hbase.thirdparty.org.apache.commons.cli.Option;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.Options;
 import org.apache.hbase.thirdparty.org.apache.commons.cli.ParseException;
 
+import org.apache.hadoop.hbase.shaded.protobuf.generated.HBaseProtos;
+
 /**
  * HBase fixup tool version 2, for hbase-2.0.0+ clusters. Supercedes hbck1.
  */
@@ -115,7 +117,8 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       {
         put(SET_TABLE_STATE, Arrays.asList("setTableStateInMeta"));
         put(BYPASS, Arrays.asList("bypassProcedure"));
-        put(SCHEDULE_RECOVERIES, Arrays.asList("scheduleServerCrashProcedures"));
+        put(SCHEDULE_RECOVERIES,
+          Arrays.asList("scheduleServerCrashProcedure", "scheduleServerCrashProcedures"));
         put(RECOVER_UNKNOWN, Arrays.asList("scheduleSCPsForUnknownServers"));
       }
     });
@@ -593,7 +596,35 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
         serverNames.add(ServerName.parseServerName(serverName));
       }
     }
-    return hbck.scheduleServerCrashProcedures(serverNames);
+    try {
+      return hbck.scheduleServerCrashProcedures(serverNames);
+    } catch (NoSuchMethodError | UnsupportedOperationException e) {
+      LOG.warn("scheduleServerCrashProcedures not supported, "
+        + "falling back to scheduleServerCrashProcedure");
+      return scheduleRecoveriesDeprecated(hbck, inputList);
+    }
+  }
+
+  /**
+   * Fallback for old versions of HBase which do not have the new scheduleServerCrashProcedures
+   * method.
+   */
+  @SuppressWarnings("unchecked")
+  private List<Long> scheduleRecoveriesDeprecated(Hbck hbck, List<String> inputList)
+    throws IOException {
+    try {
+      List<HBaseProtos.ServerName> protoServerNames = new ArrayList<>();
+      if (inputList != null) {
+        for (String serverName : inputList) {
+          protoServerNames.add(parseServerName(serverName));
+        }
+      }
+      // Fallback to the old method with reflection
+      Method method = hbck.getClass().getMethod("scheduleServerCrashProcedure", List.class);
+      return (List<Long>) method.invoke(hbck, protoServerNames);
+    } catch (Exception ex) {
+      throw new IOException("This HBase cluster does not support scheduleRecoveries command", ex);
+    }
   }
 
   List<Long> recoverUnknown(Hbck hbck) throws IOException {
@@ -615,6 +646,12 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
     try (Connection connection = connect()) {
       new RegionInfoMismatchTool(connection).run(fix);
     }
+  }
+
+  private HBaseProtos.ServerName parseServerName(String serverName) {
+    ServerName sn = ServerName.parseServerName(serverName);
+    return HBaseProtos.ServerName.newBuilder().setHostName(sn.getHostname()).setPort(sn.getPort())
+      .setStartCode(sn.getStartcode()).build();
   }
 
   /**
