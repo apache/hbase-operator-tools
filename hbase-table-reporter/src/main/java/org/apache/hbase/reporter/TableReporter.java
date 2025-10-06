@@ -47,10 +47,8 @@ import org.apache.datasketches.quantiles.DoublesUnion;
 import org.apache.datasketches.quantiles.UpdateDoublesSketch;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.ExtendedCell;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseIOException;
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -61,14 +59,13 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.io.HeapSize;
-import org.apache.hadoop.hbase.util.Bytes;
 
 /**
  * Run a scan against a table reporting on row size, column size and count. So can run against cdh5,
  * uses loads of deprecated API and copies some Cell sizing methods local.
  */
 public final class TableReporter {
-  private static String GNUPLOT_DATA_SUFFIX = ".gnuplotdata";
+  private static final String GNUPLOT_DATA_SUFFIX = ".gnuplotdata";
 
   private TableReporter() {
   }
@@ -80,7 +77,7 @@ public final class TableReporter {
   static class Sketches {
     private static final DoubleSupplier IN_POINT_1_INC = new DoubleSupplier() {
       private BigDecimal accumulator = new BigDecimal(0);
-      private final BigDecimal pointOhOne = new BigDecimal(0.01);
+      private final BigDecimal pointOhOne = new BigDecimal("0.01");
 
       @Override
       public double getAsDouble() {
@@ -199,7 +196,7 @@ public final class TableReporter {
     private final Connection connection;
     private final TableName tableName;
     private final int limit;
-    private Sketches sketches = new Sketches();
+    private final Sketches sketches = new Sketches();
     private volatile long duration;
 
     SketchRegion(Connection connection, TableName tableName, RegionInfo ri, int limit) {
@@ -213,8 +210,8 @@ public final class TableReporter {
     public SketchRegion call() {
       try (Table table = this.connection.getTable(this.tableName)) {
         Scan scan = new Scan();
-        scan.setStartRow(this.ri.getStartKey());
-        scan.setStopRow(this.ri.getEndKey());
+        scan.withStartRow(this.ri.getStartKey());
+        scan.withStopRow(this.ri.getEndKey());
         scan.setAllowPartialResults(true);
         long startTime = System.currentTimeMillis();
         long count = 0;
@@ -317,55 +314,16 @@ public final class TableReporter {
   }
 
   /**
-   * This is an estimate of the heap space occupied by a cell. When the cell is of type
-   * {@link HeapSize} we call {@link HeapSize#heapSize()} so cell can give a correct value. In other
-   * cases we just consider the bytes occupied by the cell components ie. row, CF, qualifier,
-   * timestamp, type, value and tags. Note that this can be the JVM heap space (on-heap) or the OS
-   * heap (off-heap)
-   * @return estimate of the heap space
+   * Returns the heap space occupied by a cell. If the cell is of type {@link HeapSize}, calls
+   * {@link HeapSize#heapSize()} to get the value. Otherwise, returns 0. This value can represent
+   * either JVM heap space (on-heap) or OS heap (off-heap).
+   * @return the heap space used by the cell
    */
   public static long estimatedSizeOfCell(final Cell cell) {
-    if (cell instanceof HeapSize) {
-      return ((HeapSize) cell).heapSize();
+    if (cell != null) {
+      return cell.heapSize();
     }
-    // TODO: Add sizing of references that hold the row, family, etc., arrays.
-    return estimatedSerializedSizeOf(cell);
-  }
-
-  /**
-   * Estimate based on keyvalue's serialization format in the RPC layer. Note that there is an extra
-   * SIZEOF_INT added to the size here that indicates the actual length of the cell for cases where
-   * cell's are serialized in a contiguous format (For eg in RPCs).
-   * @return Estimate of the <code>cell</code> size in bytes plus an extra SIZEOF_INT indicating the
-   *         actual cell length.
-   */
-  public static int estimatedSerializedSizeOf(final Cell cell) {
-    if (cell instanceof ExtendedCell) {
-      return ((ExtendedCell) cell).getSerializedSize(true) + Bytes.SIZEOF_INT;
-    }
-
-    return getSumOfCellElementLengths(cell) +
-    // Use the KeyValue's infrastructure size presuming that another implementation would have
-    // same basic cost.
-      KeyValue.ROW_LENGTH_SIZE + KeyValue.FAMILY_LENGTH_SIZE +
-      // Serialization is probably preceded by a length (it is in the KeyValueCodec at least).
-      Bytes.SIZEOF_INT;
-  }
-
-  /**
-   * Returns Sum of the lengths of all the elements in a Cell; does not count in any infrastructure
-   */
-  private static int getSumOfCellElementLengths(final Cell cell) {
-    return getSumOfCellKeyElementLengths(cell) + cell.getValueLength() + cell.getTagsLength();
-  }
-
-  /**
-   * @return Sum of all elements that make up a key; does not include infrastructure, tags or
-   *         values.
-   */
-  private static int getSumOfCellKeyElementLengths(final Cell cell) {
-    return cell.getRowLength() + cell.getFamilyLength() + cell.getQualifierLength()
-      + KeyValue.TIMESTAMP_TYPE_SIZE;
+    return 0;
   }
 
   private static String getFileNamePrefix(String isoNow, String tableName, String sketchName) {
