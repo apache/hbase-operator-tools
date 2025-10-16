@@ -1892,6 +1892,7 @@ public class HBaseFsck extends Configured implements Closeable {
     return HRegion.createHRegion(ri, rootdir, getConf(), td, wal, true);
   }
 
+  // copied from HBaseTestingUtil/HBaseTestingUtility
   private static WAL createWal(final Configuration conf, final Path rootDir, final RegionInfo hri)
     throws IOException {
     // The WAL subsystem will use the default rootDir rather than the passed in rootDir
@@ -1901,6 +1902,7 @@ public class HBaseFsck extends Configured implements Closeable {
     return new WALFactory(confForWAL, "hregion-" + RandomStringUtils.randomNumeric(8)).getWAL(hri);
   }
 
+  // copied from HBaseTestingUtil/HBaseTestingUtility
   private static void closeRegionAndWAL(final HRegion r) throws IOException {
     if (r == null) {
       return;
