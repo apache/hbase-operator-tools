@@ -166,7 +166,7 @@ public final class HBaseFsckRepair {
       }
       Thread.sleep(1000);
     }
-    throw new IOException("Region " + region + " failed to close within" + " timeout " + timeout);
+    throw new IOException("Region " + region + " failed to close within timeout " + timeout);
   }
 
   /**
