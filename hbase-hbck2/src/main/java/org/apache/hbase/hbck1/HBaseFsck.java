@@ -126,7 +126,6 @@ import org.apache.hadoop.hbase.regionserver.wal.AbstractFSWAL;
 import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hadoop.hbase.replication.ReplicationPeerDescription;
 import org.apache.hadoop.hbase.replication.ReplicationQueueStorage;
-import org.apache.hadoop.hbase.replication.ReplicationStorageFactory;
 import org.apache.hadoop.hbase.security.UserProvider;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Bytes.ByteArrayComparator;
@@ -155,6 +154,7 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hbase.HBCKFsUtils;
 import org.apache.hbase.HBCKMetaTableAccessor;
+import org.apache.hbase.ReplicationStorageFactoryHelper;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.yetus.audience.InterfaceStability;
 import org.apache.zookeeper.KeeperException;
@@ -3841,7 +3841,7 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   public void checkAndFixReplication() throws ReplicationException {
-    ReplicationChecker checker = new ReplicationChecker(getConf(), zkw, errors);
+    ReplicationChecker checker = new ReplicationChecker(getConf(), zkw, rootFs, connection, errors);
     checker.checkUnDeletedQueues();
 
     if (checker.hasUnDeletedQueues() && this.fixReplication) {
@@ -5475,7 +5475,7 @@ public class HBaseFsck extends Configured implements Closeable {
       return;
     }
     ReplicationQueueStorage queueStorage =
-      ReplicationStorageFactory.getReplicationQueueStorage(zkw, getConf());
+      ReplicationStorageFactoryHelper.getReplicationQueueStorage(getConf(), zkw, connection);
     List<ReplicationPeerDescription> peerDescriptions = admin.listReplicationPeers();
     if (peerDescriptions != null && peerDescriptions.size() > 0) {
       List<String> peers = peerDescriptions.stream()

@@ -17,9 +17,6 @@
  */
 package org.apache.hbase.hbck1;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,12 +26,13 @@ import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.replication.ReplicationException;
 import org.apache.hadoop.hbase.replication.ReplicationPeerStorage;
 import org.apache.hadoop.hbase.replication.ReplicationQueueInfo;
 import org.apache.hadoop.hbase.replication.ReplicationQueueStorage;
-import org.apache.hadoop.hbase.replication.ReplicationStorageFactory;
 import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
+import org.apache.hbase.ReplicationStorageFactoryHelper;
 import org.apache.yetus.audience.InterfaceAudience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,34 +55,11 @@ public class ReplicationChecker {
   private final ReplicationPeerStorage peerStorage;
   private final ReplicationQueueStorage queueStorage;
 
-  public ReplicationChecker(Configuration conf, ZKWatcher zkw,
+  public ReplicationChecker(Configuration conf, ZKWatcher zkw, FileSystem fs, Connection conn,
     HBaseFsck.ErrorReporter errorReporter) {
-    this.peerStorage = getReplicationPeerStorage(conf, zkw);
-    this.queueStorage = ReplicationStorageFactory.getReplicationQueueStorage(zkw, conf);
+    this.peerStorage = ReplicationStorageFactoryHelper.getReplicationPeerStorage(conf, zkw, fs);
+    this.queueStorage = ReplicationStorageFactoryHelper.getReplicationQueueStorage(conf, zkw, conn);
     this.errorReporter = errorReporter;
-  }
-
-  private ReplicationPeerStorage getReplicationPeerStorage(Configuration conf, ZKWatcher zkw)
-    throws AssertionError {
-    ReplicationPeerStorage peerStorage;
-    try {
-      // Case HBase >= 2.6.0: Invoke the method that requires three parameters
-      Method method = ReplicationStorageFactory.class.getMethod("getReplicationPeerStorage",
-        FileSystem.class, ZKWatcher.class, Configuration.class);
-      FileSystem fileSystem = FileSystem.get(conf);
-      peerStorage = (ReplicationPeerStorage) method.invoke(null, fileSystem, zkw, conf);
-    } catch (IOException | NoSuchMethodException | IllegalAccessException
-      | InvocationTargetException e1) {
-      // Case HBase < 2.6.0: Fall back to the method that requires only two parameters
-      try {
-        Method method = ReplicationStorageFactory.class.getMethod("getReplicationPeerStorage",
-          ZKWatcher.class, Configuration.class);
-        peerStorage = (ReplicationPeerStorage) method.invoke(null, zkw, conf);
-      } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e2) {
-        throw new AssertionError("should not happen", e2);
-      }
-    }
-    return peerStorage;
   }
 
   public boolean hasUnDeletedQueues() {
