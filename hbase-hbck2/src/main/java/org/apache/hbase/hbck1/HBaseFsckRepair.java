@@ -25,22 +25,23 @@ import java.util.Random;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.ClusterMetrics.Option;
+import org.apache.hadoop.hbase.NotServingRegionException;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.ClusterConnection;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RegionInfo;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptor;
+import org.apache.hadoop.hbase.ipc.RemoteWithExtrasException;
 import org.apache.hadoop.hbase.master.RegionState;
-import org.apache.hadoop.hbase.master.ServerManager;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.util.CommonFSUtils;
 import org.apache.hbase.HBCKMetaTableAccessor;
+import org.apache.hbase.HBCKRegionServerAdmin;
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,8 +140,33 @@ public final class HBaseFsckRepair {
   public static void closeRegionSilentlyAndWait(Connection connection, ServerName server,
     RegionInfo region) throws IOException, InterruptedException {
     long timeout = connection.getConfiguration().getLong("hbase.hbck.close.timeout", 120000);
-    ServerManager.closeRegionSilentlyAndWait((ClusterConnection) connection, server, region,
-      timeout);
+    HBCKRegionServerAdmin admin = new HBCKRegionServerAdmin(connection, server);
+    admin.closeRegion(region.getRegionName());
+    if (timeout < 0) {
+      return;
+    }
+    long expiration = timeout + System.currentTimeMillis();
+    while (System.currentTimeMillis() < expiration) {
+      try {
+        RegionInfo rsRegion = admin.getRegionInfo(region.getRegionName());
+        if (rsRegion == null) {
+          return;
+        }
+      } catch (IOException ioe) {
+        if (
+          ioe instanceof NotServingRegionException
+            || (ioe instanceof RemoteWithExtrasException && ((RemoteWithExtrasException) ioe)
+              .unwrapRemoteException() instanceof NotServingRegionException)
+        ) {
+          // no need to retry again
+          return;
+        }
+        LOG.warn("Exception when retrieving regioninfo from: {}", region.getRegionNameAsString(),
+          ioe);
+      }
+      Thread.sleep(1000);
+    }
+    throw new IOException("Region " + region + " failed to close within timeout " + timeout);
   }
 
   /**
