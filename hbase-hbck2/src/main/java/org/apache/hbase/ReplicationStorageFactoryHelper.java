@@ -45,7 +45,7 @@ public class ReplicationStorageFactoryHelper {
         FileSystem.class, ZKWatcher.class, Configuration.class);
       return (ReplicationPeerStorage) method.invoke(null, fs, zkw, conf);
     } catch (NoSuchMethodException e) {
-      LOG.debug("No getReplicationQueueStorage method with FileSystem as a parameter, "
+      LOG.debug("No getReplicationPeerStorage method with FileSystem as a parameter, "
         + "should be HBase 2.6-", e);
     } catch (IllegalAccessException | InvocationTargetException e) {
       // getReplicationPeerStorage method does not throw any exceptions, so should not arrive here
