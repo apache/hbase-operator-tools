@@ -161,7 +161,7 @@ public final class HBaseFsckRepair {
           // no need to retry again
           return;
         }
-        LOG.warn("Exception when retrieving regioninfo from: " + region.getRegionNameAsString(),
+        LOG.warn("Exception when retrieving regioninfo from: {}", region.getRegionNameAsString(),
           ioe);
       }
       Thread.sleep(1000);
