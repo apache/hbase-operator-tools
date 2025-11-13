@@ -41,11 +41,10 @@ public class ReplicationFsck implements Closeable {
 
   int fsck(List<String> tables, boolean fix) throws IOException {
     try (HBaseFsck hbaseFsck = new HBaseFsck(this.configuration)) {
+      hbaseFsck.connect();
       hbaseFsck.setFixReplication(fix);
       hbaseFsck.checkAndFixReplication();
       if (tables != null && !tables.isEmpty()) {
-        // Below needs connection to be up; uses admin.
-        hbaseFsck.connect();
         hbaseFsck.setCleanReplicationBarrier(fix);
         for (String table : tables) {
           hbaseFsck.setCleanReplicationBarrierTable(table);
