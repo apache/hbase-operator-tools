@@ -33,9 +33,12 @@ import org.slf4j.LoggerFactory;
  * Helper class for supporting different versions of HBase for creating
  * {@link ReplicationQueueStorage} and {@link ReplicationPeerStorage}.
  */
-public class ReplicationStorageFactoryHelper {
+public final class ReplicationStorageFactoryHelper {
 
   private static final Logger LOG = LoggerFactory.getLogger(ReplicationStorageFactoryHelper.class);
+
+  private ReplicationStorageFactoryHelper() {
+  }
 
   public static ReplicationPeerStorage getReplicationPeerStorage(Configuration conf, ZKWatcher zkw,
     FileSystem fs) {
