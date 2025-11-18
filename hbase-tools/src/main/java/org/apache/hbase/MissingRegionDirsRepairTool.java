@@ -30,7 +30,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.tool.LoadIncrementalHFiles;
+import org.apache.hadoop.hbase.tool.BulkLoadHFiles;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.util.ToolRunner;
 import org.slf4j.Logger;
@@ -45,12 +45,12 @@ public class MissingRegionDirsRepairTool extends Configured implements org.apach
 
   private Configuration conf;
   private HBCK2 hbck;
-  private LoadIncrementalHFiles bulkLoad;
+  private BulkLoadHFiles bulkLoad;
 
   public MissingRegionDirsRepairTool(Configuration conf) {
     this.conf = conf;
     this.hbck = new HBCK2(conf);
-    this.bulkLoad = new LoadIncrementalHFiles(conf);
+    this.bulkLoad = BulkLoadHFiles.create(conf);
   }
 
   @Override
@@ -102,7 +102,7 @@ public class MissingRegionDirsRepairTool extends Configured implements org.apach
               }
             });
             LOG.info("Calling bulk load for: " + tblPath.toUri().getRawPath());
-            bulkLoad.run(bulkload.toUri().getRawPath(), t);
+            bulkLoad.bulkLoad(t, bulkload);
           } catch (IOException e) {
             LOG.error("Error trying to create temp dir for sideline files: ", e);
           }
