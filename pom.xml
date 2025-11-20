@@ -128,7 +128,7 @@
     <maven.min.version>3.3.3</maven.min.version>
     <spotless.version>2.27.2</spotless.version>
     <hbase.version>2.4.4</hbase.version>
-    <hbase-thirdparty.version>2.2.1</hbase-thirdparty.version>
+    <hbase-thirdparty.version>4.1.12</hbase-thirdparty.version>
     <log4j2.version>2.17.2</log4j2.version>
     <slf4j.version>1.7.33</slf4j.version>
     <surefire.version>3.5.3</surefire.version>
