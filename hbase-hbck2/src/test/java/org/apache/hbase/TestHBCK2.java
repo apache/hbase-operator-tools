@@ -110,7 +110,9 @@ public class TestHBCK2 {
 
   @After
   public void after() throws Exception {
-    TEST_UTIL.deleteTable(TABLE_NAME);
+    for (TableName tableName : TEST_UTIL.getAdmin().listTableNames()) {
+      TEST_UTIL.deleteTable(tableName);
+    }
   }
 
   @Test(expected = UnsupportedOperationException.class)
@@ -346,27 +348,31 @@ public class TestHBCK2 {
 
   @Test
   public void testReportMissingRegionsInMetaSpecificTblAndNsTbl() throws Exception {
+    TableName tableName = createTestTable(5);
     this.testReportMissingRegionsInMeta(5, 5, TABLE_NAME.getNameWithNamespaceInclAsString(),
-      "hbase:namespace");
+      tableName.getNameWithNamespaceInclAsString());
   }
 
   @Test
   public void testReportMissingRegionsInMetaSpecificTblAndNsTblAlsoMissing() throws Exception {
-    List<RegionInfo> regions = HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(),
-      TableName.valueOf("hbase:namespace"));
+    TableName tableName = createTestTable(5);
+    List<RegionInfo> regions =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName);
     HBCKMetaTableAccessor.deleteRegionInfo(TEST_UTIL.getConnection(), regions.get(0));
     this.testReportMissingRegionsInMeta(5, 6, TABLE_NAME.getNameWithNamespaceInclAsString(),
-      "hbase:namespace");
+      tableName.getNameWithNamespaceInclAsString());
   }
 
   @Test
   public void testFormatReportMissingRegionsInMetaNoMissing() throws IOException {
+    TableName tableName = createTestTable(4);
     String expectedResult = "Missing Regions for each table:\n";
     String result = testFormatMissingRegionsInMetaReport();
     assertTrue(result.contains(expectedResult));
-    expectedResult = "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    expectedResult = tableName + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
-    expectedResult = "TestHBCK2 -> No mismatching regions. This table is good!\n\t";
+    expectedResult =
+      TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -384,8 +390,9 @@ public class TestHBCK2 {
     expectedResult =
       "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    // validates namespace region is not reported missing
-    expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    // validates normal region is not reported missing
+    expectedResult =
+      "\n\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -578,8 +585,9 @@ public class TestHBCK2 {
 
   @Test
   public void testReportExtraRegionsInMetaSpecificTblAndNsTbl() throws Exception {
+    TableName tableName = createTestTable(6);
     this.testReportExtraRegionsInMeta(5, 5, TABLE_NAME.getNameWithNamespaceInclAsString(),
-      "hbase:namespace");
+      tableName.getNameWithNamespaceInclAsString());
   }
 
   @Test
@@ -594,12 +602,14 @@ public class TestHBCK2 {
 
   @Test
   public void testFormatReportExtraRegionsInMetaNoExtra() throws IOException {
+    TableName tableName = createTestTable(4);
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaReport();
     assertTrue(result.contains(expectedResult));
-    expectedResult = "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    expectedResult = "\t" + tableName + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
-    expectedResult = "TestHBCK2 -> No mismatching regions. This table is good!\n\t";
+    expectedResult =
+      "\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -617,27 +627,32 @@ public class TestHBCK2 {
     expectedResult =
       "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    // validates namespace region is not reported missing
-    expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    // validates normal region is not reported missing
+    expectedResult =
+      "\n\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
   @Test
   public void testFormatFixExtraRegionsInMetaNoExtra() throws IOException {
+    TableName tableName = createTestTable(4);
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
     String result = testFormatExtraRegionsInMetaFix(null);
     assertTrue(result.contains(expectedResult));
-    expectedResult = "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    expectedResult = "\t" + tableName + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
-    expectedResult = "TestHBCK2 -> No mismatching regions. This table is good!\n\t";
+    expectedResult =
+      "\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
   @Test
   public void testFormatFixExtraRegionsInMetaNoExtraSpecifyTable() throws IOException {
-    final String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n"
-      + "\thbase:namespace -> No mismatching regions. This table is good!\n\t";
-    String result = testFormatExtraRegionsInMetaFix("hbase:namespace");
+    String result = testFormatExtraRegionsInMetaFix(TABLE_NAME.getNameWithNamespaceInclAsString());
+    String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
+    assertTrue(result.contains(expectedResult));
+    expectedResult =
+      "\n\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -655,8 +670,9 @@ public class TestHBCK2 {
     expectedResult =
       "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    // validates namespace region is not reported missing
-    expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    // validates normal region is not reported missing
+    expectedResult =
+      "\n\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertTrue(result.contains(expectedResult));
   }
 
@@ -674,8 +690,9 @@ public class TestHBCK2 {
     expectedResult =
       "\t" + tableName.getNameAsString() + "->\n\t\t" + regions.get(0).getEncodedName();
     assertTrue(result.contains(expectedResult));
-    // validates namespace region is not reported missing
-    expectedResult = "\n\thbase:namespace -> No mismatching regions. This table is good!\n\t";
+    // validates normal region is not reported missing
+    expectedResult =
+      "\n\t" + TABLE_NAME.getNameAsString() + " -> No mismatching regions. This table is good!\n\t";
     assertFalse("Should not contain: " + expectedResult, result.contains(expectedResult));
   }
 
