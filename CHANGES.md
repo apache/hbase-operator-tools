@@ -18,7 +18,7 @@
 -->
 # HBASE Changelog
 
-## Release hbase-operator-tools-1.3.0 - Unreleased (as of 2025-09-24)
+## Release hbase-operator-tools-1.3.0 - Unreleased (as of 2025-11-21)
 
 
 
@@ -49,6 +49,7 @@
 | [HBASE-28531](https://issues.apache.org/jira/browse/HBASE-28531) | IndexOutOfBoundsException when executing HBCK2 |  Major | hbck2 |
 | [HBASE-29583](https://issues.apache.org/jira/browse/HBASE-29583) | Fix Shading issue with JDK17 |  Major | hbck2 |
 | [HBASE-29624](https://issues.apache.org/jira/browse/HBASE-29624) | [hbase-operator-tools] Upgrade some maven plugin versions |  Major | hbase-operator-tools |
+| [HBASE-29635](https://issues.apache.org/jira/browse/HBASE-29635) | HBCK scheduleRecoveries incompatible with HBase 3 |  Blocker | hbase-operator-tools |
 
 
 ### SUB-TASKS:
@@ -76,6 +77,13 @@
 | [HBASE-27856](https://issues.apache.org/jira/browse/HBASE-27856) | Add hadolint binary to operator-tools yetus environment |  Major | build |
 | [HBASE-27980](https://issues.apache.org/jira/browse/HBASE-27980) | Sync the hbck2 README page and hbck2 command help output |  Major | hbase-operator-tools, hbck2 |
 | [HBASE-28795](https://issues.apache.org/jira/browse/HBASE-28795) | [hbase-operator-tools] Enable infra automation: autolink to Jira and 'pull-request-available' label |  Minor | community |
+| [HBASE-29646](https://issues.apache.org/jira/browse/HBASE-29646) | TableReporter compatibility with HBase 3.0 |  Blocker | hbase-operator-tools |
+| [HBASE-29664](https://issues.apache.org/jira/browse/HBASE-29664) | [hbase-operator-tools] Cleanup deprecations in HBaseFsck |  Major | hbase-operator-tools |
+| [HBASE-29674](https://issues.apache.org/jira/browse/HBASE-29674) | [hbase-operator-tools] Remove ClusterConnection in HBaseFsckRepair.closeRegionSilentlyAndWait |  Critical | hbase-operator-tools |
+| [HBASE-29671](https://issues.apache.org/jira/browse/HBASE-29671) | [hbase-operator-tools] Support different replication peer/queue storage |  Critical | hbase-operator-tools, Replication |
+| [HBASE-29717](https://issues.apache.org/jira/browse/HBASE-29717) | [hbase-operator-tools] Bump hbase thirdparty version to 4.1.12 |  Major | hbase-operator-tools, thirdparty |
+| [HBASE-29718](https://issues.apache.org/jira/browse/HBASE-29718) | [hbase-operator-tools] Use BulkLoadHFiles instead of LoadIncrementalHFiles in hbase-tools |  Major | hbase-operator-tools |
+| [HBASE-29719](https://issues.apache.org/jira/browse/HBASE-29719) | [hbase-operator-tools] Fix TestHBCK2 when running with hbase 3.0.0 |  Major | hbase-operator-tools, test |
 
 
 ## Release hbase-operator-tools-1.2.0 - Unreleased (as of 2021-12-14)
