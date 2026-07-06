@@ -1208,11 +1208,11 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   /**
-   * Runs through the HBase rootdir and creates a reverse lookup map for table StoreFile names to
-   * the full Path. <br>
+   * Runs through the HBase rootdir and creates a reverse lookup map for table
+   * regionName_columnFamilyName_storeFileName to the full Path. <br>
    * Example...<br>
-   * Key = 3944417774205889744 <br>
-   * Value = hdfs://localhost:51169/user/userid/-ROOT-/70236052/info/3944417774205889744
+   * Key = regionName_columnFamilyName_storeFileName<br>
+   * Value = /hbase/data/namespaceName/tableName/regionName/columnFamilyName/storeFileName<br>
    * @param fs           The file system to use.
    * @param hbaseRootDir The root directory to scan.
    * @param sfFilter     optional path filter to apply to store files
@@ -1242,14 +1242,14 @@ public class HBaseFsck extends Configured implements Closeable {
   }
 
   /**
-   * Runs through the HBase rootdir/tablename and creates a reverse lookup map for table StoreFile
-   * names to the full Path. Note that because this method can be called on a 'live' HBase system
-   * that we will skip files that no longer exist by the time we traverse them and similarly the
-   * user of the result needs to consider that some entries in this map may not exist by the time
-   * this call completes. <br>
+   * Runs through the HBase rootdir/tablename and creates a reverse lookup map for table
+   * regionName_columnFamilyName_storeFileName to the full Path. Note that because this method can
+   * be called on a 'live' HBase system that we will skip files that no longer exist by the time we
+   * traverse them and similarly the user of the result needs to consider that some entries in this
+   * map may not exist by the time this call completes. <br>
    * Example...<br>
-   * Key = 3944417774205889744 <br>
-   * Value = hdfs://localhost:51169/user/userid/-ROOT-/70236052/info/3944417774205889744
+   * Key = regionName_columnFamilyName_storeFileName<br>
+   * Value = /hbase/data/namespaceName/tableName/regionName/columnFamilyName/storeFileName<br>
    * @param resultMap    map to add values. If null, method will create and populate one to return
    * @param fs           The file system to use.
    * @param hbaseRootDir The root directory to scan.
@@ -1290,6 +1290,7 @@ public class HBaseFsck extends Configured implements Closeable {
 
       for (FileStatus regionDir : regionDirs) {
         final Path dd = regionDir.getPath();
+        String regionName = dd.getName();
 
         if (!exceptions.isEmpty()) {
           break;
@@ -1312,7 +1313,8 @@ public class HBaseFsck extends Configured implements Closeable {
               }
               for (FileStatus familyDir : familyDirs) {
                 Path family = familyDir.getPath();
-                if (family.getName().equals(HConstants.RECOVERED_EDITS_DIR)) {
+                String familyName = family.getName();
+                if (familyName.equals(HConstants.RECOVERED_EDITS_DIR)) {
                   continue;
                 }
                 // now in family, iterate over the StoreFiles and
@@ -1321,7 +1323,13 @@ public class HBaseFsck extends Configured implements Closeable {
                 for (FileStatus sfStatus : familyStatus) {
                   Path sf = sfStatus.getPath();
                   if (sfFilter == null || sfFilter.accept(sf)) {
-                    regionStoreFileMap.put(sf.getName(), sf);
+                    // Only using the values in the map in offlineReferenceFileRepair and
+                    // offlineHLinkFileRepair, so the outside logic is same.
+                    // If the file in parent region lost, but the two daughters region both have
+                    // reference to the file, need sideline both daughter region's reference file
+                    // (the two file has same file name, see the logic
+                    // in org.apache.hadoop.hbase.regionserver.HRegionFileSystem.splitStoreFile).
+                    regionStoreFileMap.put(regionName + "_" + familyName + "_" + sf.getName(), sf);
                   }
                 }
               }
