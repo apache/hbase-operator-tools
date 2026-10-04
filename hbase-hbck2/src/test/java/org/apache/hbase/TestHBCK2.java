@@ -302,6 +302,27 @@ public class TestHBCK2 {
   }
 
   @Test
+  public void testSetReplicaRegionStateWithArgs() throws IOException, InterruptedException {
+    TEST_UTIL.createTable(REGION_STATES_TABLE_NAME, Bytes.toBytes("family1"));
+    try {
+      Admin admin = TEST_UTIL.getConnection().getAdmin();
+      TEST_UTIL.setReplicas(admin, REGION_STATES_TABLE_NAME, 2);
+      List<RegionInfo> regions = admin.getRegions(REGION_STATES_TABLE_NAME);
+      assertEquals(regions.size(), 2);
+      RegionInfo primaryRegionInfo = regions.get(0);
+      int replicaId = regions.get(1).getReplicaId();
+      assertEquals(RegionState.State.OPEN, getCurrentRegionState(primaryRegionInfo, replicaId));
+      String primaryRegion = primaryRegionInfo.getEncodedName();
+      testRunWithArgs(
+        new String[] { SET_REGION_STATE, primaryRegion + "," + replicaId, "CLOSING" });
+      assertEquals(RegionState.State.CLOSING, getCurrentRegionState(primaryRegionInfo, replicaId));
+      assertEquals(RegionState.State.OPEN, getCurrentRegionState(primaryRegionInfo));
+    } finally {
+      TEST_UTIL.deleteTable(REGION_STATES_TABLE_NAME);
+    }
+  }
+
+  @Test
   public void testSetRegionStateInvalidRegion() throws IOException {
     try (Connection connection = this.hbck2.connect()) {
       assertEquals(HBCK2.EXIT_FAILURE,
