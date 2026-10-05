@@ -1537,19 +1537,19 @@ public class HBCK2 extends Configured implements org.apache.hadoop.util.Tool {
       return null;
     }
     RegionState.State state = RegionState.State.valueOf(commands[1]);
-    Integer replicaId = 0;
+    int replicaId = 0;
     String region = commands[0];
     int separatorIndex = commands[0].indexOf(",");
     if (separatorIndex > 0) {
       region = commands[0].substring(0, separatorIndex);
-      replicaId = Integer.getInteger(commands[0].substring(separatorIndex + 1));
+      replicaId = Integer.parseInt(commands[0].substring(separatorIndex + 1));
     }
     if (replicaId > 0) {
       System.out
         .println("Change state for replica region " + replicaId + " for primary region " + region);
     }
 
-    return new String[] { region, replicaId.toString(), state.name() };
+    return new String[] { region, Integer.toString(replicaId), state.name() };
   }
 
   HBCK2(Configuration conf) {
