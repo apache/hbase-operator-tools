@@ -17,9 +17,9 @@
 # Dockerfile for hbase-operator-tools pre-commit build.
 # https://ci-hbase.apache.org/job/HBase-Operator-Tools-PreCommit/
 
-FROM hadolint/hadolint:latest-debian as hadolint
+FROM hadolint/hadolint:latest-debian AS hadolint
 
-FROM maven:3.8-jdk-8
+FROM maven:3.9-eclipse-temurin-8
 
 # hadolint ignore=DL3008
 RUN apt-get -q update && apt-get -q install --no-install-recommends -y \

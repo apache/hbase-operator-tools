@@ -40,7 +40,7 @@ pipeline {
         YETUS_DRIVER_REL = "${SRC_REL}/dev-support/jenkins/jenkins_precommit_github_yetus.sh"
         ARCHIVE_PATTERN_LIST = 'TEST-*.xml,org.apache.h*.txt,*.dumpstream,*.dump'
         BUILD_URL_ARTIFACTS = "artifact/${WORKDIR_REL}/${PATCH_REL}"
-        SET_JAVA_HOME = '/usr/local/openjdk-8'
+        SET_JAVA_HOME = '/opt/java/openjdk'
         WORKDIR_REL = 'yetus-precommit-check'
         WORKDIR = "${WORKSPACE}/${WORKDIR_REL}"
         SOURCEDIR = "${WORKDIR}/${SRC_REL}"
