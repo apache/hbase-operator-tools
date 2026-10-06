@@ -441,7 +441,7 @@ public final class TableReporter {
     CommandLine commandLine = parser.parse(options, args);
 
     // Process general options.
-    if (commandLine.hasOption(help.getOpt()) || commandLine.getArgList().isEmpty()) {
+    if (commandLine.hasOption(help.getOpt())) {
       usage(options);
       System.exit(0);
     }
@@ -452,7 +452,7 @@ public final class TableReporter {
       limit = Integer.parseInt(commandLine.getOptionValue(opt));
       if (limit <= 0) {
         usage(options, "Bad limit: " + limit + "; limit must be > 0");
-        System.exit(0);
+        System.exit(1);
       }
     }
     double fraction = 1.0;
@@ -461,7 +461,7 @@ public final class TableReporter {
       fraction = Double.parseDouble(commandLine.getOptionValue(opt));
       if (fraction > 1 || fraction <= 0) {
         usage(options, "Bad fraction: " + fraction + "; fraction must be > 0 and < 1");
-        System.exit(0);
+        System.exit(1);
       }
     }
     int threads = 1;
@@ -470,7 +470,7 @@ public final class TableReporter {
       threads = Integer.parseInt(commandLine.getOptionValue(opt));
       if (threads > 1000 || threads <= 0) {
         usage(options, "Bad thread count: " + threads + "; must be > 0 and < 1000");
-        System.exit(0);
+        System.exit(1);
       }
     }
 
