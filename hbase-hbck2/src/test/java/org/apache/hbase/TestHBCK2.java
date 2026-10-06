@@ -622,6 +622,24 @@ public class TestHBCK2 {
   }
 
   @Test
+  public void testReportExtraRegionsInMetaWithDotsInRowKey() throws Exception {
+    // Both the table name and the start keys contain '.', which is also the encoded name delimiter
+    TableName tableName = TableName.valueOf("test.dotted.table");
+    TEST_UTIL.createTable(tableName, Bytes.toBytes("family1"),
+      new byte[][] { Bytes.toBytes("com.example.a"), Bytes.toBytes("com.example.m") });
+    HBCK2 hbck = new HBCK2(TEST_UTIL.getConfiguration());
+    String tableArg = tableName.getNameWithNamespaceInclAsString();
+    assertTrue(hbck.extraRegionsInMeta(new String[] { tableArg }).get(tableName).isEmpty());
+    assertTrue(hbck.reportTablesWithMissingRegionsInMeta(tableArg).get(tableName).isEmpty());
+
+    RegionInfo region =
+      HBCKMetaTableAccessor.getTableRegions(TEST_UTIL.getConnection(), tableName).get(1);
+    deleteRegionDir(tableName, region.getEncodedName());
+    assertEquals(Arrays.asList(region.getEncodedName()),
+      hbck.extraRegionsInMeta(new String[] { tableArg }).get(tableName));
+  }
+
+  @Test
   public void testFormatReportExtraRegionsInMetaNoExtra() throws IOException {
     TableName tableName = createTestTable(4);
     String expectedResult = "Regions in Meta but having no equivalent dir, for each table:\n";
