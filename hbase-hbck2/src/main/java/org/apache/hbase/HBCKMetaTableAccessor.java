@@ -222,18 +222,8 @@ public final class HBCKMetaTableAccessor {
       scan.withStopRow(Bytes.toBytes(stopRow));
     }, r -> {
       if (r.getRow() != null) {
-        boolean encodedNameOffset = false;
-        StringBuilder encodedNameBuilder = new StringBuilder();
-        for (int i = 0; i < r.getRow().length; i++) {
-          if (r.getRow()[i] == '.') {
-            encodedNameOffset = !encodedNameOffset;
-            continue;
-          }
-          if (encodedNameOffset) {
-            encodedNameBuilder.append((char) r.getRow()[i]);
-          }
-        }
-        return new HBCKMetaEntry(r.getRow(), encodedNameBuilder.toString());
+        // Table names and start keys may contain '.', so take the encoded name from the end.
+        return new HBCKMetaEntry(r.getRow(), HBCKRegionInfo.encodeRegionName(r.getRow()));
       }
       return null;
     });
