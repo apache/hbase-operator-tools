@@ -171,6 +171,26 @@ public final class TableReporter {
     sketches.columnCountSketch.update(columnCount);
   }
 
+  /**
+   * Feed <code>results</code> to <code>sketches</code>, stopping after <code>limit</code> rows when
+   * <code>limit</code> is positive.
+   * @return Count of rows processed.
+   */
+  static long processResults(Iterable<Result> results, Sketches sketches, int limit) {
+    long count = 0;
+    for (Result result : results) {
+      processRowResult(result, sketches);
+      // With partial results allowed, a row can arrive as several Results; count whole rows only.
+      if (!result.mayHaveMoreCellsInRow()) {
+        count++;
+        if (limit > 0 && count >= limit) {
+          break;
+        }
+      }
+    }
+    return count;
+  }
+
   /** Returns First <code>fraction</code> of Table's regions. */
   private static List<RegionInfo> getRegions(Connection connection, TableName tableName,
     double fraction, String encodedRegionName) throws IOException {
@@ -214,15 +234,8 @@ public final class TableReporter {
         scan.withStopRow(this.ri.getEndKey());
         scan.setAllowPartialResults(true);
         long startTime = System.currentTimeMillis();
-        long count = 0;
         try (ResultScanner resultScanner = table.getScanner(scan)) {
-          for (Result result : resultScanner) {
-            processRowResult(result, sketches);
-            count++;
-            if (this.limit >= 0 && count <= this.limit) {
-              break;
-            }
-          }
+          processResults(resultScanner, sketches, this.limit);
         }
         this.duration = System.currentTimeMillis() - startTime;
       } catch (IOException e) {
@@ -428,7 +441,7 @@ public final class TableReporter {
     CommandLine commandLine = parser.parse(options, args);
 
     // Process general options.
-    if (commandLine.hasOption(help.getOpt()) || commandLine.getArgList().isEmpty()) {
+    if (commandLine.hasOption(help.getOpt())) {
       usage(options);
       System.exit(0);
     }
@@ -437,6 +450,10 @@ public final class TableReporter {
     String opt = limitOption.getOpt();
     if (commandLine.hasOption(opt)) {
       limit = Integer.parseInt(commandLine.getOptionValue(opt));
+      if (limit <= 0) {
+        usage(options, "Bad limit: " + limit + "; limit must be > 0");
+        System.exit(1);
+      }
     }
     double fraction = 1.0;
     opt = fractionOption.getOpt();
@@ -444,7 +461,7 @@ public final class TableReporter {
       fraction = Double.parseDouble(commandLine.getOptionValue(opt));
       if (fraction > 1 || fraction <= 0) {
         usage(options, "Bad fraction: " + fraction + "; fraction must be > 0 and < 1");
-        System.exit(0);
+        System.exit(1);
       }
     }
     int threads = 1;
@@ -453,7 +470,7 @@ public final class TableReporter {
       threads = Integer.parseInt(commandLine.getOptionValue(opt));
       if (threads > 1000 || threads <= 0) {
         usage(options, "Bad thread count: " + threads + "; must be > 0 and < 1000");
-        System.exit(0);
+        System.exit(1);
       }
     }
 

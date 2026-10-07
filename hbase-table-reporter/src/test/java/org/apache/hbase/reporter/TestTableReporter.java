@@ -90,4 +90,40 @@ public class TestTableReporter {
     assertEquals((int) columnCounts[0], columns * versions);
     sum.print();
   }
+
+  private List<Result> makeResults(int rows, int columns) {
+    List<Result> results = new ArrayList<>(rows);
+    for (int i = 0; i < rows; i++) {
+      results.add(Result.create(makeCells(Bytes.toBytes(i), columns, 1)));
+    }
+    return results;
+  }
+
+  @Test
+  public void testProcessResultsWithLimit() {
+    TableReporter.Sketches sketches = new TableReporter.Sketches();
+    assertEquals(3, TableReporter.processResults(makeResults(10, 2), sketches, 3));
+    assertEquals(3, sketches.rowSizeSketch.getN());
+  }
+
+  @Test
+  public void testProcessResultsWithoutLimit() {
+    TableReporter.Sketches sketches = new TableReporter.Sketches();
+    assertEquals(10, TableReporter.processResults(makeResults(10, 2), sketches, -1));
+    assertEquals(10, sketches.rowSizeSketch.getN());
+  }
+
+  @Test
+  public void testProcessResultsWithLimitCountsPartialRowsOnce() {
+    // Each row arrives as two partial Results, as with Scan#setAllowPartialResults(true).
+    List<Result> results = new ArrayList<>();
+    for (Result row : makeResults(10, 2)) {
+      List<Cell> cells = row.listCells();
+      results.add(Result.create(cells.subList(0, 1), null, false, true));
+      results.add(Result.create(cells.subList(1, 2), null, false, false));
+    }
+    TableReporter.Sketches sketches = new TableReporter.Sketches();
+    assertEquals(3, TableReporter.processResults(results, sketches, 3));
+    assertEquals(6, sketches.rowSizeSketch.getN());
+  }
 }
