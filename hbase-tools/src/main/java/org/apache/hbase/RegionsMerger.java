@@ -48,10 +48,7 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
-import org.apache.hadoop.hbase.filter.FilterList;
-import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
-import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.util.ToolRunner;
@@ -108,23 +105,23 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
 
   private List<RegionInfo> getOpenRegions(Connection connection, TableName table) throws Exception {
     List<RegionInfo> regions = new ArrayList<>();
-    Table metaTbl = connection.getTable(META_TABLE_NAME);
-    String tblName = table.getNameAsString();
-    RowFilter rowFilter =
-      new RowFilter(CompareOperator.EQUAL, new SubstringComparator(tblName + ","));
     SingleColumnValueFilter colFilter = new SingleColumnValueFilter(CATALOG_FAMILY, STATE_QUALIFIER,
       CompareOperator.EQUAL, Bytes.toBytes("OPEN"));
     colFilter.setFilterIfMissing(true);
+    // Scan only this table's rows in meta; a substring match on the table name would also pick up
+    // rows of other tables, e.g. "ns:t1" or "abct1" for table "t1".
     Scan scan = new Scan();
-    FilterList filter = new FilterList(FilterList.Operator.MUST_PASS_ALL);
-    filter.addFilter(rowFilter);
-    filter.addFilter(colFilter);
-    scan.setFilter(filter);
-    try (ResultScanner rs = metaTbl.getScanner(scan)) {
+    scan.withStartRow(HBCKMetaTableAccessor.getTableStartRowForMeta(table));
+    scan.withStopRow(HBCKMetaTableAccessor.getTableStopRowForMeta(table));
+    scan.setFilter(colFilter);
+    try (Table metaTbl = connection.getTable(META_TABLE_NAME);
+      ResultScanner rs = metaTbl.getScanner(scan)) {
       Result r;
       while ((r = rs.next()) != null) {
         RegionInfo region = RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
-        regions.add(region);
+        if (region.getTable().equals(table)) {
+          regions.add(region);
+        }
       }
     }
     return regions;

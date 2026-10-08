@@ -108,6 +108,24 @@ public class TestRegionsMerger {
   }
 
   @Test
+  public void testMergeRegionsIgnoresTableWithSameQualifierInOtherNamespace() throws Exception {
+    try {
+      TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 10);
+      TEST_UTIL.getAdmin().createNamespace(NamespaceDescriptor.create(NAMESPACE).build());
+      // Meta rows of TEST:TestRegionsMerger contain "TestRegionsMerger," too.
+      TEST_UTIL.createMultiRegionTable(TABLE_NAME_WITH_NAMESPACE, family, 15);
+      TEST_UTIL.waitUntilAllRegionsAssigned(TABLE_NAME_WITH_NAMESPACE);
+      final int target = 10;
+      List<RegionInfo> result = mergeRegionsToTarget(TABLE_NAME, target);
+      assertEquals(target, result.size());
+      assertEquals(15, TEST_UTIL.getAdmin().getRegions(TABLE_NAME_WITH_NAMESPACE).size());
+    } finally {
+      TEST_UTIL.deleteTable(TABLE_NAME_WITH_NAMESPACE);
+      TEST_UTIL.getAdmin().deleteNamespace(NAMESPACE);
+    }
+  }
+
+  @Test
   public void testMergeRegionsCanMergeSomeButNotToTarget() throws Exception {
     TEST_UTIL.getConfiguration().setInt(RegionsMerger.MAX_ROUNDS_IDLE, 3);
     generateTableData();
