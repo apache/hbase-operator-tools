@@ -119,7 +119,7 @@ public class RegionsMerger extends Configured implements org.apache.hadoop.util.
       Result r;
       while ((r = rs.next()) != null) {
         RegionInfo region = RegionInfo.parseFrom(r.getValue(CATALOG_FAMILY, REGIONINFO_QUALIFIER));
-        if (region.getTable().equals(table)) {
+        if (table.equals(region.getTable())) {
           regions.add(region);
         }
       }
